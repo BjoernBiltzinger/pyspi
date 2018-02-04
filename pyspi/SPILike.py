@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import collections
+
 
 from astromodels import Parameter
 from threeML.plugin_prototype import PluginPrototype
