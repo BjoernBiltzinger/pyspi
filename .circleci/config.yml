@@ -1,0 +1,67 @@
+# Python CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-python/ for more details
+#
+
+machine:
+  environment:
+    CC_TEST_REPORTER_ID: 197a60c8c6461937b0b19dd3c89503ccaa495b312fe1dccc4d02c68eccea6ebb
+
+dependencies:
+  post:
+    - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+    - chmod +x ./cc-test-reporter
+
+
+version: 2
+jobs:
+  build:
+    docker:
+      # specify the version you desire here
+      # use `-browsers` prefix for selenium tests, e.g. `3.6.1-browsers`
+      - image: circleci/python:3.6.1
+      
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/postgres:9.4
+
+    working_directory: ~/repo
+
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      # - restore_cache:
+      #     keys:
+      #     - v1-dependencies-{{ checksum "requirements.txt" }}
+      #     # fallback to using the latest cache if no exact match is found
+      #     - v1-dependencies-
+
+      - run:
+          name: install dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install numpy matplotlib ipython pytest-cov codecov
+            python setup.py install
+
+      - run:
+          name: run tests
+          command: |
+            . venv/bin/activate
+            ls
+            python -m pytest -vv --ignore=venv --cov=pychangcooper
+            codecov
+      
+          
+# test:
+#   post:
+#     - bash <(curl -s https://codecov.io/bash)
+test:
+  pre:
+    - ./cc-test-reporter before-build
+
+  post:
+
+    - ./cc-test-reporter after-build --exit-code $EXIT_CODE
