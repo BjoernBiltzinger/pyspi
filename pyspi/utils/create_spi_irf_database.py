@@ -46,6 +46,10 @@ def create_spi_irf_file(irf_database, file_name):
                 ndete = irf_header['NAXIS1']
                 nx = irf_header['NAXIS2']
                 ny = irf_header['NAXIS3']
+                irf_xmin = np.deg2rad(irf_crval2 - (irf_crpix2-0.5) * irf_cdelt2)
+                irf_ymin  = np.deg2rad(irf_crval3 - (irf_crpix3-0.5) * irf_cdelt3)
+                irf_xbin  = np.deg2rad(irf_cdelt2)
+                irf_ybin  =  np.deg2rad(irf_cdelt3)
 
             energies[i] = irf_header['ENERGY']
 
@@ -86,6 +90,11 @@ def create_spi_irf_file(irf_database, file_name):
     irf_dataset.attrs['nx'] = nx
     irf_dataset.attrs['ny'] = ny
     
+    irf_dataset.attrs['irf_xmin'] = irf_xmin
+    irf_dataset.attrs['irf_ymin'] = irf_ymin
+    irf_dataset.attrs['irf_xbin'] = irf_xbin
+    irf_dataset.attrs['irf_ybin'] = irf_ybin
+    
     
     energies_dataset = f.create_dataset("energies", 
                                         energies.shape,
@@ -96,4 +105,10 @@ def create_spi_irf_file(irf_database, file_name):
     
     
     f.close()
+    
+    
+        
+        
+        
+    
     
