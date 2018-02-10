@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 
+from pyspi.io.package_data import get_path_of_data_file
 
 class SPIResponse(object):
     def __init__(self):
@@ -9,7 +10,7 @@ class SPIResponse(object):
 
     def _load_irfs(self):
 
-        irf_file = '/Users/jburgess/coding/pyspi/pyspi/data/spi_irfs.hdf5'
+        irf_file = get_path_of_data_file('spi_irfs.hdf5')
 
         irf_database = h5py.File(irf_file, 'r')
 
