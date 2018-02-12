@@ -1,5 +1,7 @@
-#from setuptools import setup
-from distutils.core import setup
+from setuptools import setup
+#from distutils.core import setup
+
+import os
 
 # Create list of data files
 def find_data_files(directory):
@@ -31,7 +33,7 @@ setup(
     description='A python interface for INTEGRAL SPI',
     author='J. Michael Burgess',
     author_email='jmichaelburgess@gmail.com',
-    .., #   url = 'https://github.com/grburgess/pychangcooper',
+    #   url = 'https://github.com/grburgess/pychangcooper',
  #   download_url='https://github.com/grburgess/pychangcooper/archive/1.1.2.tar.gz',
 
     package_data={'': extra_files, },
