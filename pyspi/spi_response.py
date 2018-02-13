@@ -1,7 +1,7 @@
 import numpy as np
 import h5py
 import scipy.interpolate as interpolate
-
+import scipy.integrate as integrate
 
 from pyspi.io.package_data import get_path_of_data_file
 
@@ -114,7 +114,46 @@ class SPIResponse(object):
 
         return interpolated_irfs
             
+
+
+    def get_binned_effective_area(self, azimuth, zenith, ebounds):
+        """FIXME! briefly describe function
+
+        :param azimuth: 
+        :param zenith: 
+        :param ebounds: 
+        :returns: 
+        :rtype: 
+
+        """
+
+        interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
+
+        binned_effective_area_per_detector = []
+
+
+        n_energy_bins = len(ebounds) - 1
+        emin = ebounds[:-1]
+        emax = ebounds[1:]
         
+        for det in range(self._n_dets):
+
+            effective_area = np.zeros(n_energy_bins)
+
+            for i, (lo,hi) in enumerate(zip(emin, emax)):
+
+                effective_area[i] =  integrate.quad(interpolated_effective_area[det],lo,hi)[0]
+
+
+            binned_effective_area_per_detector.append(effective_area)
+
+        return np.array(binned_effective_area_per_detector)
+            
+
+            
+            
+
+    
 
     
     def _get_irf_weights(self, x_pos, y_pos):
@@ -223,6 +262,13 @@ class SPIResponse(object):
 
         return wgt, out[0], out[1]
 
+
+        
+
+        
+
+
+    
     def get_irf_weights_vector(self, x_pos, y_pos):
 
         raise NotImplementedError('Cannot do this yet')
