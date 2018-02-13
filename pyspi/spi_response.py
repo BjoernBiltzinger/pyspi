@@ -148,25 +148,33 @@ class SPIResponse(object):
             binned_effective_area_per_detector.append(effective_area)
 
         return np.array(binned_effective_area_per_detector)
-            
-
-            
-            
-
     
 
     
     def _get_irf_weights(self, x_pos, y_pos):
+        """FIXME! briefly describe function
 
+        :param x_pos: 
+        :param y_pos: 
+        :returns: 
+        :rtype: 
+
+        """
+
+
+        # get the four nearest neighbors
         ix_left = x_pos if (x_pos >= 0.0) else x_pos - 1
         iy_low = y_pos if (y_pos >= 0.0) else y_pos - 1
+
         ix_right = ix_left + 1
         iy_up = iy_low + 1
-        wgt_right = x_pos - ix_left
-        wgt_up = y_pos - iy_low
 
+        wgt_right = float(x_pos - ix_left)
+        wgt_up = float(y_pos - iy_low)
+
+        # pre set the weights
         wgt = np.zeros(4)
-        inx = np.zeros(4, dtype=int)
+
 
         if ix_left < 0.:
 
@@ -177,7 +185,7 @@ class SPIResponse(object):
                 left_up = [int(ix_left), int(iy_up)]
                 right_up = [int(ix_right), int(iy_up)]
 
-                out = np.array([left_low, right_low, left_up, right_up]).T
+                out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
                 return wgt, out[0], out[1]
 
@@ -196,7 +204,7 @@ class SPIResponse(object):
                 left_up = [int(ix_left), int(iy_up)]
                 right_up = [int(ix_right), int(iy_up)]
 
-                out = np.array([left_low, right_low, left_up, right_up]).T
+                out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
                 return wgt, out[0], out[1]
 
@@ -218,7 +226,7 @@ class SPIResponse(object):
                 left_up = [int(ix_left), int(iy_up)]
                 right_up = [int(ix_right), int(iy_up)]
 
-                out = np.array([left_low, right_low, left_up, right_up]).T
+                out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
                 return wgt, out[0], out[1]
             else:
@@ -234,7 +242,7 @@ class SPIResponse(object):
                 left_up = [int(ix_left), int(iy_up)]
                 right_up = [int(ix_right), int(iy_up)]
 
-                out = np.array([left_low, right_low, left_up, right_up]).T
+                out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
                 return wgt, out[0], out[1]
 
@@ -258,7 +266,7 @@ class SPIResponse(object):
         wgt[2] = wgt_left * wgt_up
         wgt[3] = wgt_right * wgt_up
 
-        out = np.array([left_low, right_low, left_up, right_up]).T
+        out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
         return wgt, out[0], out[1]
 
@@ -339,3 +347,16 @@ class SPIResponse(object):
     def irfs(self):
 
         return self._irfs
+
+
+
+def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
+    
+    left_low = [int(ix_left), int(iy_low)]
+    right_low = [int(ix_right), int(iy_low)]
+    left_up = [int(ix_left), int(iy_up)]
+    right_up = [int(ix_right), int(iy_up)]
+    
+    out = np.array([left_low, right_low, left_up, right_up]).T
+
+    return out
