@@ -4,7 +4,7 @@ import numpy as np
 from astropy.coordinates import BaseCoordinateFrame, Attribute, RepresentationMapping
 from astropy.coordinates import frame_transform_graph, spherical_to_cartesian
     
-
+from pyspi.spi_pointing import _construct_sc_matrix
 
 
 class SPIFrame(BaseCoordinateFrame):
@@ -62,7 +62,7 @@ def spi_to_j2000(spi_coord, j2000_frame):
 
     """
 
-    sc_matrix = construct_sc_matrix(spi_coord.scx_ra,
+    sc_matrix = _construct_sc_matrix(spi_coord.scx_ra,
                                     spi_coord.scx_dec,
                                     spi_coord.scy_ra,
                                     spi_coord.scy_dec,
@@ -94,7 +94,7 @@ def j2000_to_spi(j2000_frame, spi_coord):
 
     """
 
-    sc_matrix = construct_sc_matrix(spi_coord.scx_ra,
+    sc_matrix = _construct_sc_matrix(spi_coord.scx_ra,
                                     spi_coord.scx_dec,
                                     spi_coord.scy_ra,
                                     spi_coord.scy_dec,
