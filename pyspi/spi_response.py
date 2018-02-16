@@ -163,8 +163,8 @@ class SPIResponse(object):
 
 
         # get the four nearest neighbors
-        ix_left = x_pos if (x_pos >= 0.0) else x_pos - 1
-        iy_low = y_pos if (y_pos >= 0.0) else y_pos - 1
+        ix_left = np.floor(x_pos) if (x_pos >= 0.0) else np.floor(x_pos) - 1
+        iy_low = np.floor(y_pos) if (y_pos >= 0.0) else np.floor(y_pos) - 1
 
         ix_right = ix_left + 1
         iy_up = iy_low + 1
@@ -172,6 +172,9 @@ class SPIResponse(object):
         wgt_right = float(x_pos - ix_left)
         wgt_up = float(y_pos - iy_low)
 
+
+
+        
         # pre set the weights
         wgt = np.zeros(4)
 
@@ -179,11 +182,6 @@ class SPIResponse(object):
         if ix_left < 0.:
 
             if ix_right < 0.:
-
-                left_low = [int(ix_left), int(iy_low)]
-                right_low = [int(ix_right), int(iy_low)]
-                left_up = [int(ix_left), int(iy_up)]
-                right_up = [int(ix_right), int(iy_up)]
 
                 out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
@@ -198,11 +196,6 @@ class SPIResponse(object):
         elif ix_right >= self._irf_nx:
 
             if ix_left >= self._irf_nx:
-
-                left_low = [int(ix_left), int(iy_low)]
-                right_low = [int(ix_right), int(iy_low)]
-                left_up = [int(ix_left), int(iy_up)]
-                right_up = [int(ix_right), int(iy_up)]
 
                 out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
@@ -221,11 +214,6 @@ class SPIResponse(object):
         if iy_low < 0:
             if iy_up < 0:
 
-                left_low = [int(ix_left), int(iy_low)]
-                right_low = [int(ix_right), int(iy_low)]
-                left_up = [int(ix_left), int(iy_up)]
-                right_up = [int(ix_right), int(iy_up)]
-
                 out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
                 return wgt, out[0], out[1]
@@ -237,10 +225,6 @@ class SPIResponse(object):
         elif iy_up >= self._irf_ny:
 
             if iy_low >= self._irf_ny:
-                left_low = [int(ix_left), int(iy_low)]
-                right_low = [int(ix_right), int(iy_low)]
-                left_up = [int(ix_left), int(iy_up)]
-                right_up = [int(ix_right), int(iy_up)]
 
                 out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
@@ -255,11 +239,6 @@ class SPIResponse(object):
         else:
 
             wgt_low = 1. - wgt_up
-
-        left_low = [int(ix_left), int(iy_low)]
-        right_low = [int(ix_right), int(iy_low)]
-        left_up = [int(ix_left), int(iy_up)]
-        right_up = [int(ix_right), int(iy_up)]
 
         wgt[0] = wgt_left * wgt_low
         wgt[1] = wgt_right * wgt_low
