@@ -41,20 +41,20 @@ class SPIPointing(object):
         self._n_pointings = len(self._pointing_data)
 
         self._sc_matrix = np.zeros((self._n_pointings,3,3))
-        self._sc_points = np.zeros((self._n_pointings, 6))
+        self._sc_points = []
         
         for i in range(self._n_pointings):
 
-             scx_ra = self._pointing_data['RA_SCX'][time_index]
-             scx_dec = self._pointing_data['DEC_SCX'][time_index]
+             scx_ra = self._pointing_data['RA_SCX'][i]
+             scx_dec = self._pointing_data['DEC_SCX'][i]
     
-             scz_ra = self._pointing_data['RA_SCZ'][time_index]
-             scz_dec = self._pointing_data['DEC_SCZ'][time_index]
+             scz_ra = self._pointing_data['RA_SCZ'][i]
+             scz_dec = self._pointing_data['DEC_SCZ'][i]
     
              scy_ra, scy_dec = _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec)
             
              self._sc_matrix[i, ...] = _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec)
-             self._sc_points[i, :] = np.array([scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec])
+             self._sc_points.append(dict(scx_ra=scx_ra, scx_dec=scx_dec, scy_ra=scy_ra, scy_dec=scy_dec, scz_ra=scz_ra, scz_dec=scz_dec))
                        
     @property
     def sc_matrix(self):

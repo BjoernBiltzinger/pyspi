@@ -83,7 +83,7 @@ def spi_to_j2000(spi_coord, j2000_frame):
 
     ra = np.zeros_like(dec)
 
-    ra[~idx] = np.arctan2(X1, X0) % (2 * np.pi)
+    ra[~idx] = np.arctan2(X1[~idx], X0[~idx]) % (2 * np.pi)
 
     return coord.ICRS(ra=ra * u.radian, dec=dec * u.radian)
 
@@ -114,7 +114,7 @@ def j2000_to_spi(j2000_frame, spi_coord):
 
     lon = np.zeros_like(lat)
 
-    lon[~idx] = np.arctan2(X1, X0) % (2 * np.pi)
+    lon[~idx] = np.arctan2(X1[~idx], X0[~idx]) % (2 * np.pi)
 
     return SPIFrame(
         lon=lon * u.radian,
