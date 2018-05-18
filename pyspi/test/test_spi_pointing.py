@@ -44,5 +44,45 @@ def test_spi_pointing_constructor():
 
 
 
+def test_spi_frame():
+
+    spi_pointing_file = get_path_of_data_file('sc_orbit_param.fits.gz')
+
+    spi_pointing = SPIPointing(spi_pointing_file)
+
+    # get the first pointing points
+    scp = spi_pointing.sc_points[0]
+
+
+    # construct a SPI Frame
+
+    spi_frame = SPIFrame(lat=0 * u.deg, lon=0 * u.deg, **scp)
+
+    # test that transformation to ICRS make sense
+    icrs_along_x_dir = spi_frame.transform_to(ICRS)
+
+    assert np.allclose(icrs_along_x_dir.ra.value, scp['scx_ra'])
+
+    assert np.allclose(icrs_along_x_dir.dec.value, scp['scx_dec'])
+
+    # assert that angular separation is conserved
+
+    source = SkyCoord(ra=197.075, dec=58.98, unit='deg', frame='icrs')
+    center = SkyCoord(ra=206.32522477, dec=50.62928435, unit='deg', frame='icrs')
+
+    icrs_sep = source.separation(center).value
+
+    source_spi = source.transform_to(spi_frame)
+
+    center_spi = center.transform_to(spi_frame)
+
+    spi_sep = spi_frame.separation(source_spi).value
+
+
+    assert np.allclose(icrs_sep, spi_sep)
+
+
+    # assert that transforms in and out of frame are conserved
+
 
 
