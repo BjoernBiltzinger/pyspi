@@ -41,7 +41,7 @@ setup(
 
     requires=[
         'numpy',
-        'matplotlib'
+        'matplotlib',
         'h5py',
         'pandas'
     ],
