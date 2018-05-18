@@ -77,7 +77,7 @@ def spi_to_j2000(spi_coord, j2000_frame):
     X1 = np.dot(sc_matrix[:, 1], pos)
     X2 = np.clip(np.dot(sc_matrix[:, 2], pos), -1., 1.)
 
-    dec = np.arcsin(X2)
+    dec = np.pi / 2. - np.arccos(X2)# np.arcsin(X2)
 
     idx = np.logical_and(np.abs(X0) < 1E-6, np.abs(X1) < 1E-6)
 
