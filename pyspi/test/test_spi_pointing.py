@@ -33,14 +33,14 @@ def test_spi_pointing_constructor():
 
     first_sc_points = spi_pointing.sc_points[0]
 
-    assert first_sc_points['scx_dec'] == 50.62928434998366
-    assert first_sc_points['scx_ra'] == 206.32522476554993
+    assert first_sc_points['scx_dec'] == 50.62
+    assert first_sc_points['scx_ra'] == 206.32
 
-    assert first_sc_points['scy_dec'] == 32.53212682944631
-    assert first_sc_points['scy_ra'] ==  65.30648408484562
+    assert first_sc_points['scy_dec'] == 32.53
+    assert first_sc_points['scy_ra'] ==  65.30
 
     assert first_sc_points['scz_dec'] ==  -19.65926860860834
-    assert first_sc_points['scz_ra'] == 142.13448347258623
+    assert first_sc_points['scz_ra'] == 142.13
 
 
 
