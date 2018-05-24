@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/grburgess/pyspi.svg?branch=master)](https://travis-ci.org/grburgess/pyspi)
+[![codecov](https://codecov.io/gh/grburgess/pyspi/branch/master/graph/badge.svg)](https://codecov.io/gh/grburgess/pyspi)
 # pyspi
 Pure python tools for interfacing with INTEGRAL SPI data.
 
