@@ -3,6 +3,8 @@ import h5py
 import scipy.interpolate as interpolate
 import scipy.integrate as integrate
 
+from IPython.display import HTML
+
 from pyspi.io.package_data import get_path_of_data_file
 
 class SPIResponse(object):
@@ -326,6 +328,16 @@ class SPIResponse(object):
     def irfs(self):
 
         return self._irfs
+
+
+    @property
+    def rod(self):
+        """
+        Ensure that you know what you are doing.
+
+        :return: Roland
+        """
+        return HTML(filename=get_path_of_data_file('roland.html'))
 
 
 
