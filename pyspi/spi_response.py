@@ -329,7 +329,10 @@ class SPIResponse(object):
 
         return self._irfs
 
-
+    @property
+    def energies(self):
+        return self._energies
+    
     @property
     def rod(self):
         """
