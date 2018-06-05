@@ -1,13 +1,72 @@
 import matplotlib.pyplot as plt
-from matplotlib.patches import RegularPolygon
 import numpy as np
+import pandas as pd
+from matplotlib.patches import RegularPolygon
 
 from pyspi.io.array_to_cmap import array_to_cmap
 
-
 NUM_REAL_DETS = 19
-NUM_PSEUDO_DETS = 42
-NUM_TOTAL_DETS = NUM_REAL_DETS + NUM_PSEUDO_DETS
+NUM_PSEUDO_DOUBLE_DETS = 42
+NUM_PSEUDO_TRIPLE_DETS = 42
+NUM_TOTAL_DETS = NUM_REAL_DETS + NUM_PSEUDO_DOUBLE_DETS + NUM_PSEUDO_TRIPLE_DETS
+
+
+# the origins of the detectors
+# the underscore keeps these variable from being exposed
+# to the user
+_detector_origins = ((0, 0), (6, 0), (3, 5.196),
+                                  (-3, 5.196), (-6, 0), (-3, -5.196),
+                                  (3, -5.196), (9, -5.196), (12, 0),
+                                  (9, 5.196), (6, 10.392), (0, 10.392),
+                                  (-6, 10.392), (-9, 5.196), (-12, 0),
+                                  (-9, -5.196), (-6, -10.392), (0, -10.392),
+                                  (6, -10.392))
+
+def _calc_double_origin(det1, det2):
+    x = (_detector_origins[det1][0] + _detector_origins[det2][0]) * 0.5
+    y = (_detector_origins[det1][1] + _detector_origins[det2][1]) * 0.5
+
+    return x, y
+
+def _construct_double_events_table():
+    """
+
+    Helper function to generate double event detector list
+
+
+    :return:
+    """
+
+    # the list of double pairs
+    # for details see: https://heasarc.gsfc.nasa.gov/docs/integral/spi/pages/detectors.html
+    double_event_pairs = (
+        (0, 1), (0, 2), (0, 3), (0, 4), (0, 5), (0, 6), (1, 2), (1, 6), (1, 7), (1, 8), (1, 9), (2, 3), (2, 9), (2, 10),
+        (2, 11), (3, 4), (3, 11), (3, 12), (3, 13), (4, 5), (4, 13), (4, 14), (4, 15), (5, 6), (5, 15), (5, 16),
+        (5, 17), (6, 7), (6, 17), (6, 18), (7, 8), (7, 18), (8, 9), (9, 10), (10, 11), (11, 12), (12, 13), (13, 14),
+        (14, 15), (15, 16), (16, 17), (17, 18))
+
+    # calculate the origins
+
+    origins = np.array([_calc_double_origin(*pair) for pair in double_event_pairs])
+
+    # build a dictionary for out put
+
+    out = dict(detector_number=range(19, 19 + 42),
+               x=origins[:, 0],
+               y=origins[:, 1],
+               detector1=np.array(double_event_pairs)[:, 0],
+               detector2=np.array(double_event_pairs)[:, 1]
+
+               )
+
+    # return the as a pandas data frame
+
+    return pd.DataFrame(out)
+
+# build a list that can be exposed to the user
+spi_pseudo_double_detectors = _construct_double_events_table()
+
+
 
 class SPIDetector(object):
 
@@ -35,7 +94,6 @@ class SPIDetector(object):
         :return: None
         """
 
-
         self._contents = contents
 
     @property
@@ -51,22 +109,55 @@ class SPIDetector(object):
         return self._detector_number
 
 
+class DoubleEventDetector(SPIDetector):
+
+    def __init__(self, detector_number, origin, detector1, detector2):
+        """
+
+        :param detector_number:
+        :param origin:
+        :param detector1:
+        :param detector2:
+        """
+
+        super(DoubleEventDetector, self).__init__(detector_number, origin, is_pseudo_detector=True)
+
+        self._detector1 = detector1
+        self._detector2 = detector2
+
+
+# Fill out this class
+
+class TripleEventDetector(SPIDetector):
+     pass
+
+
+
 class DetectorContents(object):
 
     def __init__(self, detector_array):
-
         assert len(detector_array) == NUM_TOTAL_DETS
+
+        self._contents = np.array(detector_array)
+
+        self._real_contents = np.array(detector_array[:NUM_REAL_DETS])
 
     @classmethod
     def from_spi_data(cls, spi_data):
         pass
 
+    @classmethod
+    def from_total_effective_area(cls, spi_response, azimuth, zenith):
+        effective_area = spi_response.effective_area_per_detector(azimuth, zenith).sum(axix=0)
+
+        return cls(effective_area)
+
+
 class SPI(object):
 
     def __init__(self):
 
-
-        self._bad_detectors = [2, 5]
+        self._bad_detectors = [0, 5]
 
         self._construct_detectors()
 
@@ -77,50 +168,41 @@ class SPI(object):
         """
 
         # the real detector origins
-        self._detector_origins = ((0, 0), (6, 0), (3, 5.196),
-                                  (-3, 5.196), (-6,0), (-3, -5.196),
-                                  (3, -5.196), (9, -5.196), (12, 0),
-                                  (9, 5.196), (6, 10.392), (0, 10.392),
-                                  (-6, 10.392), (-9, 5.196), (-12, 0),
-                                  (-9, -5.196), (-6, -10.392),  (0, -10.392),
-                                  (6, -10.392))
-
-        # the pseudo detector origins
-        self._pseudo_detector_origins = ((3, 0),
-                                         (1.5, 2.598), (-1.5, 2.598), (-3, 0),
-                                         (-1.5, -2.598), (1.5, -2.598),
-                                         (4.5, 2.598), (4.5, -2.598), (7.5, -2.598),
-                                         (9, 0), (7.5, 2.598),
-                                         (0, 5.196), (6, 5.196), (4.5, 7.794),
-                                         (1.5, 7.794),
-                                         (-4.5, 2.598),
-                                         (-1.5,  7.794), (-4.5, 7.794), (-6, 5.196),
-                                         (-4.5, -2.598), (-7.5,  2.598), (-9, 0),
-                                         (-7.5, -2.598),
-                                         (0, -5.196), (-6, -5.196), (-4.5, - 7.794),
-                                         (-1.5, -7.794),
-                                         (6, -5.196), (1.5, -7.794), (4.5, -7.794),
-                                         (10.5, -2.598), (7.5, -7.794),
-                                         (10.5, 2.598), (7.5, 7.794), (3, 10.392),
-                                         (-3, 10.392), (-7.5, 7.794),
-                                         (-10.5, 2.598), (-10.5, -2.598), (-7.5, -7.794),
-                                         (-3, -10.392), (3, -10.392))
-
+        self._detector_origins = _detector_origins
         # go through an build the list of detectors for SPI
         self._detectors = []
 
-        n = 0 # keeps track of the detector number
+        n = 0  # keeps track of the detector number
 
         for origin in self._detector_origins:
-            self._detectors.append( SPIDetector(detector_number=n, origin=origin, is_pseudo_detector=False) )
+
+            # first we build the real detectors
+
+            self._detectors.append(SPIDetector(detector_number=n, origin=origin, is_pseudo_detector=False))
 
             n += 1
 
-        for origin in self._pseudo_detector_origins:
-            self._detectors.append(SPIDetector(detector_number=n, origin=origin, is_pseudo_detector=True))
+        # now we build the double event detectors
+
+        for detector in spi_pseudo_double_detectors.iterrows():
+
+            detector = detector[1]
+
+            origin = (detector['x'],detector['y'])
+
+            self._detectors.append( DoubleEventDetector(detector_number=n,
+                                                        origin=origin,
+                                                        detector1=detector['detector1'],
+                                                        detector2=detector['detector2']) )
+
             n += 1
+
+        # TODO: Add the triple event detectors
+
 
         # REMOVE!!!!!!!
+        # This is just to fill up the detector
+
         ii = 0
         for det in self._detectors:
             if det.detector_number not in self._bad_detectors:
@@ -172,15 +254,9 @@ class SPI(object):
 
         fig, ax = plt.subplots(subplot_kw={'aspect': 'equal'})
 
-        # the radius of the polygons must change if we only
-        # show real detectors
-        if with_pseudo_detectors:
 
-            radius = 1.732
 
-        else:
-
-            radius = 2 * 1.732
+        radius = 2 * 1.732
 
         # first get the colors based of the contents
         colors, pseudo_colors = self._get_colors_from_contents(cmap,
@@ -213,25 +289,30 @@ class SPI(object):
 
                     n += 1
 
+            # TODO: plot the double event detectors
+
+
+            # TODO: plot the triple event detectos
+
+
             # now the pseudo detectors if we have chosen to plot them
-
-            if detector.is_pseudo_detector and with_pseudo_detectors:
-
-                if detector.contents is not None:
-                    p = RegularPolygon(xy=detector.origin,
-                                       numVertices=6,
-                                       radius=radius,
-                                       facecolor=pseudo_colors[pseudo_n], alpha=.5)
-
-                    ax.add_patch(p)
-
-                    # show the detector number
-                    if show_detector_number:
-                        ax.text(detector.origin[0], detector.origin[1], detector.detector_number, ha="center", va="center",
-                                color='k', size=14)
-
-                    pseudo_n += 1
-
+            #
+            # if detector.is_pseudo_detector and with_pseudo_detectors:
+            #
+            #     if detector.contents is not None:
+            #         p = RegularPolygon(xy=detector.origin,
+            #                            numVertices=6,
+            #                            radius=radius,
+            #                            facecolor=pseudo_colors[pseudo_n], alpha=.5)
+            #
+            #         ax.add_patch(p)
+            #
+            #         # show the detector number
+            #         if show_detector_number:
+            #             ax.text(detector.origin[0], detector.origin[1], detector.detector_number, ha="center", va="center",
+            #                     color='k', size=14)
+            #
+            #         pseudo_n += 1
 
         ax.set_xlim(-16, 16)
         ax.set_ylim(-16, 16)
