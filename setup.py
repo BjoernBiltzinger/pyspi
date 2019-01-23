@@ -39,10 +39,14 @@ setup(
     package_data={'': extra_files, },
     include_package_data=True,
 
-    requires=[
+    install_requires=[
         'numpy',
         'matplotlib',
         'h5py',
-        'pandas'
+        'pandas',
+        'ipython',
+        'astropy',
+        'scipy',
+        
     ],
 )

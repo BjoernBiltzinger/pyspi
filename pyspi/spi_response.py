@@ -7,6 +7,16 @@ from IPython.display import HTML
 
 from pyspi.io.package_data import get_path_of_data_file
 
+
+
+
+def log_interp1d(xx, yy, kind='linear'):
+    logx = np.log10(xx)
+    logy = np.log10(yy)
+    lin_interp = interpolate.interp1d(logx, logy, kind=kind)
+    log_interp = lambda zz: np.power(10.0, lin_interp(np.log10(zz)))
+    return log_interp
+
 class SPIResponse(object):
     def __init__(self):
         """FIXME! briefly describe function
@@ -75,8 +85,8 @@ class SPIResponse(object):
 
         :param azimuth: 
         :param zenith: 
-        :returns: 
-        :rtype: 
+        :returns:  the effective area array (n_energie X n_detectors)
+
 
         """
 
@@ -110,7 +120,9 @@ class SPIResponse(object):
         
         for det_number in range(self._n_dets):
 
-            tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
+            #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
+
+            tmp = log_interp1d(self._energies, weighted_irf[:, det_number])
 
             interpolated_irfs.append(tmp)
 
@@ -118,7 +130,7 @@ class SPIResponse(object):
             
 
 
-    def get_binned_effective_area(self, azimuth, zenith, ebounds):
+    def get_binned_effective_area(self, azimuth, zenith, ebounds, gamma=None):
         """FIXME! briefly describe function
 
         :param azimuth: 
@@ -144,7 +156,14 @@ class SPIResponse(object):
 
             for i, (lo,hi) in enumerate(zip(emin, emax)):
 
-                effective_area[i] =  integrate.quad(interpolated_effective_area[det],lo,hi)[0]
+                if gamma is not None:
+                    integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
+
+                else:
+
+                    integrand = lambda x: interpolated_effective_area[det](x)
+
+                effective_area[i] =  integrate.quad(integrand, lo, hi)[0]
 
 
             binned_effective_area_per_detector.append(effective_area)
