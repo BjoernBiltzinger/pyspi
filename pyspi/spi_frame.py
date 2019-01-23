@@ -5,9 +5,13 @@ from astropy.coordinates import BaseCoordinateFrame, Attribute, RepresentationMa
 from astropy.coordinates import frame_transform_graph, spherical_to_cartesian
     
 from pyspi.spi_pointing import _construct_sc_matrix
+<<<<<<< HEAD
 
 # alfkarewölgjnöserjvnbs
 # Second line
+=======
+# Random
+>>>>>>> parent of bef96cf... Added random string to spi_frame
 
 class SPIFrame(BaseCoordinateFrame):
     """
