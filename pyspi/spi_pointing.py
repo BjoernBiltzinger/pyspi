@@ -21,6 +21,34 @@ def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
     
     return sc_matrix
 
+def _zenazi(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec, src_ra, src_dec):
+
+    #here spimodfit zenazi
+    #calculate angular distance wrt optical axis in zenith (theta) and
+    #azimuth (phi): (zenazi function)
+    # input: spacecraft pointing directions sc(xyz)_ra/dec; source coordinates src_ra/dec
+    # output: source coordinates in INTEGRAL system frame
+    
+    costheta = np.sin(np.deg2rad(scx_dec))*np.sin(np.deg2rad(src_dec)) + \
+               np.cos(np.deg2rad(scx_dec))*np.cos(np.deg2rad(src_dec))*np.cos(np.deg2rad(scx_ra-src_ra))
+    if (costheta > 1.0):
+        costheta = 1.0
+    if (costheta < -1.0):
+        costheta = -1.0
+    theta = np.rad2deg(np.arccos(costheta))
+
+    cosz = np.sin(np.deg2rad(scz_dec))*np.sin(np.deg2rad(src_dec)) + \
+           np.cos(np.deg2rad(scz_dec))*np.cos(np.deg2rad(src_dec))*np.cos(np.deg2rad(scz_ra-src_ra))
+    cosy = np.sin(np.deg2rad(scy_dec))*np.sin(np.deg2rad(src_dec)) + \
+           np.cos(np.deg2rad(scy_dec))*np.cos(np.deg2rad(src_dec))*np.cos(np.deg2rad(scy_ra-src_ra))
+    phi  = np.rad2deg(np.arctan2(cosz,cosy))
+    #put in range 0 - 2pi
+    if (phi < 0.0):
+        phi = phi + 360.0
+
+    return theta,phi
+
+
 
 
 
@@ -44,9 +72,11 @@ class SPIPointing(object):
 
             self._pointing_data = f['INTL-ORBI-SCP'].data
 
+
         # construct the space craft pointings
 
         self._construct_sc_matrices()
+
 
 
     def _open_misalignment_matrix(self):
@@ -74,7 +104,6 @@ class SPIPointing(object):
             # now reshape it
 
             self._misalignment_matrix = matrix_raw.reshape((3,3))
-
 
 
 
@@ -124,6 +153,45 @@ class SPIPointing(object):
             
             self._sc_matrix[i, ...] = spi_matrix
             self._sc_points.append(dict(scx_ra=scx_ra, scx_dec=scx_dec, scy_ra=scy_ra, scy_dec=scy_dec, scz_ra=scz_ra, scz_dec=scz_dec))
+
+
+
+    def _calc_zenazi(self,src_ra,src_dec):
+
+        """
+        Calculate zenith and azimuth for all SPI pointings
+        """
+
+        # number of pointings in data set
+        self._n_pointings = len(self._pointing_data)
+
+        # output array for zenith and azimuth pairs
+        self._sc_src_zenazi = np.zeros((self._n_pointings,2))
+
+        #array = [_zenazi() for i in range()]
+
+        # go through all pointings
+        for i in range(self._n_pointings):
+
+            #get 6 values for the spacecraft orientation angles
+            scx_ra  = self._sc_points[i]['scx_ra']
+            scx_dec = self._sc_points[i]['scx_dec']
+            scy_ra  = self._sc_points[i]['scy_ra']
+            scy_dec = self._sc_points[i]['scy_dec']
+            scz_ra  = self._sc_points[i]['scz_ra']
+            scz_dec = self._sc_points[i]['scz_dec']
+
+            #calculate zenith and azimuth for all pointings
+            zenazi = _zenazi(scx_ra,scx_dec,scy_ra,scy_dec,scz_ra,scz_dec,src_ra,src_dec)
+
+            #print(zenazi)
+
+            #insert in output array
+            self._sc_src_zenazi[i] = zenazi
+            
+        return self._sc_src_zenazi
+
+
                        
     @property
     def sc_matrix(self):

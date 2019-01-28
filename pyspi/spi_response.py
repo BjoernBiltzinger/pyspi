@@ -151,6 +151,40 @@ class SPIResponse(object):
 
         return np.array(binned_effective_area_per_detector)
     
+    
+    
+    def get_effective_area(self, azimuth, zenith, energies, detectors):
+        """FIXME! briefly describe function
+
+        :param azimuth: 
+        :param zenith: 
+        :param energies at which interpolated effective area is read off: 
+        :returns: 
+        :rtype: 
+
+        """
+
+        interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
+
+        n_events = len(energies)
+
+        effective_area_per_event = []
+
+        for i in range(n_events):
+            effective_area_per_event = \
+            np.append(effective_area_per_event, \
+                      interpolated_effective_area[detectors[i]](energies[i]))
+
+# alternative method, don't know which is faster
+#        effective_area_per_detector = np.zeros((n_events,self._n_dets))
+#
+#        for det in range(self._n_dets):
+#
+#            effective_area_per_detector[:,det] = interpolated_effective_area[det](energies)
+#
+#        effective_area_per_event = np.diag(effective_area_per_detector[:,detectors])
+
+        return effective_area_per_event
 
     
     def _get_irf_weights(self, x_pos, y_pos):
