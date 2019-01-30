@@ -25,12 +25,18 @@ import pyspi
 end = time.time()
 print("import pyspi: "+np.str(end-start))
 
+start = time.time()
+from spi_background import *
+end = time.time()
+print("import pyspi: "+np.str(end-start))
+
 import matplotlib.pyplot as plt
 
 
 # aux variables
 # detector array
 dets = np.arange(0,19,1)
+bins = np.arange(20,8001,1)
 
 # source position
 src_ra, src_dec = 197.075, 58.9803
@@ -65,21 +71,24 @@ if (1):
     energies_psd  = data_file['SPI.-OPSD-ALL'].data['ENERGY']
     detectors_psd = data_file['SPI.-OPSD-ALL'].data['DETE']
     
-    tdx_sgl = np.where((times_sgl >= tstart) & (times_sgl <= tstop))
-    tdx_psd = np.where((times_psd >= tstart) & (times_psd <= tstop))
+    tdx_sgl = ((times_sgl >= tstart) & (times_sgl <= tstop))
+    tdx_psd = ((times_psd >= tstart) & (times_psd <= tstop))
     
-    edx_sgl = np.where((energies_sgl >= 20) & (energies_sgl <= 8000))
-    edx_psd = np.where((energies_psd >= 20) & (energies_psd <= 8000))
+    edx_sgl = ((energies_sgl >= 20) & (energies_sgl <= 8000))
+    edx_psd = ((energies_psd >= 20) & (energies_psd <= 8000))
     
-    tedx_sgl = np.where((times_sgl >= tstart) & (times_sgl <= tstop) & \
+    tedx_sgl = ((times_sgl >= tstart) & (times_sgl <= tstop) & \
                         (energies_sgl >= 20) & (energies_sgl <= 8000))
-    tedx_psd = np.where((times_psd >= tstart) & (times_psd <= tstop) & \
+    tedx_psd = ((times_psd >= tstart) & (times_psd <= tstop) & \
                         (energies_psd >= 20) & (energies_psd <= 8000))
     
-    tedx_sgl_bg = np.where(((times_sgl < tstart) | (times_sgl > tstop)) & \
+    tedx_sgl_bg = (((times_sgl < tstart) | (times_sgl > tstop)) & \
                            (energies_sgl >= 20) & (energies_sgl <= 8000))
-    tedx_psd_bg = np.where(((times_psd < tstart) | (times_psd > tstop)) & \
+    tedx_psd_bg = (((times_psd < tstart) | (times_psd > tstop)) & \
                            (energies_psd >= 20) & (energies_psd <= 8000))
+    
+    end = time.time()
+    print("source and background array definitions 1: "+np.str(end-start))
     
     # temporary background definition
     bg_sgl = energies_sgl[tedx_sgl_bg]
@@ -91,19 +100,56 @@ if (1):
     T1_bg    = np.max(bg_times)
     DT_bg    = (T1_bg-T0_bg)*86400 - telapse
     
+    end = time.time()
+    print("source and background array definitions 2: "+np.str(end-start))
+    
     # per detector
+    if (0):
+        teddx_sgl_bg = {}
+        for i in range(19):
+            teddx_sgl_bg['D'+str(i).zfill(2)] = (((times_sgl < tstart) | (times_sgl > tstop)) & \
+                                 (energies_sgl >= 20) & (energies_sgl <= 8000) & \
+                                 (detectors_sgl == i))
+        
+        teddx_psd_bg = {}
+        for i in range(19):
+            teddx_psd_bg['D'+str(i).zfill(2)] = (((times_psd < tstart) | (times_psd > tstop)) & \
+                                 (energies_psd >= 20) & (energies_psd <= 8000) & \
+                                 (detectors_psd == i))
+        
+        bg_grb_dets_sgl = np.zeros((7980,len(dets)))
+        bg_grb_dets_psd = np.zeros((7980,len(dets)))
+        for i in range(19):
+            bg_grb_dets_sgl[:,i] = np.histogram(energies_sgl[teddx_sgl_bg['D'+str(i).zfill(2)]],bins=bins)[0]
+            bg_grb_dets_psd[:,i] = np.histogram(energies_psd[teddx_psd_bg['D'+str(i).zfill(2)]],bins=bins)[0]
+        
+        # create energy locations array + hdu
+        emin = bins[0:-1]
+        emax = bins[1:]
+        loc = bins[0:-1]+0.5
+        hdu_erg = fits.BinTableHDU.from_columns(
+                [fits.Column(name='EMIN',format='E',array=emin,unit='keV'),
+                 fits.Column(name='EMAX',format='E',array=emax,unit='keV'),
+                 fits.Column(name='ECEN',format='E',array=loc,unit='keV')])
+        hdu_erg.name = 'ENERGIES'
+        # write SPI GRB background model template for epoch 5
+        hdu = fits.BinTableHDU.from_columns(
+                [fits.Column(name='BG_SGL', format='7980E', array=bg_grb_dets_sgl.T/DT_bg, unit='1/s'),
+                 fits.Column(name='BG_PSD', format='7980E', array=bg_grb_dets_psd.T/DT_bg, unit='1/s')])
+        hdu.name = 'SPI.-GRB-BG05'
+        # create primary header because we apparenly must
+        hdr = fits.Header()
+        hdr['CREATED'] = 'Thomas Siegert'
+        hdr['COMMENT'] = "This is a PYSPI GRB template file. Here, only Epoch 5 (i.e. 15 working detectors, 4 failures, starting at revolution 930,) is included."
+        hdr['COMMENT'] = "More to be added."
+        hdr['ENE_UNIT'] = "keV"
+        hdr['BGM_UNIT'] = "1/s"
+        primary_hdu = fits.PrimaryHDU(header=hdr)
+        # combine HDUs and write
+        hdul = fits.HDUList([primary_hdu,hdu_erg,hdu])
+        hdul.writeto('spi_grb_background.fits')
+        
     
-    teddx_sgl_bg = {}
-    for i in range(19):
-        teddx_sgl_bg['D'+str(i).zfill(2)] = np.where(((times_sgl < tstart) | (times_sgl > tstop)) & \
-                             (energies_sgl >= 20) & (energies_sgl <= 8000) & \
-                             (detectors_sgl == i))
-    
-    teddx_psd_bg = {}
-    for i in range(19):
-        teddx_psd_bg['D'+str(i).zfill(2)] = np.where(((times_psd < tstart) | (times_psd > tstop)) & \
-                             (energies_psd >= 20) & (energies_psd <= 8000) & \
-                             (detectors_psd == i))
     
     # source photons definition
     src_sgl = energies_sgl[tedx_sgl]
@@ -118,8 +164,22 @@ if (1):
     src_detectors = np.append(detectors_sgl[tedx_sgl],detectors_psd[tedx_psd])
     src_energies = src
     
+    data_energies_sgl = energies_sgl[tedx_sgl]
+    data_energies_psd = energies_psd[tedx_psd]
+    data_energies = np.append(data_energies_sgl,data_energies_psd)
+    data_detectors_sgl = detectors_sgl[tedx_sgl]
+    data_detectors_psd = detectors_psd[tedx_psd]
+    data_detectors = np.append(data_detectors_sgl,data_detectors_psd)
+    data_evtstypes_sgl = np.zeros(len(np.where(tedx_sgl == True)[0]),dtype=np.int)
+    data_evtstypes_psd = np.ones(len(np.where(tedx_psd == True)[0]),dtype=np.int)
+    data_evtstypes = np.append(data_evtstypes_sgl,data_evtstypes_psd)
+    
+    
+    # hier weiter mit detectors und event type
+    
+    
     end = time.time()
-    print("source and background array definitions: "+np.str(end-start))
+    print("source and background array definitions 3: "+np.str(end-start))
 
     # init response
     start = time.time()
@@ -204,8 +264,8 @@ aeff_src = spi.get_effective_area(za[1],za[0],src_energies,src_detectors)
 
 plt.figure(figsize=[10.24,7.68])
 plt.step(loc_bg,hist_src/DT_src-hist_bg/DT_bg)
-#plt.loglog(bin_ndarray((np.sort(src_energies))[0:24000],new_shape=(100,),operation='mean'), \
-#           bin_ndarray(((plaw*aeff_src)[np.argsort(src_energies)])[0:24000],new_shape=(100,),operation='mean'),'-ro')
+#plt.plot(bin_ndarray((np.sort(src_energies))[0:24000],new_shape=(100,),operation='mean'), \
+#         bin_ndarray(((plaw*aeff_src)[np.argsort(src_energies)])[0:24000],new_shape=(100,),operation='mean'),'-ro')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlabel('Energy [keV]')

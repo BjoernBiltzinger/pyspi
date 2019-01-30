@@ -45,29 +45,99 @@ class SPIBackground(object):
 
         # get(???) the path to the data file
         # path to data file
-        spi_grb_background_file = 'data/spi_grb_background.fits.gz'
+        spi_grb_background_file = 'data/spi_grb_background.fits'
 
         # open background file
         self._spi_grb_background = fits.open(spi_grb_background_file)
 
-        self._bg_data = self._spi_grb_background['SPI.-BMOD-DSP'].data['COUNTS']
+        # define background model energies
+        self._emin = self._spi_grb_background['ENERGIES'].data['EMIN']
+        self._emax = self._spi_grb_background['ENERGIES'].data['EMAX']
+        self._ecen = self._spi_grb_background['ENERGIES'].data['ECEN']
+        
+        # define background data (patterns as a function of energy)
+        self._bg_data_sgl = self._spi_grb_background['SPI.-GRB-BG05'].data['BG_SGL']
+        self._bg_data_psd = self._spi_grb_background['SPI.-GRB-BG05'].data['BG_PSD']
+        
+        # number of detectors
+        self._n_dets = self._spi_grb_background['SPI.-GRB-BG05'].data['BG_SGL'].shape[0]
 
+
+    def interpolated_background_pattern(self):
+        """
+        Return a list of interpolated detector patterns as a function of energy
+        
+        :returns: 
+        :rtype: 
+
+        """
+
+        interpolated_bg_patterns_sgl = []
+        interpolated_bg_patterns_psd = []
+        
+        
+        for det_number in range(self._n_dets):
+
+            tmp_sgl = interpolate.interp1d(self._ecen, self._bg_data_sgl,fill_value='extrapolate')
+            tmp_psd = interpolate.interp1d(self._ecen, self._bg_data_psd,fill_value='extrapolate')
+            
+            interpolated_bg_patterns_sgl.append(tmp_sgl)
+            interpolated_bg_patterns_psd.append(tmp_psd)
+            
+
+        return interpolated_bg_patterns_sgl, interpolated_bg_patterns_psd
+    
+    
+    def get_bg_pattern(self, energies, detectors, event_type):
+        """FIXME! briefly describe function
+
+        
+        :param energies at which background model for GRBs is read off: 
+        :param detector tag:
+        :param event_type tag (SGL or PSD):
+        :returns: 
+        :rtype: 
+
+        """
+
+        interpolated_background_pattern = self.interpolated_background_pattern()
+
+        n_events = len(energies)
+
+        bg_pattern_per_event = []
+
+        for i in range(n_events):
+            bg_pattern_per_event = np.append(bg_pattern_per_event,interpolated_background_pattern[event_type[i]][detectors[i]](energies[i])[detectors[i]])
+            
+        return bg_pattern_per_event
 
 
     def print_spi_bg(self):
         
-        data = self._spi_grb_background['SPI.-BMOD-DSP'].data['COUNTS']
+        data_sgl = self._spi_grb_background['SPI.-GRB-BG05'].data['BG_SGL']
+        data_psd = self._spi_grb_background['SPI.-GRB-BG05'].data['BG_PSD']
         
-        return data
+        return data_sgl, data_psd
 
 
                      
     @property
-    def bg_data(self):
+    def bg_data_sgl(self):
 
-        return self._bg_data
+        return self._bg_data_sgl
     
     
+    @property
+    def bg_data_psd(self):
+
+        return self._bg_data_psd
+    
+    @property
+    def bg_energies(self):
+
+        return self._emin, self._emax, self._ecen
+     
+        
     
     
     
