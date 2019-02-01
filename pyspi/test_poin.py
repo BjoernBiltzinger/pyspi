@@ -117,11 +117,17 @@ if (1):
                                  (energies_psd >= 20) & (energies_psd <= 8000) & \
                                  (detectors_psd == i))
         
+        
         bg_grb_dets_sgl = np.zeros((7980,len(dets)))
         bg_grb_dets_psd = np.zeros((7980,len(dets)))
         for i in range(19):
             bg_grb_dets_sgl[:,i] = np.histogram(energies_sgl[teddx_sgl_bg['D'+str(i).zfill(2)]],bins=bins)[0]
             bg_grb_dets_psd[:,i] = np.histogram(energies_psd[teddx_psd_bg['D'+str(i).zfill(2)]],bins=bins)[0]
+        
+        work_dets = [0,3,4,6,7,8,9,10,11,12,13,14,15,16,18]
+        bg_grb_dets_sgl[:,work_dets] += 1
+        bg_grb_dets_psd[:,work_dets] += 1
+        
         
         # create energy locations array + hdu
         emin = bins[0:-1]
@@ -134,8 +140,8 @@ if (1):
         hdu_erg.name = 'ENERGIES'
         # write SPI GRB background model template for epoch 5
         hdu = fits.BinTableHDU.from_columns(
-                [fits.Column(name='BG_SGL', format='7980E', array=bg_grb_dets_sgl.T/DT_bg, unit='1/s'),
-                 fits.Column(name='BG_PSD', format='7980E', array=bg_grb_dets_psd.T/DT_bg, unit='1/s')])
+                [fits.Column(name='BG_SGL', format='7980E', array=bg_grb_dets_sgl.T/DT_bg + 0.00030266, unit='1/s'),
+                 fits.Column(name='BG_PSD', format='7980E', array=bg_grb_dets_psd.T/DT_bg + 0.00030266, unit='1/s')])
         hdu.name = 'SPI.-GRB-BG05'
         # create primary header because we apparenly must
         hdr = fits.Header()
@@ -259,13 +265,13 @@ hist_src_sgl = h_src_sgl[0]
 hist_src_psd = h_src_psd[0]
 
 
-plaw = 0.15*(src_energies/100.)**(-0.4)*(np.exp(-src_energies/500.))
+plaw = 0.10*(src_energies/100.)**(-1.0)#*(np.exp(-src_energies/500.))
 aeff_src = spi.get_effective_area(za[1],za[0],src_energies,src_detectors)
 
 plt.figure(figsize=[10.24,7.68])
 plt.step(loc_bg,hist_src/DT_src-hist_bg/DT_bg)
-#plt.plot(bin_ndarray((np.sort(src_energies))[0:24000],new_shape=(100,),operation='mean'), \
-#         bin_ndarray(((plaw*aeff_src)[np.argsort(src_energies)])[0:24000],new_shape=(100,),operation='mean'),'-ro')
+plt.plot(bin_ndarray((np.sort(data_energies))[0:24000],new_shape=(100,),operation='mean'), \
+         bin_ndarray(((plaw*aeff_src)[np.argsort(src_energies)])[0:24000],new_shape=(100,),operation='mean'),'-ro')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlabel('Energy [keV]')
