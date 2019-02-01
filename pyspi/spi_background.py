@@ -4,6 +4,8 @@ import astropy.io.fits as fits
 from pyspi.utils.geometry import cart2polar, polar2cart
 from pyspi.io.package_data import get_path_of_data_file
 
+import scipy.interpolate as interpolate
+import scipy.integrate as integrate
 
 class SPIBackground(object):
 
@@ -78,8 +80,8 @@ class SPIBackground(object):
         
         for det_number in range(self._n_dets):
 
-            tmp_sgl = interpolate.interp1d(self._ecen, self._bg_data_sgl,fill_value='extrapolate')
-            tmp_psd = interpolate.interp1d(self._ecen, self._bg_data_psd,fill_value='extrapolate')
+            tmp_sgl = interpolate.interp1d(self._ecen, self._bg_data_sgl[det_number],fill_value='extrapolate')
+            tmp_psd = interpolate.interp1d(self._ecen, self._bg_data_psd[det_number],fill_value='extrapolate')
             
             interpolated_bg_patterns_sgl.append(tmp_sgl)
             interpolated_bg_patterns_psd.append(tmp_psd)
@@ -107,7 +109,7 @@ class SPIBackground(object):
         bg_pattern_per_event = []
 
         for i in range(n_events):
-            bg_pattern_per_event = np.append(bg_pattern_per_event,interpolated_background_pattern[event_type[i]][detectors[i]](energies[i])[detectors[i]])
+            bg_pattern_per_event = np.append(bg_pattern_per_event,interpolated_background_pattern[event_type[i]][detectors[i]](energies[i]))
             
         return bg_pattern_per_event
 
