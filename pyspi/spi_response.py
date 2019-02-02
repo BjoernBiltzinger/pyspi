@@ -106,13 +106,7 @@ class SPIResponse(object):
 
         weighted_irf = self.effective_area_per_detector(azimuth, zenith)
 
-        interpolated_irfs = []
-        
-        for det_number in range(self._n_dets):
-
-            tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
-
-            interpolated_irfs.append(tmp)
+        interpolated_irfs = [interpolate.interp1d(self._energies, weighted_irf[:, det_number]) for det_number in range(self._n_dets)]
 
         return interpolated_irfs
             
@@ -151,9 +145,22 @@ class SPIResponse(object):
 
         return np.array(binned_effective_area_per_detector)
     
+    def data_to_det_block(self, data):
+        """ 
+        Restructure to separate blocks for each detector.
+        :param data: data frpm SPILike class (pd.DataFrame with energy,
+        detector, time, and type) 
+        :return: data structured in a detector block, i.e. an arrayvwith a
+        separate pd.DataFrame for each detector
+        """
+        
+        detectors = sorted(np.unique(data['DETECTOR']))
+        detector_masks = [data['DETECTOR'] == det for det in detectors]
+        det_block = [data[m] for m in detector_masks]
+        
+        return det_block
     
-    
-    def get_effective_area(self, azimuth, zenith, energies, detectors):
+    def get_effective_area(self, azimuth, zenith, data):
         """FIXME! briefly describe function
 
         :param azimuth: 
@@ -163,28 +170,12 @@ class SPIResponse(object):
         :rtype: 
 
         """
-
         interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
+        det_block = self.data_to_det_block(data)
+        
+        effective_area_per_event = [interpolated_effective_area[np.array(det['DETECTOR'])[0]](det['ENERGY']) for det in det_block]
 
-        n_events = len(energies)
-
-        effective_area_per_event = []
-
-        for i in range(n_events):
-            effective_area_per_event = \
-            np.append(effective_area_per_event, \
-                      interpolated_effective_area[detectors[i]](energies[i]))
-
-# alternative method, don't know which is faster
-#        effective_area_per_detector = np.zeros((n_events,self._n_dets))
-#
-#        for det in range(self._n_dets):
-#
-#            effective_area_per_detector[:,det] = interpolated_effective_area[det](energies)
-#
-#        effective_area_per_event = np.diag(effective_area_per_detector[:,detectors])
-
-        return effective_area_per_event
+        return np.concatenate(effective_area_per_event)
 
     
     def _get_irf_weights(self, x_pos, y_pos):
@@ -388,3 +379,4 @@ def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     out = np.array([left_low, right_low, left_up, right_up]).T
 
     return out
+
