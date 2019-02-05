@@ -100,40 +100,19 @@ class SPILike(PluginPrototype):
         data = full_data[mask_default]
 
         return cls(name, data, orbit_params)
+        
 
-    def set_active_measurements(self, energy=None, time=None, event_type=None, *selections):
+    def set_active_measurements(self, **selections):
         """
         Select energy, time, and/or type boundaries
         :param energy: tuple with energy boundaries in keV
         :param time: tuple with time boundaries
         :param event_type: integer for event type (0: single events, 1: psd
         events)
-        """
+        """        
+        self._data = select_data(self._full_data, **selections)
         
-        data_energy = np.array(self._full_data['ENERGY'])
-        data_time = np.array(self._full_data['TIME'])
-        data_type = np.array(self._full_data['TYPE'])
-        
-        mask_master = np.full(len(self._full_data), True, dtype=bool)
-        
-        print(mask_master)
-        
-        if energy:
-            print('energy!')
-            mask_master = mask_master & ((data_energy >= energy[0]) & (data_energy <= energy[1]))
-            print(mask_master)
-        if time:
-            print('time!')
-            mask_master = mask_master & ((data_time >= time[0]) & (data_time <= time[1]))
-        if event_type:
-            print('type!')
-            mask_master = mask_master & (data_type == event_type)
-            
-        print(mask_master)
-        
-        self._data = self._full_data[mask_master]
-        
-    def reset_data(self):
+    def data_reset(self):
         """
         Reset data block to the original data
         """
@@ -176,17 +155,46 @@ class SPILike(PluginPrototype):
 
         pass
     
-    def plot_lightcurve(self):
+    def plot_lightcurve(self, bins=100, x_label='Time', y_label='Counts', x_scale='linear', y_scale='linear', **kwargs):
         
-        pass
+        fig, sub = plt.subplots(1,1)
+        
+        data = select_data(self.data, **kwargs)
+        
+        sub.hist(data['TIME'], bins=bins, histtype='step')
+        
+        sub.set_xscale(x_scale)
+        sub.set_yscale(y_scale)
+        sub.set_xlabel(x_label)
+        sub.set_ylabel(y_label)
     
-    def plot_spectrum(self):
+    def plot_spectrum(self, bins=100, x_label='Energy', y_label='Counts', x_scale='linear', y_scale='linear', **kwargs):
         
-        pass
+        fig, sub = plt.subplots(1,1)
+        
+        data = select_data(self.data, **kwargs)
+        
+        sub.hist(data['ENERGY'], bins=bins, histtype='step')
+        
+        sub.set_xscale(x_scale)
+        sub.set_yscale(y_scale)
+        sub.set_xlabel(x_label)
+        sub.set_ylabel(y_label)
     
-    def plot_detector_pattern(self):
+    def plot_detector_pattern(self, x_label='Detector ID', y_label='Counts', y_scale='linear', **kwargs):
         
-        pass
+        fig, sub = plt.subplots(1,1)
+        
+        data = select_data(self.data, **kwargs)
+        
+        detectors = sorted(np.unique(data['DETECTOR']))
+        
+        sub.hist(data['DETECTOR'], bins=np.arange(20), histtype='step', align='left')
+        sub.set_xticks(detectors)
+        
+        sub.set_yscale(y_scale)
+        sub.set_xlabel(x_label)
+        sub.set_ylabel(y_label)        
     
     @property
     def data(self):
@@ -197,6 +205,44 @@ class SPILike(PluginPrototype):
     def orbit_params(self):
 
         return self._orbit_params
+
+
+def select_data(data, **selections):
+    """
+    Select energy, time, and/or type boundaries
+    :param energy: tuple with energy boundaries in keV
+    :param time: tuple with time boundaries
+    :param event_type: integer for event type (0: single events, 1: psd
+    events)
+    """
+    # Check kwargs
+    energy = selections.pop('energy', None)
+    time = selections.pop('time', None)
+    event_type = selections.pop('event_type', None)
+    detector = selections.pop('detector', None)
+    
+    # Original data arrays
+    data_energy = np.array(data['ENERGY'])
+    data_time = np.array(data['TIME'])
+    data_type = np.array(data['TYPE'])
+    data_detector = np.array(data['DETECTOR'])
+    
+    mask_master = np.full(len(data), True, dtype=bool)
+    
+    # Combine masks for different selections
+    if energy:
+        mask_master = mask_master & ((data_energy >= energy[0]) & (data_energy <= energy[1]))
+    if time:
+        mask_master = mask_master & ((data_time >= time[0]) & (data_time <= time[1]))
+    if event_type != None:
+        mask_master = mask_master & (data_type == event_type)
+    if detector != None:
+        try:
+            mask_master = mask_master & np.sum([np.array(data_detector == det) for det in detector], axis=0, dtype=bool)
+        except TypeError:
+            mask_master = mask_master & (data_detector == detector)
+            
+    return data[mask_master]
     
     
 def pseudo_detector(detector_hits):
