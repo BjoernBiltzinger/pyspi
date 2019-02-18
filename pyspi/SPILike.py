@@ -67,8 +67,8 @@ class SPILike(PluginPrototype):
         energies_psd  = data_file['SPI.-OPSD-ALL'].data['ENERGY']
         detectors_psd = data_file['SPI.-OPSD-ALL'].data['DETE']
         
-        tstart = 4263.11378685185 + 100/86400.
-        tstop  = 4263.11413407407 + 100/86400.
+        tstart = 4263.11378685185# + 100/86400.
+        tstop  = 4263.11413407407# + 100/86400.
         telapse = tstop-tstart
         telapse *= 86400
         
