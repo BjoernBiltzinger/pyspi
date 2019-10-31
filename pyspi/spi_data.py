@@ -45,7 +45,7 @@ class SpiData_GRB(object):
         id_file_path = get_path_of_data_file('id_data_time.hdf5')
 
         # Get GRB time in ISDC_MJD 
-        time_of_GRB_ISDC_MJD = self._string_to_ISDC_MJD(self._time_of_GRB)
+        self._time_of_GRB_ISDC_MJD = self._string_to_ISDC_MJD(self._time_of_GRB)
 
         # Get which id contain the needed time. When the wanted time is
         # too close to the boundarie also add the pervious or following
@@ -55,8 +55,8 @@ class SpiData_GRB(object):
         stop_id = id_file['Stop'].value
         ids = id_file['ID'].value
         
-        mask_larger = start_id<time_of_GRB_ISDC_MJD
-        mask_smaller = stop_id>time_of_GRB_ISDC_MJD
+        mask_larger = start_id<self._time_of_GRB_ISDC_MJD
+        mask_smaller = stop_id>self._time_of_GRB_ISDC_MJD
     
         try:
             id_number = list(mask_smaller*mask_larger).index(True)
@@ -156,3 +156,6 @@ class SpiData_GRB(object):
     def geometry_file_path(self):
         return os.path.join(get_path_of_external_data_dir(), 'pointing_data', self._pointing_id, 'sc_orbit_param.fits.gz')
         
+    @property
+    def grb_time_ISDC_MJD(self):
+        return self._time_of_GRB_ISDC_MJD
