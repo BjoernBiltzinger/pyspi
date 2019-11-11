@@ -3,7 +3,7 @@ import astropy.io.fits as fits
 import os
 from datetime import datetime
 from astropy.time.core import Time
-from pyspi.io.get_files import get_files_afs
+from pyspi.io.get_files import get_files_afs, get_files_isdcarc
 from pyspi.io.package_data import get_path_of_data_file, get_path_of_external_data_dir
 import h5py
 
@@ -20,19 +20,25 @@ class SpiData_GRB(object):
         """
         self._time_of_GRB = time_of_GRB
 
-        if not afs:
-            raise NotImplementedError('Only AFS access possible at the moment')
+        if afs:
+            print('You chose data access via the afs server')
+
+        # Find path to dir with the needed data (need later spi_oper.fits.gz and sc_orbit_param.fits.gz
+        self._pointing_id = self._find_needed_ids(self._time_of_GRB)
         
         if afs:
-            # Find path to dir with the needed data (need later spi_oper.fits.gz and sc_orbit_param.fits.gz
-            self._pointing_id = self._find_needed_ids(self._time_of_GRB)
-
+            
             # Get the data from the afs server
             get_files_afs(self._pointing_id)
             
-            # Read in needed data
-            self._read_in_pointing_data(self._pointing_id)
+        else:
 
+            # Get the files from the iSDC data archive 
+            get_files_isdcarc(self._pointing_id)
+
+        # Read in needed data
+        self._read_in_pointing_data(self._pointing_id)
+            
     def _find_needed_ids(self, time):
         """
         Get the pointing id of the needed data to cover time 
@@ -54,7 +60,7 @@ class SpiData_GRB(object):
         start_id = id_file['Start'].value
         stop_id = id_file['Stop'].value
         ids = id_file['ID'].value
-        
+
         mask_larger = start_id<self._time_of_GRB_ISDC_MJD
         mask_smaller = stop_id>self._time_of_GRB_ISDC_MJD
     
