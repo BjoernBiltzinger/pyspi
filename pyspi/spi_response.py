@@ -43,6 +43,8 @@ class SPIResponse(object):
 
         self._energies_database = irf_database['energies'].value
 
+        self.set_binned_data_energy_bounds(self._energies_database)
+        
         irf_data = irf_database['irfs']
 
         self._irfs = irf_data.value
@@ -131,7 +133,7 @@ class SPIResponse(object):
             
 
 
-    def get_binned_effective_area(self, azimuth, zenith, ebounds, gamma=None):
+    def get_binned_effective_area(self, azimuth, zenith, ebounds=None, gamma=None):
         """FIXME! briefly describe function
 
         :param azimuth: 
@@ -145,17 +147,19 @@ class SPIResponse(object):
         interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
 
         binned_effective_area_per_detector = []
+        if ebounds is not None:
+            if not np.array_equal(ebounds, self._ebounds):
+                self.set_binned_data_energy_bounds(ebounds)
 
-
-        n_energy_bins = len(ebounds) - 1
-        emin = ebounds[:-1]
-        emax = ebounds[1:]
+                print('You have changed the energy boundaries for the binned effective_area calculation!')
+                
+        n_energy_bins = len(self._ebounds) - 1
         
         for det in range(self._n_dets):
 
             effective_area = np.zeros(n_energy_bins)
 
-            for i, (lo,hi) in enumerate(zip(emin, emax)):
+            for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
 
                 if gamma is not None:
                     integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
@@ -353,6 +357,18 @@ class SPIResponse(object):
     @property
     def energies_database(self):
         return self._energies_database
+
+    @property
+    def ebounds(self):
+        return self._ebounds
+
+    @property
+    def ene_min(self):
+        return self._ene_min
+
+    @property
+    def ene_max(self):
+        return self._ene_max
     
     @property
     def rod(self):
