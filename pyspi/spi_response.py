@@ -12,7 +12,8 @@ from pyspi.io.package_data import get_path_of_data_file
 
 def log_interp1d(xx, yy, kind='linear'):
     logx = np.log10(xx)
-    logy = np.log10(yy)
+    # Avoid nan entries for yy=0 entries
+    logy = np.log10(np.where(yy<=0, 1e-32, yy))
     lin_interp = interpolate.interp1d(logx, logy, kind=kind)
     log_interp = lambda zz: np.power(10.0, lin_interp(np.log10(zz)))
     return log_interp
@@ -40,7 +41,7 @@ class SPIResponse(object):
 
         irf_database = h5py.File(irf_file, 'r')
 
-        self._energies = irf_database['energies'].value
+        self._energies_database = irf_database['energies'].value
 
         irf_data = irf_database['irfs']
 
@@ -115,15 +116,15 @@ class SPIResponse(object):
         """
 
         weighted_irf = self.effective_area_per_detector(azimuth, zenith)
-
+        
         interpolated_irfs = []
         
         for det_number in range(self._n_dets):
 
             #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
 
-            tmp = log_interp1d(self._energies, weighted_irf[:, det_number])
-
+            tmp = log_interp1d(self._energies_database, weighted_irf[:, det_number])
+            
             interpolated_irfs.append(tmp)
 
         return interpolated_irfs
@@ -163,9 +164,10 @@ class SPIResponse(object):
 
                     integrand = lambda x: interpolated_effective_area[det](x)
 
-                effective_area[i] =  integrate.quad(integrand, lo, hi)[0]
+                # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size correct?
+                effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
 
-
+            
             binned_effective_area_per_detector.append(effective_area)
 
         return np.array(binned_effective_area_per_detector)
@@ -349,8 +351,8 @@ class SPIResponse(object):
         return self._irfs
 
     @property
-    def energies(self):
-        return self._energies
+    def energies_database(self):
+        return self._energies_database
     
     @property
     def rod(self):
