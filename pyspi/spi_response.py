@@ -46,7 +46,9 @@ class SPIResponse(object):
 
         self._energies_database = irf_database['energies'].value
 
-        self.set_binned_data_energy_bounds(self._energies_database)
+        self._ebounds = self._energies_database
+        self._ene_min = self._energies_database[:-1]
+        self._ene_max = self._energies_database[1:]
         
         irf_data = irf_database['irfs']
 
