@@ -19,15 +19,18 @@ def log_interp1d(xx, yy, kind='linear'):
     return log_interp
 
 class SPIResponse(object):
-    def __init__(self):
+    def __init__(self, ebounds=None):
         """FIXME! briefly describe function
-
+        
+        :param ebounds: User defined ebins for binned effective area
         :returns: 
         :rtype: 
 
         """
         
         self._load_irfs()
+        if ebounds!=None:
+            self.set_binned_data_energy_bounds(ebounds)
 
     def _load_irfs(self):
         """FIXME! briefly describe function
@@ -78,11 +81,19 @@ class SPIResponse(object):
         return x_pos, y_pos
 
     def set_binned_data_energy_bounds(self, ebounds):
+        """
+        Change the energy bins for the binned effective_area
+        :param ebounds: New ebinedges: ebounds[:-1] start of ebins, ebounds[1:] end of ebins
+        :return:
+        """
 
-        self._ene_min = ebounds[:-1]
-        self._ene_max = ebounds[1:]
-        self._ebounds = ebounds
-
+        if not np.array_equal(ebounds, self._ebounds):
+            
+            print('You have changed the energy boundaries for the binned effective_area calculation!')
+            self._ene_min = ebounds[:-1]
+            self._ene_max = ebounds[1:]
+            self._ebounds = ebounds
+        
     def effective_area_per_detector(self, azimuth, zenith):
         """FIXME! briefly describe function
 
@@ -148,11 +159,9 @@ class SPIResponse(object):
 
         binned_effective_area_per_detector = []
         if ebounds is not None:
-            if not np.array_equal(ebounds, self._ebounds):
-                self.set_binned_data_energy_bounds(ebounds)
+            self.set_binned_data_energy_bounds(ebounds)
 
-                print('You have changed the energy boundaries for the binned effective_area calculation!')
-                
+                            
         n_energy_bins = len(self._ebounds) - 1
         
         for det in range(self._n_dets):
@@ -168,7 +177,7 @@ class SPIResponse(object):
 
                     integrand = lambda x: interpolated_effective_area[det](x)
 
-                # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size correct?
+                # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
                 effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
 
             
