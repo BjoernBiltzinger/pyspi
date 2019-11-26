@@ -362,7 +362,7 @@ class SpiData_GRB(object):
             for nb in range(len(self.ene_min)):
                 times_energy_bin_events = self.time_sgl_dict[d][self.energy_bin_sgl_dict[d]==nb]
                 for i in range(len(self._time_bins_start)):
-                    counts_time_energy_binned[i,nb] = len(times_energy_bin_events[np.logical_and(times_energy_bin_events>=self._time_bins_start[i], times_energy_bin_events<self._time_bins_stop[i])])/self._time_bin_length[i]
+                    counts_time_energy_binned[i,nb] = len(times_energy_bin_events[np.logical_and(times_energy_bin_events>=self._time_bins_start[i], times_energy_bin_events<self._time_bins_stop[i])])
             energy_and_time_bin_sgl_dict[d] = counts_time_energy_binned
 
         self._energy_and_time_bin_sgl_dict = energy_and_time_bin_sgl_dict
@@ -526,7 +526,7 @@ class SpiData_GRB(object):
 
     @property
     def time_bins_stop(self):
-        return self._time_bin_stop
+        return self._time_bins_stop
 
     @property
     def time_bin_length(self):
