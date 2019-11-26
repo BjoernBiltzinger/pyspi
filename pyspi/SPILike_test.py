@@ -67,10 +67,10 @@ class SPILike_test(DispersionSpectrumLike):
 
         self._like_model.point_sources[
             key].position.ra.prior = Uniform_prior(
-            lower_bound=0., upper_bound=360)
+            lower_bound=-20., upper_bound=20)
         self._like_model.point_sources[
             key].position.dec.prior = Cosine_Prior(
-            lower_bound=-90., upper_bound=90)
+            lower_bound=-20., upper_bound=20)
 
         ra = self._like_model.point_sources[key].position.ra.value
         dec = self._like_model.point_sources[key].position.dec.value
