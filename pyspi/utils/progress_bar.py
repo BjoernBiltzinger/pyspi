@@ -1,438 +1,469 @@
-import numpy as np
-import os
-from gbmgeometry import PositionInterpolator, gbm_detector_list
-import astropy.time as astro_time
+from __future__ import print_function
 
-from gbmbkgpy.utils.progress_bar import progress_bar
-from gbmbkgpy.io.package_data import get_path_of_external_data_dir
-from gbmbkgpy.io.file_utils import file_existing_and_readable
-from gbmbkgpy.io.downloading import download_data_file
+import sys, time
+import datetime
 
-try:
 
-    # see if we have mpi and/or are upalsing parallel
 
-    from mpi4py import MPI
+# Functions to detect whether we are running inside a notebook or not
 
-    if MPI.COMM_WORLD.Get_size() > 1:  # need parallel capabilities
-        using_mpi = True  ###################33
+from IPython import get_ipython
 
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
+
+def is_inside_notebook():
+
+    ip = get_ipython()
+
+    if ip is None:
+
+        # This happens if we are running in a python session, not a IPython one (for example in a script)
+        return False
 
     else:
 
-        using_mpi = False
-except:
+        # We are running in a IPython session, either in a console or in a notebook
+        if ip.has_trait('kernel'):
 
-    using_mpi = False
+            # We are in a notebook
+            return True
 
-valid_det_names = ['n0', 'n1', 'n2', 'n3', 'n4', 'n5', 'n6', 'n7', 'n8', 'n9', 'na', 'nb']
-
-
-class Geometry(object):
-    def __init__(self, data, det, day_list, n_bins_to_calculate_per_day):
-        """
-        Initalize the geometry precalculation. This calculates several quantities (e.g. Earth
-        position in the satellite frame for n_bins_to_calculate times during the day
-        """
-
-        # Test if all the input is valid
-        assert type(data.mean_time) == np.ndarray, 'Invalid type for mean_time. Must be an array but is {}.'.format(type(data.mean_time))
-        assert det in valid_det_names, 'Invalid det name. Must be one of these {} but is {}.'.format(valid_det_names, det)
-        assert type(n_bins_to_calculate_per_day) == int, 'Type of n_bins_to_calculate has to be int but is {}'.format(type(n_bins_to_calculate_per_day))
-
-        # Save everything
-        self.mean_time = data.mean_time
-        self._det = det
-        self._n_bins_to_calculate_per_day = n_bins_to_calculate_per_day
-        self._day_start_times = data.day_start_times
-        self._day_stop_times = data.day_stop_times
-        self._day_list = map(str, sorted(map(int, day_list)))
-
-        # Check if poshist file exists, if not download it and save the paths for all days in an array
-        self._pos_hist = np.array([])
-        for day in day_list:
-            poshistfile_name = 'glg_{0}_all_{1}_v00.fit'.format('poshist', day)
-            poshistfile_path = os.path.join(get_path_of_external_data_dir(), 'poshist', poshistfile_name)
-
-            # If using MPI only rank=0 downloads the data, all other have to wait
-            if using_mpi:
-                if rank == 0:
-                    if not file_existing_and_readable(poshistfile_path):
-                        download_data_file(day, 'poshist')
-                comm.Barrier()
-            else:
-                if not file_existing_and_readable(poshistfile_path):
-                    download_data_file(day, 'poshist')
-
-            # Save poshistfile_path for later usage
-            self._pos_hist = np.append(self._pos_hist, poshistfile_path)
-        for pos in self._pos_hist:
-            assert file_existing_and_readable(pos), '{} does not exist'.format(pos)
-
-        # Number of bins to skip, to equally distribute the n_bins_to_calculate times over the day
-        n_skip = int(np.ceil(len(self.mean_time) / (self._n_bins_to_calculate_per_day * len(day_list))))
-
-        # Create the lists of the times where to calculate the geometry
-        list_times_to_calculate = self.mean_time[::n_skip]
-
-        # Add start and stop time of days to times for which the geometry should be calculated (to ensure a valid
-        # interpolation for all used times
-        self._list_times_to_calculate = self._add_start_stop(list_times_to_calculate, self._day_start_times,
-                                                             self._day_stop_times)
-
-        # Calculate Geometry. With or without Mpi support.
-        for day_number, day in enumerate(day_list):
-            if using_mpi:
-                sun_angle, sun_positions, time, earth_az, earth_zen, earth_position, quaternion, sc_pos, times_lower_bound_index, times_upper_bound_index = self._one_day_setup_geometery_mpi(day_number)
-            else:
-                sun_angle, sun_positions, time, earth_az, earth_zen, earth_position, quaternion, sc_pos = \
-                    self._one_day_setup_geometery_no_mpi(day_number)
-            if day_number == 0:
-                self._sun_angle = [sun_angle]
-                self._sun_positions = [sun_positions]
-                self._time = [time]
-                self._earth_az = [earth_az]
-                self._earth_zen = [earth_zen]
-                self._earth_position = [earth_position]
-                self._quaternion = [quaternion]
-                self._sc_pos = [sc_pos]
-                if using_mpi:
-                    self._times_lower_bound_index = np.array([times_lower_bound_index])
-                    self._times_upper_bound_index = np.array([times_upper_bound_index])
-            else:
-                self._sun_angle.append(sun_angle)
-                self._sun_positions.append(sun_positions)
-                self._time.append(time)
-                self._earth_az.append(earth_az)
-                self._earth_zen.append(earth_zen)
-                self._earth_position.append(earth_position)
-                self._quaternion.append(quaternion)
-                self._sc_pos.append(sc_pos)
-                if using_mpi:
-                    self._times_lower_bound_index = np.append(self._times_lower_bound_index, times_lower_bound_index)
-                    self._times_upper_bound_index = np.append(self._times_upper_bound_index, times_upper_bound_index)
-        self._time = np.concatenate(self._time, axis=0)
-        self._sun_positions = np.concatenate(self._sun_positions, axis=0)
-        self._sun_angle = np.concatenate(self._sun_angle, axis=0)
-        self._earth_az = np.concatenate(self._earth_az, axis=0)
-        self._earth_zen = np.concatenate(self._earth_zen, axis=0)
-        self._earth_position = np.concatenate(self._earth_position, axis=0)
-        self._quaternion = np.concatenate(self._quaternion, axis=0)
-        self._sc_pos = np.concatenate(self._sc_pos, axis=0)
-
-    # All properties of the class.
-    # Returns the calculated values of the quantities for all the n_bins_to_calculate times
-    # Of the day used in setup_geometry
-    @property
-    def time(self):
-        """
-        Returns the times of the time bins for which the geometry was calculated
-        """
-
-        return self._list_times_to_calculate
-
-    @property
-    def time_days(self):
-        """
-        Returns the times of the time bins for which the geometry was calculated for all days separately as arrays in
-        one big array
-        """
-
-        return self._time
-
-    @property
-    def sun_positions(self):
-        """
-        :return: sun positions as skycoord object in sat frame for all times for which the geometry was calculated
-        """
-
-        return self._sun_positions
-    
-    @property
-    def sun_angle(self):
-        """
-        Returns the angle between the sun and the line of sight for all times for which the 
-        geometry was calculated
-        """
-
-        return self._sun_angle
-
-    @property
-    def earth_az(self):
-        """
-        Returns the azimuth angle of the earth in the satellite frame for all times for which the 
-        geometry was calculated
-        """
-
-        return self._earth_az
-
-    @property
-    def earth_zen(self):
-        """
-        Returns the zenith angle of the earth in the satellite frame for all times for which the 
-        geometry was calculated
-        """
-
-        return self._earth_zen
-
-    @property
-    def earth_position(self):
-        """
-        Returns the Earth position as SkyCoord object for all times for which the geometry was 
-        calculated
-        """
-        return self._earth_position
-
-    @property
-    def quaternion(self):
-        """
-        Returns the quaternions, defining the rotation of the satellite, for all times for which the 
-        geometry was calculated
-        """
-
-        return self._quaternion
-
-    @property
-    def sc_pos(self):
-        """
-        Returns the spacecraft position, in ECI coordinates, for all times for which the 
-        geometry was calculated
-        """
-
-        return self._sc_pos
-
-    @property
-    def times_upper_bound_index(self):
-        """
-        Returns the upper time bound of the geometries calculated by this rank
-        """
-        return self._times_upper_bound_index
-
-    @property
-    def times_lower_bound_index(self):
-        """
-        Returns the lower time bound of the geometries calculated by this rank
-        """
-        return self._times_lower_bound_index
-
-    def _one_day_setup_geometery_mpi(self, day_number):
-        """
-        Run the geometry precalculation with mpi support. Only use this funtion if you have MPI
-        and are running this on several cores.
-        """
-
-        assert using_mpi, 'You need MPI to use this function, please use _setup_geometery_no_mpi if you do not have MPI'
-
-        # Create the PositionInterpolator object with the infos from the poshist file
-        position_interpolator = PositionInterpolator(poshist=self._pos_hist[day_number])
-
-        # Init all lists
-        sun_angle = []
-        sun_positions = []
-        time = []
-        earth_az = []  # azimuth angle of earth in sat. frame
-        earth_zen = []  # zenith angle of earth in sat. frame
-        earth_position = []  # earth pos in icrs frame (skycoord)
-
-        # Additionally save the quaternion and the sc_pos of every time step. Needed for PS later.
-        quaternion = []
-        sc_pos = []
-
-        # Get the times for which the geometry should be calculated for this day (Build a mask that masks all time bins
-        # outside the start and stop day of this time bin
-
-        masksmaller = self._list_times_to_calculate >= self._day_start_times[day_number]
-        masklarger = self._list_times_to_calculate <= self._day_stop_times[day_number]
-
-        masktot = masksmaller * masklarger
-
-        list_times_to_calculate = self._list_times_to_calculate[masktot]
-
-        times_per_rank = float(len(list_times_to_calculate)) / float(size)
-        times_lower_bound_index = int(np.floor(rank * times_per_rank))
-        times_upper_bound_index = int(np.floor((rank + 1) * times_per_rank))
-
-        # Only rank==0 gives some output how much of the geometry is already calculated (progress_bar)
-        if rank == 0:
-            with progress_bar(len(list_times_to_calculate[times_lower_bound_index:times_upper_bound_index]),
-                              title='Calculating geomerty for day {}. This shows the progress of rank 0. '
-                                    'All other should be about the same.'.format(self._day_list[day_number])) as p:
-
-                # Calculate the geometry for all times associated with this rank 
-                for mean_time in list_times_to_calculate[times_lower_bound_index:times_upper_bound_index]:
-                    quaternion_step = position_interpolator.quaternion(mean_time)
-                    sc_pos_step = position_interpolator.sc_pos(mean_time)
-                    det = gbm_detector_list[self._det](quaternion=quaternion_step,
-                                                       sc_pos=sc_pos_step,
-                                                       time=astro_time.Time(position_interpolator.utc(mean_time)))
-
-                    sun_angle.append(det.sun_angle.value)
-                    sun_positions.append(det.sun_position)
-                    time.append(mean_time)
-                    az, zen = det.earth_az_zen_sat
-                    earth_az.append(az)
-                    earth_zen.append(zen)
-                    earth_position.append(det.earth_position)
-
-                    quaternion.append(quaternion_step)
-                    sc_pos.append(sc_pos_step)
-
-                    p.increase()
         else:
-            # Calculate the geometry for all times associated with this rank (for rank!=0).
-            # No output here.
-            for mean_time in list_times_to_calculate[times_lower_bound_index:times_upper_bound_index]:
-                quaternion_step = position_interpolator.quaternion(mean_time)
-                sc_pos_step = position_interpolator.sc_pos(mean_time)
-                det = gbm_detector_list[self._det](quaternion=quaternion_step,
-                                                   sc_pos=sc_pos_step,
-                                                   time=astro_time.Time(position_interpolator.utc(mean_time)))
 
-                sun_angle.append(det.sun_angle.value)
-                sun_positions.append(det.sun_position)
-                time.append(mean_time)
-                az, zen = det.earth_az_zen_sat
-                earth_az.append(az)
-                earth_zen.append(zen)
-                earth_position.append(det.earth_position)
+            # We are not in a notebook
+            return False
 
-                quaternion.append(quaternion_step)
-                sc_pos.append(sc_pos_step)
 
-        # make the list numpy arrays
-        sun_angle = np.array(sun_angle)
-        sun_positions = np.array(sun_positions)
-        time = np.array(time)
-        earth_az = np.array(earth_az)
-        earth_zen = np.array(earth_zen)
-        earth_position = np.array(earth_position)
+# This is used for testing purposes
 
-        quaternion = np.array(quaternion)
-        sc_pos = np.array(sc_pos)
+test_ascii_only = False
 
-        # gather all results in rank=0
-        sun_angle_gather = comm.gather(sun_angle, root=0)
-        time_gather = comm.gather(time, root=0)
-        sun_positions_gather = comm.gather(sun_positions, root=0)
-        earth_az_gather = comm.gather(earth_az, root=0)
-        earth_zen_gather = comm.gather(earth_zen, root=0)
-        earth_position_gather = comm.gather(earth_position, root=0)
+try:
 
-        quaternion_gather = comm.gather(quaternion, root=0)
-        sc_pos_gather = comm.gather(sc_pos, root=0)
+    from ipywidgets import FloatProgress, HTML, VBox
 
-        # make one list out of this
-        if rank == 0:
-            sun_angle_gather = np.concatenate(sun_angle_gather)
-            time_gather = np.concatenate(time_gather)
-            sun_positions_gather = np.concatenate(sun_positions_gather)
-            earth_az_gather = np.concatenate(earth_az_gather)
-            earth_zen_gather = np.concatenate(earth_zen_gather)
-            earth_position_gather = np.concatenate(earth_position_gather)
+except ImportError:
 
-            quaternion_gather = np.concatenate(quaternion_gather)
-            sc_pos_gather = np.concatenate(sc_pos_gather)
+    has_widgets = False
 
-        # broadcast the final arrays again to all ranks
-        sun_angle = comm.bcast(sun_angle_gather, root=0)
-        time = comm.bcast(time_gather, root=0)
-        sun_positions = comm.bcast(sun_positions_gather, root=0)
-        earth_az = comm.bcast(earth_az_gather, root=0)
-        earth_zen = comm.bcast(earth_zen_gather, root=0)
-        earth_position = comm.bcast(earth_position_gather, root=0)
+else:
 
-        quaternion = comm.bcast(quaternion_gather, root=0)
-        sc_pos = comm.bcast(sc_pos_gather, root=0)
+    if test_ascii_only:
 
-        # Return everything
+        has_widgets = False
 
-        return sun_angle, sun_positions, time, earth_az, earth_zen, earth_position, quaternion, sc_pos, times_lower_bound_index, \
-               times_upper_bound_index
+    else:
 
-    def _one_day_setup_geometery_no_mpi(self, day_number):
-        """
-        Run the geometry precalculation with mpi support. Only use this funtion if you do not use MPI
-        """
-        assert not using_mpi, 'This function is only available if you are not using mpi!'
+        has_widgets = True
 
-        # Create the PositionInterpolator object with the infos from the poshist file
-        position_interpolator = PositionInterpolator(poshist=self._pos_hist[day_number])
 
-        # Get the times for which the geometry should be calculated for this day (Build a mask that masks all time bins
-        # outside the start and stop day of this time bin
 
-        masksmaller = self._list_times_to_calculate >= self._day_start_times[day_number]
-        masklarger = self._list_times_to_calculate <= self._day_stop_times[day_number]
 
-        masktot = masksmaller * masklarger
-        list_times_to_calculate = self._list_times_to_calculate[masktot]
+def fallback_display(x):
 
-        # Init all lists
-        sun_angle = []
-        sun_positions = []
-        time = []
-        earth_az = []  # azimuth angle of earth in sat. frame
-        earth_zen = []  # zenith angle of earth in sat. frame
-        earth_position = []  # earth pos in icrs frame (skycoord)
+    print(x)
 
-        # Additionally save the quaternion and the sc_pos of every time step. Needed for PS later.
-        quaternion = []
-        sc_pos = []
+try:
 
-        # Give some output how much of the geometry is already calculated (progress_bar)
-        with progress_bar(len(list_times_to_calculate), title='Calculating sun and earth position') as p:
-            # Calculate the geometry for all times
-            for mean_time in list_times_to_calculate:
-                quaternion_step = position_interpolator.quaternion(mean_time)
-                sc_pos_step = position_interpolator.sc_pos(mean_time)
-                det = gbm_detector_list[self._det](quaternion=quaternion_step,
-                                                   sc_pos=sc_pos_step,
-                                                   time=astro_time.Time(position_interpolator.utc(mean_time)))
+    from IPython.display import display
 
-                sun_angle.append(det.sun_angle.value)
-                sun_positions.append(det.sun_position)
-                time.append(mean_time)
-                az, zen = det.earth_az_zen_sat
-                earth_az.append(az)
-                earth_zen.append(zen)
-                earth_position.append(det.earth_position)
+except ImportError:
 
-                quaternion.append(quaternion_step)
-                sc_pos.append(sc_pos_step)
+    display = fallback_display
 
-                p.increase()
 
-        # Make the list numpy arrays
-        sun_angle = np.array(sun_angle)
-        time = np.array(time)
-        sun_positions = np.array(sun_positions)
-        earth_az = np.array(earth_az)
-        earth_zen = np.array(earth_zen)
-        earth_position = np.array(earth_position)
 
-        quaternion = np.array(quaternion)
-        sc_pos = np.array(sc_pos)
+from contextlib import contextmanager
 
-        # Return everything
 
-        return sun_angle, sun_positions, time, earth_az, earth_zen, earth_position, quaternion, sc_pos
+class CannotGenerateHTMLBar(RuntimeError):
+    pass
 
-    def _add_start_stop(self, timelist, start_add, stop_add):
-        """
-        Function that adds the times in start_add and stop_add to timelist if they are not already in the list
-        :param timelist: list of times
-        :param start_add: start of all days
-        :param stop_add: stop of all days
-        :return: timelist with start_add and stop_add times added
-        """
-        for start in start_add:
-            if start not in timelist:
-                timelist = np.append(timelist, start)
-        for stop in stop_add:
-            if stop not in timelist:
-                timelist = np.append(timelist, stop)
-        timelist.sort()
-        return timelist
+
+@contextmanager
+def progress_bar(iterations, width=None, scale=1, units='', title=None):
+    """
+    Use as a context manager to display a progress bar which adapts itself to the environment. It will be a widget
+    in jupyter or a text progress bar in a terminal (but you don't have to worry about it)
+    :param iterations: number of iterations for completion of the task
+    :param width: width of the progress bar (default: None, which means self-decided)
+    :param scale: display the progress scaled for this number (useful to display downloads for example) (default: 1)
+    :param units: a unit to display after the progress (default: '')
+    :param title: a title for the task, which will be displayed before the progress bar (default: None, i.e., no title)
+    :return: a ProgressBarAscii or a ProgressBarHTML instance, depending on the environment (jupyter or terminal)
+    """
+
+    # Instance progress bar
+
+    if has_widgets and is_inside_notebook():
+
+        try:
+
+            if width is None:
+
+                bar_width = 50
+
+            else:
+
+                bar_width = int(width)
+
+                # Default is the HTML bar, which only works within a notebook
+
+            this_progress_bar = ProgressBarHTML(iterations, bar_width, scale=scale, units=units, title=title)
+
+        except:
+
+            # Fall back to Ascii progress bar
+
+            if width is None:
+
+                bar_width = 30
+
+            else:
+
+                bar_width = int(width)
+
+            # Running in a terminal. Fall back to the ascii bar
+
+            this_progress_bar = ProgressBarAscii(iterations, bar_width, scale=scale, units=units, title=title)
+
+    else:
+
+        if width is None:
+
+            bar_width = 30
+
+        else:
+
+            bar_width = int(width)
+
+        # No widgets available, fall back to ascii bar
+
+        this_progress_bar = ProgressBarAscii(iterations, bar_width, scale=scale, units=units, title=title)
+
+    yield this_progress_bar  # type: ProgressBarBase
+
+    this_progress_bar.finish()
+
+
+@contextmanager
+def multiple_progress_bars(iterations, n, width=None, force_html=False):
+    # Instance n identical progress bars
+
+    if has_widgets and is_inside_notebook():
+
+        if width is None:
+            width = 50
+
+        try:
+
+            # Default is the HTML bar, which only works within a notebook
+
+            this_progress_bars = [ProgressBarHTML(iterations, width) for i in range(n)]
+
+        except:
+
+            if force_html:
+                raise CannotGenerateHTMLBar("force_html was set to True, but I couldn't generate an HTML bar")
+
+            # Running in a terminal. Fall back to the ascii bar
+
+            this_progress_bars = [ProgressBarAscii(iterations, width) for i in range(n)]
+
+    else:
+
+        if width is None:
+            width = 30
+
+        if force_html:
+            raise CannotGenerateHTMLBar("force_html was set to True, but I couldn't generate an HTML bar")
+
+        # No widgets, use Ascii bars
+
+        this_progress_bars = [ProgressBarAscii(iterations, width) for i in range(n)]
+
+    yield this_progress_bars
+
+    for this_progress_bar in this_progress_bars:
+        this_progress_bar.finish()
+
+
+class ProgressBarBase(object):
+    def __init__(self, iterations, width, scale=1, units='', title=None):
+
+        # Store the number of iterations
+
+        self._iterations = int(iterations)
+
+        # Store the width (in characters)
+
+        self._width = width
+
+        # Get the start time
+
+        self._start_time = time.time()
+
+        # Current iteration is zero
+        self._last_iteration = 0
+
+        # last printed percent
+        self._last_printed_percent = 0
+
+        # Store the scale
+        self._scale = float(scale)
+
+        # store the units
+        self._units = units
+
+        # Store the title
+        self._title = title
+
+        # Setup
+
+        self._setup()
+
+    def _setup(self):
+
+        raise NotImplementedError("Need to override this")
+
+    def animate(self, iteration):
+
+        # We only update the progress bar if the progress has gone backward,
+        # or if the progress has increased by at least 1%. This is to avoid
+        # updating it too much, which would fill log files in text mode,
+        # or slow down the computation in HTML mode
+
+        this_percent = iteration / float(self._iterations) * 100.0
+
+        if this_percent - self._last_printed_percent < 0 or (this_percent - self._last_printed_percent) >= 1:
+
+            self._last_iteration = self._animate(iteration)
+
+            self._last_printed_percent = this_percent
+
+        else:
+
+            self._last_iteration = iteration
+
+    def _animate(self, iteration):
+
+        raise NotImplementedError("Need to override this")
+
+    def increase(self, n_steps=1):
+
+        self.animate(self._last_iteration + n_steps)
+
+    def finish(self):
+
+        self._animate(self._iterations)
+
+    def _check_remaining_time(self, current_iteration, delta_t):
+
+        if current_iteration == 0:
+            return '--:--'
+
+        # Seconds per iterations
+        s_per_iter = delta_t / float(current_iteration)
+
+        # Seconds to go (estimate)
+        s_to_go = s_per_iter * (self._iterations - current_iteration)
+
+        # I cast to int so it won't show decimal seconds
+
+        return str(datetime.timedelta(seconds=int(s_to_go)))
+
+    def _get_label(self, current_iteration):
+
+        delta_t = time.time() - self._start_time
+
+        elapsed_iter = min(current_iteration, self._iterations)
+
+        if self._scale != 1:
+
+            label_text = '%.2f / %.2f %s in %.1f s (%s remaining)' % (elapsed_iter / self._scale,
+                                                                      self._iterations / self._scale, self._units,
+                                                                      delta_t,
+                                                                      self._check_remaining_time(current_iteration,
+                                                                                                 delta_t))
+
+        else:
+
+            label_text = '%d / %s %s in %.1f s (%s remaining)' % (elapsed_iter, self._iterations, self._units, delta_t,
+                                                                  self._check_remaining_time(current_iteration,
+                                                                                             delta_t))
+
+        return label_text
+
+
+class ProgressBarHTML(ProgressBarBase):
+    def __init__(self, iterations, width, scale=1, units='', title=None):
+        super(ProgressBarHTML, self).__init__(iterations, width, scale, units=units, title=title)
+
+    def _setup(self):
+        # Setup the widget, which is a bar between 0 and 100
+
+        self._bar = FloatProgress(min=0, max=100)
+
+        # Set explicitly the bar to 0
+
+        self._bar.value = 0
+
+        # Setup also an HTML label (which will contain the progress, the elapsed time and the foreseen
+        # completion time)
+
+        self._title_cell = HTML()
+
+        if self._title is not None:
+            self._title_cell.value = "%s : " % self._title
+
+        self._label = HTML()
+        self._vbox = VBox(children=[self._title_cell, self._label, self._bar])
+
+        # Display everything
+
+        display(self._vbox)
+
+        self._animate(0)
+
+    def _animate(self, iteration):
+        current_label = self._get_label(iteration)
+
+        self._bar.value = float(iteration) / float(self._iterations) * 100
+
+        self._label.value = current_label
+
+        return iteration
+
+
+class ProgressBarAscii(ProgressBarBase):
+    def __init__(self, iterations, width, scale=1, units='', title=None):
+        super(ProgressBarAscii, self).__init__(iterations, width, scale, units, title=title)
+
+    def _setup(self):
+        self._fill_char = '*'
+
+        # Display the title
+        print("%s :\n" % self._title)
+
+        # Display an empty bar
+        self._animate(0)
+
+    def _animate(self, current_iteration):
+        current_bar = self._generate_bar(current_iteration)
+        current_label = self._get_label(current_iteration)
+
+        print('\r%s  %s' % (current_bar, current_label), end='')
+        sys.stdout.flush()
+
+        return current_iteration
+
+    def finish(self):
+        super(ProgressBarAscii, self).finish()
+
+        sys.stdout.write("\n")
+
+    def _generate_bar(self, current_iteration):
+        # Compute the percentage completed
+
+        elapsed_iter = min(current_iteration, self._iterations)
+
+        new_amount = (elapsed_iter / float(self._iterations)) * 100.0
+
+        percent_done = min(int(round((new_amount / 100.0) * 100.0)), 100)
+
+        # Generate the bar
+
+        all_full = self._width - 2
+
+        num_hashes = int(round((percent_done / 100.0) * all_full))
+
+        bar = '[' + self._fill_char * num_hashes + ' ' * (all_full - num_hashes) + ']'
+
+        # Now place the completed percentage in the middle of the bar
+
+        pct_place = (len(bar) // 2) - len(str(percent_done))
+        pct_string = '%d%%' % percent_done
+
+        bar = bar[0:pct_place] + (pct_string + bar[pct_place + len(pct_string):])
+
+        return bar
+
+
+class ProgressBarOld(object):
+    def __init__(self, iterations):
+
+        self.iterations = iterations
+        self.prog_bar = '[]'
+        self.fill_char = '*'
+        self.width = 50
+        self.startTime = time.time()
+        self.lastIter = 0
+        self.__update_amount(0)
+        self._last_percent = None
+
+    def animate(self, iter):
+
+        try:
+
+            self.lastIter = iter
+            self.update_iteration(iter + 1)
+
+        except:
+            # Do not crash in any case. This isn't an important operation
+            pass
+
+    def increase(self):
+
+        self.animate(self.lastIter + 1)
+
+    def _check_remaining_time(self, delta_t):
+
+        # Seconds per iterations
+        s_per_iter = delta_t / float(self.lastIter)
+
+        # Seconds to go (estimate)
+        s_to_go = s_per_iter * (self.iterations - self.lastIter)
+
+        # I cast to int so it won't show decimal seconds
+
+        return str(datetime.timedelta(seconds=int(s_to_go)))
+
+    def update_iteration(self, elapsed_iter):
+
+        delta_t = time.time() - self.startTime
+
+        elapsed_iter = min(elapsed_iter, self.iterations)
+
+        if elapsed_iter < self.iterations:
+
+            new_amount = (elapsed_iter / float(self.iterations)) * 100.0
+
+            percent_done = min(int(round((new_amount / 100.0) * 100.0)), 100)
+
+            if self._last_percent is None or percent_done > self._last_percent:
+                self.__update_amount(percent_done)
+
+                self.prog_bar += '  %d / %s in %.1f s' % (elapsed_iter, self.iterations, delta_t)
+                self.prog_bar += ' (%s remaining)' % self._check_remaining_time(delta_t)
+
+                self._last_percent = percent_done
+
+                print('\r', self, end='')
+                sys.stdout.flush()
+
+        else:
+
+            self.__update_amount(100)
+            self.prog_bar += '  completed in %.1f s' % (time.time() - self.startTime)
+
+    def __update_amount(self, percent_done):
+
+        all_full = self.width - 2
+        num_hashes = int(round((percent_done / 100.0) * all_full))
+        self.prog_bar = '[' + self.fill_char * num_hashes + ' ' * (all_full - num_hashes) + ']'
+        pct_place = (len(self.prog_bar) // 2) - len(str(percent_done))
+        pct_string = '%d%%' % percent_done
+        self.prog_bar = self.prog_bar[0:pct_place] + \
+                        (pct_string + self.prog_bar[pct_place + len(pct_string):])
+
+    def __str__(self):
+        return str(self.prog_bar)
