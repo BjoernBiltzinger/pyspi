@@ -91,7 +91,7 @@ class SPIResponse(object):
 
         if not np.array_equal(ebounds, self._ebounds):
             
-            print('You have changed the energy boundaries for the binned effective_area calculation!')
+            print('You have changed the energy boundaries for the binned effective_area calculation in the further calculations!')
             self._ene_min = ebounds[:-1]
             self._ene_max = ebounds[1:]
             self._ebounds = ebounds
@@ -108,13 +108,18 @@ class SPIResponse(object):
 
         # get the x,y position on the grid
         x, y = self.get_xy_pos(azimuth, zenith)
-
+        
         # compute the weights between the grids
         wgt, xx, yy = self._get_irf_weights(x, y)
 
-        # select these points on the grid and weight them together
-        weighted_irf = self._irfs[..., xx, yy].dot(wgt)
 
+        # If outside of the response pattern set response to zero
+        try:
+            # select these points on the grid and weight them together
+            weighted_irf = self._irfs[..., xx, yy].dot(wgt)
+        except IndexError:
+            weighted_irf = np.zeros_like(self._irfs[...,20,20])
+            
         return weighted_irf
 
 
@@ -185,10 +190,55 @@ class SPIResponse(object):
             
             binned_effective_area_per_detector.append(effective_area)
 
+        self._binned_effective_area_per_detector = binned_effective_area_per_detector
         return np.array(binned_effective_area_per_detector)
     
+    def get_binned_effective_area_det(self, azimuth, zenith, det, ebounds=None, gamma=None):
+        """FIXME! briefly describe function
 
+        :param azimuth: 
+        :param zenith: 
+        :param ebounds: 
+        :returns: 
+        :rtype: 
+
+        """
+
+        interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
+
+        if ebounds is not None:
+            self.set_binned_data_energy_bounds(ebounds)
+
+                            
+        n_energy_bins = len(self._ebounds) - 1
+        
+        effective_area = np.zeros(n_energy_bins)
+
+        for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
+
+            if gamma is not None:
+                integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
+
+            else:
+
+                integrand = lambda x: interpolated_effective_area[det](x)
+
+            # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
+            effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
+
+            
+        return effective_area
+
+    def set_location(self, azimuth, zenith, det):
+        azimuth = np.deg2rad(azimuth)
+        zenith = np.deg2rad(zenith)
+        self._matrix = np.diag(self.get_binned_effective_area_det(azimuth, zenith, det))
+        return self._matrix
     
+    @property
+    def matrix(self):
+        return self._matrix
+
     def _get_irf_weights(self, x_pos, y_pos):
         """FIXME! briefly describe function
 
@@ -380,6 +430,9 @@ class SPIResponse(object):
     @property
     def ene_max(self):
         return self._ene_max
+
+    def binned_effective_area_detector(self, det_number):
+        return self._binned_effective_area_per_detector[det_number]
     
     @property
     def rod(self):
