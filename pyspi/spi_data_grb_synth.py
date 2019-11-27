@@ -86,6 +86,7 @@ class SpiData_synthGRB(object):
                 wgt_time = np.append(wgt_time, ((self.time_bins_start[i])/(t_GRB/3.))**(4./5.))
             else:
                 wgt_time = np.append(wgt_time, ((t_GRB/3.)/(self.time_bins_start[i]))**(4./5.))
+        wgt_time = np.ones_like(wgt_time)
         for d in self.energy_and_time_bin_sgl_dict.keys():
             for i in index_range:
                 self.energy_and_time_bin_sgl_dict[d][i] +=  np.random.poisson(counts_rates_max[d]*wgt_time[i-index_range[0]])
