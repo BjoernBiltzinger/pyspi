@@ -90,7 +90,7 @@ class SPILike_test(DispersionSpectrumLike):
             ra, dec = self._like_model.get_point_source_position(0)
  
             self._rsp.set_location(ra, dec)
-
+            
         return super(SPILike_test, self).get_model()
 
     @classmethod
