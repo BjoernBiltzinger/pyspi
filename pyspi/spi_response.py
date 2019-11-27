@@ -245,13 +245,13 @@ class SPIResponse(object):
         if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
 
-        effective_area = integrate.cumtrapz(interpolated_effective_area(self.ebounds), self.ebounds)                   
+        #effective_area = integrate.cumtrapz(interpolated_effective_area(self.ebounds), self.ebounds)                   
         #n_energy_bins = len(self._ebounds) - 1
         
         #effective_area = np.zeros(n_energy_bins)
 
-        #for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
-        """
+        for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
+            """
             if gamma is not None:
                 integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
 
@@ -262,7 +262,7 @@ class SPIResponse(object):
             # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
             effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
             """
-        #    effective_area[i] = integrate.trapz([interpolated_effective_area(lo),interpolated_effective_area(hi)], [lo,hi])/(hi-lo)
+            effective_area[i] = integrate.trapz([interpolated_effective_area(lo),interpolated_effective_area(hi)], [lo,hi])/(hi-lo)
         
         return effective_area
 
