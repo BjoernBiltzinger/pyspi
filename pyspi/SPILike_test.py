@@ -10,7 +10,9 @@ class SPILike_test(DispersionSpectrumLike):
                  background=None,
                  det=0,
                  free_position=True,
-                 verbose=True):
+                 verbose=True,
+                 ra_start=5.,
+                 dec_start=5.):
         """
         BALROGLike is a general plugin for fitting GBM spectra and locations at the same time
 
@@ -27,7 +29,7 @@ class SPILike_test(DispersionSpectrumLike):
         self._free_position = free_position
 
         self._det = det
-        spi_drm =  SPI_DRM(drm_generator,0.2,0.2, det=det)
+        spi_drm =  SPI_DRM(drm_generator, ra_start, dec_start, det=det)
 
         observation._rsp = spi_drm
         
@@ -94,7 +96,7 @@ class SPILike_test(DispersionSpectrumLike):
         return super(SPILike_test, self).get_model()
 
     @classmethod
-    def from_spectrumlike(cls, spectrum_like, det=0, drm_generator=None,free_position=True):
+    def from_spectrumlike(cls, spectrum_like, det=0, drm_generator=None,free_position=True, ra_start=5., dec_start=5.):
         """
         Generate a BALROGlike from an existing SpectrumLike child
         
@@ -108,4 +110,4 @@ class SPILike_test(DispersionSpectrumLike):
 
         return cls(spectrum_like.name, spectrum_like._observed_spectrum,drm_generator,
                    spectrum_like._background_spectrum, det, free_position,
-                   spectrum_like._verbose)
+                   spectrum_like._verbose, ra_start, dec_start)
