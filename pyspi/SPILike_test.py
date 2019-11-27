@@ -30,7 +30,8 @@ class SPILike_test(DispersionSpectrumLike):
 
         self._det = det
         spi_drm =  SPI_DRM(drm_generator, ra_start, dec_start, det=det)
-
+        self._ra_s = ra_start
+        self._dec_s = dec_start
         observation._rsp = spi_drm
         
 
@@ -67,17 +68,14 @@ class SPILike_test(DispersionSpectrumLike):
                 self._like_model.point_sources[key].position.ra.free = True
                 self._like_model.point_sources[key].position.dec.free = True
 
-        self._like_model.point_sources[
-            key].position.ra.prior = Uniform_prior(
-            lower_bound=0., upper_bound=40)
-        self._like_model.point_sources[
-            key].position.dec.prior = Cosine_Prior(
-            lower_bound=-20., upper_bound=20)
+                self._like_model.point_sources[
+                    key].position.ra.prior = Uniform_prior(
+                    lower_bound=0., upper_bound=40)
+                self._like_model.point_sources[
+                    key].position.dec.prior = Cosine_Prior(
+                    lower_bound=-20., upper_bound=20)
 
-        ra = self._like_model.point_sources[key].position.ra.value
-        dec = self._like_model.point_sources[key].position.dec.value
-
-        self._rsp.set_location(ra, dec)
+        self._rsp.set_location(self._ra_s, self._dec_s)
 
     def get_model(self):
 
