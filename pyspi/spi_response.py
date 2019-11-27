@@ -246,9 +246,9 @@ class SPIResponse(object):
             self.set_binned_data_energy_bounds(ebounds)
 
         #effective_area = integrate.cumtrapz(interpolated_effective_area(self.ebounds), self.ebounds)                   
-        #n_energy_bins = len(self._ebounds) - 1
+        n_energy_bins = len(self._ebounds) - 1
         
-        #effective_area = np.zeros(n_energy_bins)
+        effective_area = np.zeros(n_energy_bins)
 
         for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
             """
