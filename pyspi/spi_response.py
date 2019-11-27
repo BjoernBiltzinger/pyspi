@@ -228,11 +228,51 @@ class SPIResponse(object):
 
             
         return effective_area
+    
+    def get_binned_effective_area_det_trapz(self, azimuth, zenith, det, ebounds=None, gamma=None):
+        """FIXME! briefly describe function
 
-    def set_location(self, azimuth, zenith, det):
+        :param azimuth: 
+        :param zenith: 
+        :param ebounds: 
+        :returns: 
+        :rtype: 
+
+        """
+
+        interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)[det]
+        
+        if ebounds is not None:
+            self.set_binned_data_energy_bounds(ebounds)
+
+        effective_area = integrate.cumtrapz(interpolated_effective_area(self.ebounds), self.ebounds)                   
+        #n_energy_bins = len(self._ebounds) - 1
+        
+        #effective_area = np.zeros(n_energy_bins)
+
+        #for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
+        """
+            if gamma is not None:
+                integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
+
+            else:
+
+                integrand = lambda x: interpolated_effective_area[det](x)
+
+            # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
+            effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
+            """
+        #    effective_area[i] = integrate.trapz([interpolated_effective_area(lo),interpolated_effective_area(hi)], [lo,hi])/(hi-lo)
+        
+        return effective_area
+
+    def set_location(self, azimuth, zenith, det, trapz=True):
         azimuth = np.deg2rad(azimuth)
         zenith = np.deg2rad(zenith)
-        self._matrix = np.diag(self.get_binned_effective_area_det(azimuth, zenith, det))
+        if trapz:
+            self._matrix = np.diag(self.get_binned_effective_area_det_trapz(azimuth, zenith, det))
+        else:
+            self._matrix = np.diag(self.get_binned_effective_area_det(azimuth, zenith, det))
         return self._matrix
     
     @property
