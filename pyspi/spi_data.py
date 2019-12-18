@@ -47,18 +47,25 @@ class SpiData_GRB(object):
             self._ene_min = ebounds[:-1]
             self._ene_max = ebounds[1:]
         else:
-            self._ebounds = None
-            self._ene_min = None
-            self._ene_max = None
+            # Default energy bins
+            self._ebounds = np.logspace(20,8000,30)
+            self._ene_min = self._ebounds[:-1]
+            self._ene_max = self._ebounds[1:]
 
-    def time_and_energy_bin_sgl(self, ebounds=None, time_bin_step=1):
+    def time_and_energy_bin_sgl(self, ebounds=None, time_bin_step=1, start=None, stop=None):
         """
         Function that bins the sgl data in energy and time space to use defined bins
         :param ebounds: New ebinedges: ebounds[:-1] start of ebins, ebounds[1:] end of ebins
         :param time_bin_step: width of the time bins
         """
         self.energy_bin_sgl_data(ebounds)
-        self.time_bin_sgl(time_bin_step)
+
+        if start==None or start<self._time_start:
+            start = self._time_start
+        if stop==None or stop>self._time_stop:
+            stop = self._time_stop
+            
+        self.time_bin_sgl(time_bin_step, start, stop)
         
 
     def set_binned_data_energy_bounds(self, ebounds):
@@ -343,26 +350,30 @@ class SpiData_GRB(object):
 
         self._energy_bin_me3_dict = energy_bin_me3_dict
 
-    def time_bin_sgl(self, time_bin_step):
+    def time_bin_sgl(self, time_bin_step, start, stop):
         """
         Bin the already binned in energy data in time bins with constant width
         :param time_bin_step: Width of the time bins
         :return:
         """
-
-        self._time_bins= np.arange(self._time_start, self._time_stop, time_bin_step)[5:-5]
-        self._time_bins_start = self._time_bins[:-1]
-        self._time_bins_stop = self._time_bins[1:]
+        
+        self._time_bins = np.array([np.arange(start, stop, time_bin_step)[:-1],
+                                    np.arange(start, stop, time_bin_step)[1:]]).T
+        self._time_bins_start = self._time_bins[:,0]
+        self._time_bins_stop = self._time_bins[:, 1]
         self._time_bin_length = self._time_bins_stop-self._time_bins_start
 
         energy_and_time_bin_sgl_dict = {}
         
         for d in self.energy_bin_sgl_dict.keys():
             counts_time_energy_binned = np.zeros((len(self._time_bins_start), len(self.ene_min)))
+            
             for nb in range(len(self.ene_min)):
                 times_energy_bin_events = self.time_sgl_dict[d][self.energy_bin_sgl_dict[d]==nb]
+                
                 for i in range(len(self._time_bins_start)):
                     counts_time_energy_binned[i,nb] = len(times_energy_bin_events[np.logical_and(times_energy_bin_events>=self._time_bins_start[i], times_energy_bin_events<self._time_bins_stop[i])])
+                    
             energy_and_time_bin_sgl_dict[d] = counts_time_energy_binned
 
         self._energy_and_time_bin_sgl_dict = energy_and_time_bin_sgl_dict
