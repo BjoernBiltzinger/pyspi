@@ -102,6 +102,11 @@ class SPIAnalysis(object):
         self._pointing_object = SPIPointing(self._data_object.geometry_file_path)
 
         self._frame_object = SPIFrame(**self._pointing_object.sc_points[0])
+
+        # get skycoord object of center ra and dec in icrs frame
+        pointing_sat = SkyCoord(lon=0, lat=0, unit='deg', frame=self._frame_object)
+
+        self._pointing_icrs = pointing_sat.transform_to('icrs')
         
     def _init_response(self):
         """
@@ -262,17 +267,28 @@ class SPIAnalysis(object):
         if point_source.position.ra.value != self._point_sources[name]['ra'] or point_source.position.dec.value != self._point_sources[name]['dec']:
             # ra and dec to sat coord
             icrscoord = SkyCoord(ra=point_source.position.ra.value, dec=point_source.position.dec.value, unit='deg', frame='icrs')
-            satcoord = icrscoord.transform_to(self._frame_object)
-            
-            ra_sat = satcoord.lon.deg
-            dec_sat = satcoord.lat.deg 
-        
-            # Calculate responses for all dets
-            response = {}
-            if 'single' in self._event_types:
-                for d in self._sgl_dets:
-                    response[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
-                
+
+            sep = icrscoord.separation(self._pointing_icrs).deg
+
+            if sep<45:
+                satcoord = icrscoord.transform_to(self._frame_object)
+
+                ra_sat = satcoord.lon.deg
+                dec_sat = satcoord.lat.deg 
+
+                # Calculate responses for all dets
+                response = {}
+                if 'single' in self._event_types:
+                    for d in self._sgl_dets:
+                        response[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+
+            # When sep>45 it is outside of FOV -> set responses to zero - TODO: use good prior to
+            # avoid this
+            else:
+                response = {}
+                if 'single' in self._event_types:
+                    for d in self._sgl_dets:
+                        response[d] = np.zeros_like(self._ebounds[:-1])
         else:
             response = self._point_sources[name]['response']
 
@@ -469,14 +485,16 @@ class SPIAnalysis(object):
             # poisson noise
             model_rates = np.random.poisson(model_rates)
 
-            # Init figure
-            fig, axes = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(8.27, 11.69))
-            
             # Fitted GRB count spectrum ppc versus count space data of all dets
             if 'single' in self._event_types:
+
+                # Init figure
+                fig, axes = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(8.27, 11.69))
+                
                 index = 0
+                red_indices = []
                 # Loop over all possible single dets
-                for d in range(19):
+                for j in range(19):
                     # If this single det was used plot the fit vs.data
                     if d in self._sgl_dets:
 
@@ -492,7 +510,7 @@ class SPIAnalysis(object):
                         model_rates_det = model_rates[:,index,:]+bkg_rate #? Where bkg?
 
                         # Plot number of this det
-                        plot_number = 19/d
+                        plot_number = (j*4)/19
 
                         q_levels = [0.68,0.95]
                         colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
@@ -501,7 +519,7 @@ class SPIAnalysis(object):
                         for i,level in enumerate(q_levels):
                             low = np.percentile(model_rates_det, 50-50*level, axis=0)[0]
                             high = np.percentile(model_rates_det, 50+50*level, axis=0)[0]
-                            axes[plot_number].fill_between(self._ebounds,
+                            axes[plot_number+1].fill_between(self._ebounds,
                                                            low,
                                                            high,
                                                            color=colors[i],
@@ -509,7 +527,7 @@ class SPIAnalysis(object):
                                                            zorder=i+1,
                                                            step='post')
                         
-                        axes[plot_number].step(self._ebounds,
+                        axes[plot_number+1].step(self._ebounds,
                                                active_data,
                                                where='post',
                                                color='black',
@@ -519,9 +537,16 @@ class SPIAnalysis(object):
                     # If det not used only plot legend entry with remark "not used or defect"
                     else:
                         # Plot number of this det
-                        plot_number = 19/d
-                        
-                        axes[plot_number].plot(None, None, label='\textcolor{red}{Detector{} - not used}'.format(d))
-                        
+                        plot_number = (j*4)/19
+                        red_indices.append(j)
+                        axes[plot_number+1].plot([], [], ' ', label='Detector {} - not used'.format(d))
+
+                # Make legend and mark the not used dets red
+                for i, ax in enumerate(axes):
+                    l = ax.legend()
+                    for n in np.arange(5):
+                        if i*5+n<19:
+                            if i*5+n in red_indices:
+                                l.get_texts()[i*5+n+1].set_color("red")
         else:
             raise NotImplementedError('Only implemented for GRBs at the moment!')
