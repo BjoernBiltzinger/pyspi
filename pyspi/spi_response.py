@@ -29,7 +29,7 @@ class SPIResponse(object):
         """
         
         self._load_irfs()
-        if ebounds!=None:
+        if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
 
     def _load_irfs(self):
@@ -60,7 +60,7 @@ class SPIResponse(object):
         self._irf_ybin = irf_data.attrs['irf_ybin']
         self._irf_nx = irf_data.attrs['nx']
         self._irf_ny = irf_data.attrs['ny']
-
+        
         irf_database.close()
 
         self._n_dets = self._irfs.shape[1]
@@ -108,7 +108,7 @@ class SPIResponse(object):
 
         # get the x,y position on the grid
         x, y = self.get_xy_pos(azimuth, zenith)
-        
+
         # compute the weights between the grids
         wgt, xx, yy = self._get_irf_weights(x, y)
 
@@ -136,7 +136,7 @@ class SPIResponse(object):
         """
 
         weighted_irf = self.effective_area_per_detector(azimuth, zenith)
-        
+
         interpolated_irfs = []
         
         for det_number in range(self._n_dets):
@@ -269,10 +269,21 @@ class SPIResponse(object):
     def set_location(self, azimuth, zenith, det, trapz=True):
         azimuth = np.deg2rad(azimuth)
         zenith = np.deg2rad(zenith)
+        #if trapz:
+        #    self._matrix = np.diag(self.get_binned_effective_area_det_trapz(azimuth, zenith, det))
+        #else:
+        #    self._matrix = np.diag(self.get_binned_effective_area_det(azimuth, zenith, det))
         if trapz:
-            self._matrix = np.diag(self.get_binned_effective_area_det_trapz(azimuth, zenith, det))
+            # zenith<0 is for sure not in FOV -> other side of sky -> response=0
+            # TODO: Avoid this by using good prior that only allows sampling 50 degrees around
+            # Spi pointing direction
+            if zenith>0:
+                return self.get_binned_effective_area_det_trapz(azimuth, zenith, det)
+            else:
+                return np.zeros_like(self._ene_min)
         else:
-            self._matrix = np.diag(self.get_binned_effective_area_det(azimuth, zenith, det))
+            return self.get_binned_effective_area_det(azimuth, zenith, det)
+        
         return self._matrix
     
     @property
