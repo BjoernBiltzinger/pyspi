@@ -274,13 +274,7 @@ class SPIResponse(object):
         #else:
         #    self._matrix = np.diag(self.get_binned_effective_area_det(azimuth, zenith, det))
         if trapz:
-            # zenith<0 is for sure not in FOV -> other side of sky -> response=0
-            # TODO: Avoid this by using good prior that only allows sampling 50 degrees around
-            # Spi pointing direction
-            if zenith>0:
-                return self.get_binned_effective_area_det_trapz(azimuth, zenith, det)
-            else:
-                return np.zeros_like(self._ene_min)
+            return self.get_binned_effective_area_det_trapz(azimuth, zenith, det)
         else:
             return self.get_binned_effective_area_det(azimuth, zenith, det)
         
