@@ -521,7 +521,7 @@ class SPIAnalysis(object):
             model_counts = np.random.poisson(model_counts)
 
             # bkg
-            bkg_rates = 
+            bkg_rates = 1
 
             # Fitted GRB count spectrum ppc versus count space data of all dets
             if 'single' in self._event_types:
