@@ -431,12 +431,6 @@ class SPIAnalysis(object):
                 for v, d in enumerate(self._sgl_dets):
                     for i in range(len(self._expected_model_counts)):
 
-                        print(poisson_observed_gaussian_background(
-                            np.array([self._active_time_counts_energy_sgl_dict[d][i]]),
-                            np.array([self._bkg_active[d]['counts_active'][i]]),
-                            np.array([self._bkg_active[d]['error_active'][i]]),
-                            np.array([self._expected_model_counts[v][i]])))[0]
-                        
                         loglike += poisson_observed_gaussian_background(
                             np.array([self._active_time_counts_energy_sgl_dict[d][i]]),
                             np.array([self._bkg_active[d]['counts_active'][i]]),
