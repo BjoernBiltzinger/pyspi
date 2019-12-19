@@ -393,7 +393,7 @@ class SPIAnalysis(object):
                     for i, p in enumerate(np.asarray(polynomials)):
                         bkg_counts_active[i] = p.integral(self._real_start_active, self._real_stop_active)
                                                     
-                        bkg_error_active[i,j] = p.integral_error(self._real_start_active,
+                        bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                           self._real_stop_active) # Correct?
 
                     self._bkg[d] = {'error': bkg_counts, 'counts': bkg_error} 
@@ -430,11 +430,20 @@ class SPIAnalysis(object):
             if 'single' in self._event_types:
                 for v, d in enumerate(self._sgl_dets):
                     for i in range(len(self._expected_model_counts)):
+
+                        print(poisson_observed_gaussian_background(
+                            np.array([self._active_time_counts_energy_sgl_dict[d][i]]),
+                            np.array([self._bkg_active[d]['counts_active'][i]]),
+                            np.array([self._bkg_active[d]['error_active'][i]]),
+                            np.array([self._expected_model_counts[v][i]])))[0]
+                        
                         loglike += poisson_observed_gaussian_background(
-                            self._active_time_counts_energy_sgl_dict[d][i],
-                            self._bkg[d]['counts'][i],
-                            self._bkg[d]['error'][i],
-                            self._expected_model_counts[v][i])
+                            np.array([self._active_time_counts_energy_sgl_dict[d][i]]),
+                            np.array([self._bkg_active[d]['counts_active'][i]]),
+                            np.array([self._bkg_active[d]['error_active'][i]]),
+                            np.array([self._expected_model_counts[v][i]]))[0]
+
+
             return loglike
         else:
             raise NotImplementedError('Only GRB analysis at the moment!')
