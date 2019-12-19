@@ -158,16 +158,14 @@ class SPIAnalysis(object):
                 # Get time bins
                 self._active_time_bins = self._data_object.time_bins[self._active_time_mask]
                                 
-                self._energy_and_time_bin_sgl_dict_masked = {}
+                self._active_time_counts_energy_sgl_dict = {}
                 for d in self._data_object.energy_sgl_dict.keys():
-                    self._energy_and_time_bin_sgl_dict_masked[d] = self._data_object.energy_and_time_bin_sgl_dict[d][self._active_time_mask]
+                    self._active_time_counts_energy_sgl_dict[d] = np.sum(self._data_object.energy_and_time_bin_sgl_dict[d][self._active_time_mask], axis=0)
                 
             else:
                 raise NotImplementedError('Only single events implemented!')
             
             # Add other det types
-
-            #TODO: add energy and time binning
 
         
     def update_model(self, likelihood_model):
@@ -341,6 +339,7 @@ class SPIAnalysis(object):
             # Initalize the polynominal background fit to the time before and after the trigger time
             # to get the temporal changing Background
             self._bkg = {}
+            self._bkg_active = {}
             if 'single' in self._event_types:
                 
                 for d in self._sgl_dets:
@@ -358,7 +357,7 @@ class SPIAnalysis(object):
 
                     time_series = tsb.time_series
                     polynomials = time_series.polynomials
-                    
+                    """
                     bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins)))
                     bkg_error = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins))) 
                     
@@ -369,8 +368,32 @@ class SPIAnalysis(object):
                             
                             bkg_error[i,j] = p.integral_error(self._active_time_bins[j,0],
                                                               self._active_time_bins[j,1]) # Correct?
-                        
-                    self._bkg[d] = {'error': bkg_error, 'counts': bkg_counts}  
+                    
+                    """
+                    # General bkg counts and errors for time bins between self._bkg1_start and self._bkg2_stop
+                    bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins)))
+                    bkg_error = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins))) 
+                    
+                    for i, p in enumerate(np.asarray(polynomials)):
+                        bkg_counts[i] = p.integral(self._data_object.time_bins[:,0],
+                                                   self._data_object.time_bins[:,1])
+                        for j, (start, stop) in enumerate(self._data_object.time_bins):
+                            
+                            bkg_error[i,j] = p.integral_error(start,
+                                                              stop)
+
+                    
+                    # Get the bkg counts and errors in the active time
+                    bkg_counts_active = np.empty((len(np.asarray(polynomials))))
+                    bkg_error_active = np.empty((len(np.asarray(polynomials))))
+                    for i, p in enumerate(np.asarray(polynomials)):
+                        bkg_counts_active[i] = p.integral(self._active_start, self._active_stop)
+                                                    
+                        bkg_error_active[i,j] = p.integral_error(self._active_start,
+                                                          self._active_stop) # Correct?
+
+                    self._bkg[d] = {'error': bkg_counts, 'counts': bkg_error} 
+                    self._bkg_active[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
         else:
             raise NotImplementedError('Only GRB analysis implemented at the moment!')
 
@@ -403,12 +426,11 @@ class SPIAnalysis(object):
             if 'single' in self._event_types:
                 for v, d in enumerate(self._sgl_dets):
                     for i in range(len(self._expected_model_counts)):
-                        loglike += np.sum(poisson_observed_gaussian_background(
-                            self._energy_and_time_bin_sgl_dict_masked[d][:,i],
+                        loglike += poisson_observed_gaussian_background(
+                            self._active_time_counts_energy_sgl_dict[d][i],
                             self._bkg[d]['counts'][i],
                             self._bkg[d]['error'][i],
-                            self._expected_model_counts[v][i]
-                            *np.ones_like(self._active_time_bins[:,0]))[0])
+                            self._expected_model_counts[v][i])
             return loglike
         else:
             raise NotImplementedError('Only GRB analysis at the moment!')
@@ -454,10 +476,17 @@ class SPIAnalysis(object):
         
         return fig
 
-    def plot_fit_data(self, fit_file, likelihood_model):
+    def _loadtxt2d(self, intext):
+        try:
+            return np.loadtxt(intext, ndmin=2)
+        except:
+            return np.loadtxt(intext)
+
+    
+    def plot_fit_data(self, post_equal_weights_file, likelihood_model):
         """
         Plot the data and the fit result in one plot
-        :param fit_file: file with posterior samples - for example from multinest
+        :param post_equal_weights_file: file with post_equal_weights parameter samples - for example from multinest
         :return: fig
         """
 
@@ -466,24 +495,29 @@ class SPIAnalysis(object):
 
             # PPC fit count spectrum
             
-            sample_parameters = abads
+            sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
 
             # get counts for all sample parameters and the likelihood_model
             n_ppc = 300
 
-            mask = np.zeros(len(analyzer.get_equal_weighted_posterior()[:,:-1]), dtype=int)
+            mask = np.zeros(len(sample_parameters), dtype=int)
             mask[:n_ppc] = 1
             np.random.shuffle(mask)
             mask = mask.astype(bool)
 
+            masked_parameter_samples = sample_parameters[mask]
+
             # mask the sample parameter values
-            model_rates = np.empty((300, len(self._sgl_dets), len(self._ebounds)-1))
+            model_counts = np.empty((300, len(self._sgl_dets), len(self._ebounds)-1))
             for i in range(n_ppc):
-                likelihood_model.set_model()
-                model_rates[i] = self._get_model_counts(likelihood_model)
+                likelihood_model.set_free_parameters(masked_parameter_samples[i])
+                model_counts[i] = self._get_model_counts(likelihood_model)
 
             # poisson noise
-            model_rates = np.random.poisson(model_rates)
+            model_counts = np.random.poisson(model_counts)
+
+            # bkg
+            bkg_rates = 
 
             # Fitted GRB count spectrum ppc versus count space data of all dets
             if 'single' in self._event_types:
@@ -504,8 +538,6 @@ class SPIAnalysis(object):
                         bkg_rate = np.sum(self._bkg[d]['counts'])/total_active_time
                         # PPC fit count spectrum
                         
-                        sample_parameters = abads
-
                         # get counts for all sample parameters and the likelihood_model
                         model_rates_det = model_rates[:,index,:]+bkg_rate #? Where bkg?
 
