@@ -54,7 +54,7 @@ class SPIAnalysis(object):
         
     def _get_start_and_stop_times(self):
         """
-        Get the start and stop times of active time and bkg times
+        Get the input start and stop times of active time and bkg times
         :return:
         """
         # Get start and stop time of active time from 'start-stop' format
@@ -128,13 +128,13 @@ class SPIAnalysis(object):
         if self._analysis=='GRB':
             if not simmulate:
                 self._data_object = SpiData_GRB(self._time_of_grb, afs=True, ebounds=self._ebounds)
-
+                
                 # Bin the data in energy and time - dummy values for time bin step
                 # size and ebounds
                 self._data_object.time_and_energy_bin_sgl(time_bin_step=1,
                                                           start=self._bkg1_start-10,
                                                           stop=self._bkg2_stop+10)
-
+                
             else:
                 def GRB_spectrum(E):
                     return 0.01*np.power(float(E)/100., -2.)
@@ -145,7 +145,7 @@ class SPIAnalysis(object):
                                                      afs=True, ebounds=self._ebounds,
                                                      start=self._bkg1_start-10,
                                                      stop=self._bkg2_stop+10)
-
+                
             if 'single' in self._event_types:
                 self._sgl_dets = self._data_object.energy_sgl_dict.keys()
                 
@@ -161,7 +161,11 @@ class SPIAnalysis(object):
                 self._active_time_counts_energy_sgl_dict = {}
                 for d in self._data_object.energy_sgl_dict.keys():
                     self._active_time_counts_energy_sgl_dict[d] = np.sum(self._data_object.energy_and_time_bin_sgl_dict[d][self._active_time_mask], axis=0)
-                
+
+                self._real_start_active = self._active_time_bins[0,0]
+                self._real_stop_active = self._active_time_bins[-1,-1]
+
+                    
             else:
                 raise NotImplementedError('Only single events implemented!')
             
@@ -387,10 +391,10 @@ class SPIAnalysis(object):
                     bkg_counts_active = np.empty((len(np.asarray(polynomials))))
                     bkg_error_active = np.empty((len(np.asarray(polynomials))))
                     for i, p in enumerate(np.asarray(polynomials)):
-                        bkg_counts_active[i] = p.integral(self._active_start, self._active_stop)
+                        bkg_counts_active[i] = p.integral(self._real_start_active, self._real_stop_active)
                                                     
-                        bkg_error_active[i,j] = p.integral_error(self._active_start,
-                                                          self._active_stop) # Correct?
+                        bkg_error_active[i,j] = p.integral_error(self._real_start_active,
+                                                          self._real_stop_active) # Correct?
 
                     self._bkg[d] = {'error': bkg_counts, 'counts': bkg_error} 
                     self._bkg_active[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
