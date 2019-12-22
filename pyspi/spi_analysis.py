@@ -290,7 +290,7 @@ class SPIAnalysis(object):
                 response = {}
                 if 'single' in self._event_types:
                     for d in self._sgl_dets:
-                        response[d] = self._response_object.set_location(zenith, azimuth, d, trapz=True)
+                        response[d] = self._response_object.set_location(azimuth, zenith, d, trapz=True)
 
             # When sep>45 it is outside of FOV -> set responses to zero - TODO: use good prior to
             # avoid this
