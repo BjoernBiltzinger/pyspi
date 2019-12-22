@@ -272,17 +272,25 @@ class SPIAnalysis(object):
 
             sep = icrscoord.separation(self._pointing_icrs).deg
 
-            if sep<45:
+            if sep<180:
                 satcoord = icrscoord.transform_to(self._frame_object)
 
-                ra_sat = satcoord.lon.deg
-                dec_sat = satcoord.lat.deg 
+                #ra_sat = satcoord.lon.deg
+                #dec_sat = satcoord.lat.deg
 
+                #Try new#
+                ra_sat = satcoord.lon.rad
+                dec_sat = satcoord.lat.rad
+                x = np.cos(ra_sat)*np.cos(dec_sat)
+                y = np.sin(ra_sat)*np.cos(dec_sat)
+                z = np.sin(dec_sat)
+                zenith = np.rad2deg(np.arccos(x))
+                azimuth = np.rad2deg(np.arctan2(z,y))
                 # Calculate responses for all dets
                 response = {}
                 if 'single' in self._event_types:
                     for d in self._sgl_dets:
-                        response[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+                        response[d] = self._response_object.set_location(zenith, azimuth, d, trapz=True)
 
             # When sep>45 it is outside of FOV -> set responses to zero - TODO: use good prior to
             # avoid this
@@ -555,7 +563,7 @@ class SPIAnalysis(object):
                         # BKG rate
                         bkg_rate = np.sum(self._bkg[d]['counts'])/total_active_time
                         # PPC fit count spectrum
-
+                        print(model_counts[:,index,:])
                         # get counts for all sample parameters and the likelihood_model
                         model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time #? Where bkg?
                         

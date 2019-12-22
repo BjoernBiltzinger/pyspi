@@ -76,8 +76,8 @@ class SPIResponse(object):
         :rtype: 
 
         """
-        # np.pi - zenith. TODO: Check if this is corect. Only a guess at the moment!
-        zenith = np.pi-zenith
+        # np.pi/2 - zenith. TODO: Check if this is corect. Only a guess at the moment!
+        # zenith = np.pi/2-zenith
         x_pos = (zenith * np.cos(azimuth) - self._irf_xmin) / self._irf_xbin
         y_pos = (zenith * np.sin(azimuth) - self._irf_ymin) / self._irf_ybin
 
