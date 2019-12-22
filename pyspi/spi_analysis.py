@@ -293,7 +293,7 @@ class SPIAnalysis(object):
                         response[d] = np.zeros_like(self._ebounds[:-1])
         else:
             response = self._point_sources[name]['response']
-
+        
         # Get current spectrum of source
         spectrum_bins = self.calculate_spectrum(point_source)
 
@@ -396,7 +396,7 @@ class SPIAnalysis(object):
                         bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                           self._real_stop_active) # Correct?
 
-                    self._bkg[d] = {'error': bkg_counts, 'counts': bkg_error} 
+                    self._bkg[d] = {'error': bkg_error, 'counts': bkg_counts} 
                     self._bkg_active[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
         else:
             raise NotImplementedError('Only GRB analysis implemented at the moment!')
@@ -461,7 +461,7 @@ class SPIAnalysis(object):
             axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_sgl_dict[self._sgl_dets[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black')
 
             # Plot the bkg fit
-            axes[i].plot(np.mean(self._active_time_bins, axis=1), np.sum(self._bkg[self._sgl_dets[i]]['counts'], axis=0)/(self._active_time_bins[:,1]-self._active_time_bins[:,0]), color='red')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg[self._sgl_dets[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
 
             # Plot active time
             axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
@@ -505,7 +505,7 @@ class SPIAnalysis(object):
             sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
 
             # get counts for all sample parameters and the likelihood_model
-            n_ppc = 300
+            n_ppc = 100
 
             mask = np.zeros(len(sample_parameters), dtype=int)
             mask[:n_ppc] = 1
@@ -515,50 +515,67 @@ class SPIAnalysis(object):
             masked_parameter_samples = sample_parameters[mask]
 
             # mask the sample parameter values
-            model_counts = np.empty((300, len(self._sgl_dets), len(self._ebounds)-1))
+            model_counts = np.empty((n_ppc, len(self._sgl_dets), len(self._ebounds)-1))
             for i in range(n_ppc):
                 likelihood_model.set_free_parameters(masked_parameter_samples[i])
-                model_counts[i] = self._get_model_counts(likelihood_model)
-
+                self._get_model_counts(likelihood_model)
+                model_counts[i] = self._expected_model_counts
+                
             # poisson noise
             model_counts = np.random.poisson(model_counts)
 
-            # bkg
-            bkg_rates = 1
+            # BKG wit gaussian noise
+            bkg_counts = np.empty((n_ppc, len(self._sgl_dets), len(self._ebounds)-1))
+            
+            for j, d in enumerate(self._sgl_dets):
+                bkg_counts[:,j,:] = np.random.normal(self._bkg_active[d]['counts_active'], self._bkg_active[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
 
+            
             # Fitted GRB count spectrum ppc versus count space data of all dets
             if 'single' in self._event_types:
 
                 # Init figure
-                fig, axes = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(8.27, 11.69))
-                
+                nrows = 4
+                ncol = 5
+                fig, axes = plt.subplots(nrows, ncol, sharex=True, sharey=True, figsize=(8.27, 11.69))
+                axes_array = axes.flatten()
                 index = 0
                 red_indices = []
                 # Loop over all possible single dets
                 for j in range(19):
-                    # If this single det was used plot the fit vs.data
-                    if d in self._sgl_dets:
+                    plot_number = j#(j*4)/19
+                    if (plot_number/float(ncol)).is_integer():
+                            axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
 
+                    # If this single det was used plot the fit vs. data
+                    if j in self._sgl_dets:
+                        
                         # Data rate
-                        active_data = np.sum(self._energy_and_time_bin_sgl_dict_masked[d], axis=0)/total_active_time#or axis=1
+                        active_data = self._active_time_counts_energy_sgl_dict[d]/total_active_time#or axis=1
                         # BKG rate
                         bkg_rate = np.sum(self._bkg[d]['counts'])/total_active_time
                         # PPC fit count spectrum
-                        
+
                         # get counts for all sample parameters and the likelihood_model
-                        model_rates_det = model_rates[:,index,:]+bkg_rate #? Where bkg?
-
+                        model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time #? Where bkg?
+                        
                         # Plot number of this det
-                        plot_number = (j*4)/19
-
+                        #plot_number = ((j)*4)/19
+                        #if plot_number<2:
+                        #    x_plot_number = 0
+                        #    y_plot_number = plot_number
+                        #else:
+                        #    x_plot_number = 1
+                        #    y_plot_number = plot_number-2
+                        
                         q_levels = [0.68,0.95]
                         colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
                         
                         # get 68 and 95 % boundaries and plot them
                         for i,level in enumerate(q_levels):
-                            low = np.percentile(model_rates_det, 50-50*level, axis=0)[0]
-                            high = np.percentile(model_rates_det, 50+50*level, axis=0)[0]
-                            axes[plot_number+1].fill_between(self._ebounds,
+                            low = np.percentile(model_bkg_rates_det, 50-50*level, axis=0)
+                            high = np.percentile(model_bkg_rates_det, 50+50*level, axis=0)
+                            axes_array[plot_number].fill_between(self._ebounds[1:],
                                                            low,
                                                            high,
                                                            color=colors[i],
@@ -566,26 +583,45 @@ class SPIAnalysis(object):
                                                            zorder=i+1,
                                                            step='post')
                         
-                        axes[plot_number+1].step(self._ebounds,
+                        axes_array[plot_number].step(self._ebounds[1:],
                                                active_data,
                                                where='post',
                                                color='black',
-                                               label='Detector {}'.format(d))
-
+                                               label='Detector {}'.format(j))
+                        if (plot_number/float(ncol)).is_integer():
+                            axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+                        
                         index+=1
                     # If det not used only plot legend entry with remark "not used or defect"
                     else:
                         # Plot number of this det
-                        plot_number = (j*4)/19
+                        #plot_number = (j*4)/19
+
+                        #if plot_number<2:
+                        #    x_plot_number = 0
+                        #    y_plot_number = plot_number
+                        #else:
+                        #    x_plot_number = 1
+                        #    y_plot_number = plot_number-2
+
+
+                        
                         red_indices.append(j)
-                        axes[plot_number+1].plot([], [], ' ', label='Detector {} - not used'.format(d))
+                        axes_array[plot_number].plot([], [], ' ', label='Detector {} \n Not used'.format(j))
 
                 # Make legend and mark the not used dets red
-                for i, ax in enumerate(axes):
+                for i, ax in enumerate(axes.flatten()):
+                    ax.set_xlabel('Energy [keV]')
                     l = ax.legend()
-                    for n in np.arange(5):
-                        if i*5+n<19:
-                            if i*5+n in red_indices:
-                                l.get_texts()[i*5+n+1].set_color("red")
+                    if i in red_indices:
+                        l.get_texts()[0].set_color("red")
+                    ax.set_xscale('log')
+                    #for n in np.arange(5):
+                    #    if i*5+n<19:
+                    #        if i*5+n in red_indices:
+                    #            l.get_texts()[n].set_color("red")
+                fig.tight_layout()
+                fig.subplots_adjust(hspace=0, wspace=0) 
+                fig.savefig('data_plot.pdf')
         else:
             raise NotImplementedError('Only implemented for GRBs at the moment!')
