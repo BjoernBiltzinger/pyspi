@@ -100,7 +100,7 @@ def j2000_to_spi(j2000_frame, spi_coord):
                                     spi_coord.scy_dec,
                                     spi_coord.scz_ra,
                                     spi_coord.scz_dec)
-
+  
 
     pos = j2000_frame.cartesian.xyz.value
 
