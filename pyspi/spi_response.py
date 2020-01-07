@@ -82,8 +82,8 @@ class SPIResponse(object):
         y = np.sin(azimuth)*np.cos(zenith)
         z = np.sin(zenith)
 
-        zenith_pointing = np.rad2deg(np.arccos(x))
-        azimuth_pointing = np.rad2deg(np.arctan2(z,y))
+        zenith_pointing = np.arccos(x)
+        azimuth_pointing = np.arctan2(z,y)
         
         x_pos = (zenith_pointing * np.cos(azimuth_pointing) - self._irf_xmin) / self._irf_xbin
         y_pos = (zenith_pointing * np.sin(azimuth_pointing) - self._irf_ymin) / self._irf_ybin
