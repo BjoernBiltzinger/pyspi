@@ -270,8 +270,20 @@ class SPIAnalysis(object):
             # ra and dec to sat coord
             icrscoord = SkyCoord(ra=point_source.position.ra.value, dec=point_source.position.dec.value, unit='deg', frame='icrs')
 
-            sep = icrscoord.separation(self._pointing_icrs).deg
+            satcoord = icrscoord.transform_to(self._frame_object)
 
+            ra_sat = satcoord.lon.deg
+            dec_sat = satcoord.lat.deg
+
+            response = {}
+            if 'single' in self._event_types:
+                for d in self._sgl_dets:
+                    response[d] = self._response_object.set_location(azimuth, zenith, d, trapz=True)
+
+            
+            #sep = icrscoord.separation(self._pointing_icrs).deg
+            
+            """
             if sep<180:
                 satcoord = icrscoord.transform_to(self._frame_object)
 
@@ -299,6 +311,7 @@ class SPIAnalysis(object):
                 if 'single' in self._event_types:
                     for d in self._sgl_dets:
                         response[d] = np.zeros_like(self._ebounds[:-1])
+            """
         else:
             response = self._point_sources[name]['response']
         
@@ -362,7 +375,8 @@ class SPIAnalysis(object):
                     tsb = TimeSeriesBuilder.from_spi_spectrum('spi_det{}'.format(d),
                                                               self._data_object,
                                                               d,
-                                                              self._response_object)
+                                                              self._response_object,
+                                                              poly_order=1)
                     # Set active time and background time
                     tsb.set_active_time_interval(self._active_time)
                     tsb.set_background_interval(self._bkg_time_1, self._bkg_time_2)
@@ -525,8 +539,10 @@ class SPIAnalysis(object):
             # mask the sample parameter values
             model_counts = np.empty((n_ppc, len(self._sgl_dets), len(self._ebounds)-1))
             for i in range(n_ppc):
+                print(masked_parameter_samples[i])
                 likelihood_model.set_free_parameters(masked_parameter_samples[i])
                 self._get_model_counts(likelihood_model)
+                print(self._expected_model_counts)
                 model_counts[i] = self._expected_model_counts
                 
             # poisson noise
@@ -559,9 +575,8 @@ class SPIAnalysis(object):
                     if j in self._sgl_dets:
                         
                         # Data rate
-                        active_data = self._active_time_counts_energy_sgl_dict[d]/total_active_time#or axis=1
-                        # BKG rate
-                        bkg_rate = np.sum(self._bkg[d]['counts'])/total_active_time
+                        active_data = self._active_time_counts_energy_sgl_dict[j]/total_active_time#or axis=1
+
                         # PPC fit count spectrum
                         print(model_counts[:,index,:])
                         # get counts for all sample parameters and the likelihood_model
