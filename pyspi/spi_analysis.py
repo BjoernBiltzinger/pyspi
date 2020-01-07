@@ -278,7 +278,7 @@ class SPIAnalysis(object):
             response = {}
             if 'single' in self._event_types:
                 for d in self._sgl_dets:
-                    response[d] = self._response_object.set_location(azimuth, zenith, d, trapz=True)
+                    response[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
 
             
             #sep = icrscoord.separation(self._pointing_icrs).deg
