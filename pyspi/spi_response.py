@@ -71,15 +71,22 @@ class SPIResponse(object):
         FIXME! briefly describe function
 
         :param azimuth: 
-        :param zenith: 
+        x = np.cos(ra_sat)*np.cos(dec_sat):param zenith: 
         :returns: 
         :rtype: 
 
         """
         # np.pi/2 - zenith. TODO: Check if this is corect. Only a guess at the moment!
         # zenith = np.pi/2-zenith
-        x_pos = (zenith * np.cos(azimuth) - self._irf_xmin) / self._irf_xbin
-        y_pos = (zenith * np.sin(azimuth) - self._irf_ymin) / self._irf_ybin
+        x = np.cos(azimuth)*np.cos(zenith)
+        y = np.sin(azimuth)*np.cos(zenith)
+        z = np.sin(zenith)
+
+        zenith_pointing = np.rad2deg(np.arccos(x))
+        azimuth_pointing = np.rad2deg(np.arctan2(z,y))
+        
+        x_pos = (zenith_pointing * np.cos(azimuth_pointing) - self._irf_xmin) / self._irf_xbin
+        y_pos = (zenith_pointing * np.sin(azimuth_pointing) - self._irf_ymin) / self._irf_ybin
 
         return x_pos, y_pos
 
