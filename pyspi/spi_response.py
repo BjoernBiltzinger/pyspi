@@ -2,6 +2,8 @@ import numpy as np
 import h5py
 import scipy.interpolate as interpolate
 import scipy.integrate as integrate
+from datetime import datetime
+from astropy.time.core import Time
 
 from IPython.display import HTML
 
@@ -19,28 +21,48 @@ def log_interp1d(xx, yy, kind='linear'):
     return log_interp
 
 class SPIResponse(object):
-    def __init__(self, ebounds=None):
+    def __init__(self, ebounds=None, time=None):
         """FIXME! briefly describe function
-        
+        :param time: Time object, with the time for which the valid response should be used
         :param ebounds: User defined ebins for binned effective area
         :returns: 
         :rtype: 
-
         """
         
-        self._load_irfs()
+        self._load_irfs(time)
         if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
-
-    def _load_irfs(self):
+        
+    def _load_irfs(self, time=None):
         """FIXME! briefly describe function
-
+        :param time: Time object, with the time for which the valid response should be used
         :returns: 
         :rtype: 
-
         """
+        
+        if time==None:
+            irf_file = get_path_of_data_file('spi_irfs_database_4.hdf5')
+            print('Using the default irfs. The ones that are valid between 10/05/27 12:45:00 and present (YY/MM/DD HH:MM:SS)')
+            
+        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_irfs_database_0.hdf5')
+            print('Using the irfs that are valid between Start and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+            
+        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_irfs_database_1.hdf5')
+            print('Using the irfs that are valid between 03/07/06 06:00:00 and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
 
-        irf_file = get_path_of_data_file('spi_irfs.hdf5')
+        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_irfs_database_2.hdf5')
+            print('Using the irfs that are valid between 04/07/17 08:20:06 and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+
+        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_irfs_database_3.hdf5')
+            print('Using the irfs that are valid between 09/02/19 09:59:57 and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+
+        else:
+            irf_file = get_path_of_data_file('spi_irfs_database_4.hdf5')
+            print('Using the irfs that are valid between 10/05/27 12:45:00 and present (YY/MM/DD HH:MM:SS)')
 
         irf_database = h5py.File(irf_file, 'r')
 
