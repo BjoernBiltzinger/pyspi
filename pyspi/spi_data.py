@@ -26,7 +26,7 @@ class SpiData_GRB(object):
             print('You chose data access via the afs server')
 
         # Find path to dir with the needed data (need later spi_oper.fits.gz and sc_orbit_param.fits.gz
-        self._pointing_id = self._find_needed_ids(self._time_of_GRB)
+        self._pointing_id = self._find_needed_ids()
         
         if afs:
             
@@ -83,10 +83,9 @@ class SpiData_GRB(object):
             self._ebounds = ebounds
 
         
-    def _find_needed_ids(self, time):
+    def _find_needed_ids(self):
         """
-        Get the pointing id of the needed data to cover time 
-        :param time: time of interest
+        Get the pointing id of the needed data to cover the GRB time 
         :return: Needed pointing id
         """
 
@@ -95,7 +94,7 @@ class SpiData_GRB(object):
         id_file_path = get_path_of_data_file('id_data_time.hdf5')
 
         # Get GRB time in ISDC_MJD 
-        self._time_of_GRB_ISDC_MJD = self._string_to_ISDC_MJD(self._time_of_GRB)
+        self._time_of_GRB_ISDC_MJD = self._ISDC_MJD(self._time_of_GRB)
 
         # Get which id contain the needed time. When the wanted time is
         # too close to the boundarie also add the pervious or following
@@ -116,16 +115,15 @@ class SpiData_GRB(object):
             
         return ids[id_number]
 
-    def _string_to_ISDC_MJD(self, timestring):
+    def _ISDC_MJD(self, time_object):
         """
-        :param timestring: Time in string format 'YYMMDD HHMMSS'
+        :param time_object: Astropy time object of grb time
         :return: Time in Integral MJD time
         """
-        
-        date = datetime.strptime(timestring, '%y%m%d %H%M%S')
-        astro_date = Time(date)
+
         #TODO Check time. In integral file ISDC_MJD time != DateStart. Which is correct?
-        return astro_date.mjd-51544
+        return time_object.mjd-51544
+    
     def _ISDC_MJD_to_cxcsec(self, ISDC_MJD_time):
         """
         Convert ISDC_MJD to UTC
