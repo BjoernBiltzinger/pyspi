@@ -5,10 +5,13 @@ from pyspi.spi_pointing import *
 from pyspi.spi_frame import *
 import astropy.units as u
 from astropy.coordinates import ICRS, Galactic, SkyCoord
+from astropy.time.core import Time
+from datetime import datetime
 
 
 from threeML.utils.statistics.likelihood_functions import *
 from threeML import *
+
 class SPIAnalysis(object):
 
     def __init__(self, configuration, likelihood_model):
@@ -27,7 +30,11 @@ class SPIAnalysis(object):
 
         if configuration['Special_analysis']=='GRB':
             self._analysis = 'GRB'
-            self._time_of_grb = configuration['Time_of_GRB_UTC']
+            
+            time_of_grb = configuration['Time_of_GRB_UTC']
+            time = datetime.strptime(time_of_grb, '%y%m%d %H%M%S')
+            self._time_of_grb = Time(time)
+
             self._active_time = configuration['Active_Time']
             self._bkg_time_1 = configuration['Background_time_interval_1']
             self._bkg_time_2 = configuration['Background_time_interval_2']
@@ -113,7 +120,8 @@ class SPIAnalysis(object):
         Initalize the response object
         :return:
         """
-        self._response_object = SPIResponse(ebounds=self._ebounds)
+        if self._analysis=='GRB':
+            self._response_object = SPIResponse(ebounds=self._ebounds, time=self._time_of_grb)
 
         #if self._analysis == 'GRB':
         #    # Dummy response - needed for later timeseries building
