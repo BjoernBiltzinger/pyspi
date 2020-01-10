@@ -77,25 +77,23 @@ class SPIDetector(object):
         :param origin: the detector origin
         :param is_pseudo_detector: if this is a real detector or not
         """
-        self._contents = None
         self._detector_number = detector_number
         self._origin = origin
         self._is_pseudo_detector = is_pseudo_detector
-
+        self._bad = False
+        
     @property
-    def contents(self):
-        return self._contents
+    def bad(self):
+        return self._bad
 
-    def set_contents(self, contents):
+    def set_bad(self, flag):
         """
-        Fill the contents of the detector
-
-        :param contents: a numeric value
-        :return: None
+        Set the flag if this is a bad detector
+        :param flag: Bad detector?
+        :return: 
         """
-
-        self._contents = contents
-
+        self._bad = flag
+    
     @property
     def origin(self):
         return self._origin
@@ -155,9 +153,9 @@ class DetectorContents(object):
 
 class SPI(object):
 
-    def __init__(self):
+    def __init__(self, bad_detectors=[]):
 
-        self._bad_detectors = [0, 5]
+        self._bad_detectors = bad_detectors
 
         self._construct_detectors()
 
@@ -200,67 +198,30 @@ class SPI(object):
         # TODO: Add the triple event detectors
 
 
-        # REMOVE!!!!!!!
-        # This is just to fill up the detector
-
-        ii = 0
         for det in self._detectors:
-            if det.detector_number not in self._bad_detectors:
-                det.set_contents(ii)
-            ii += 1
+            if det.detector_number in self._bad_detectors:
+                det.set_bad(True)
 
-    def _get_colors_from_contents(self, cmap, pseudo_cmap):
+    def plot_spi_working_dets(self,
+                              with_pseudo_detectors=True,
+                              show_detector_number=True):
         """
-
-        :param cmap: colormap to use for real detectors
-        :param pseudo_cmap: colormap to use for pseudo detectors
-        :return: tuple of color arrays
-        """
-
-        contents = []
-        pseudo_contents = []
-
-        for detector in self._detectors:
-
-            if detector.contents is not None:
-
-                if detector.is_pseudo_detector:
-
-                    pseudo_contents.append(detector.contents)
-
-                else:
-
-                    contents.append(detector.contents)
-
-        _, colors = array_to_cmap(np.array(contents), cmap=cmap)
-        _, pseudo_colors = array_to_cmap(np.array(pseudo_contents), cmap=pseudo_cmap)
-
-        return colors, pseudo_colors
-
-        _, colors = array_to_cmap()
-
-    def fill_detectors(detector_contents):
-        """
-
+        Plot the SPI Detectors and mark the detectors that are not working red
+        :param with_pseudo_detectors: Plot pseudo detectors?
+        :param show_detector_number: Show the det numbers in the plot?
         :return:
         """
+        
 
-        pass
+        fig, ax = plt.subplots(subplot_kw={'aspect': 'equal'}, figsize=(15,15))
 
-    def plot_spi(self, with_pseudo_detectors=True,
-                 show_detector_number=True,
-                 cmap='viridis',
-                 pseudo_cmap='plasma'):
+        d=1
 
-        fig, ax = plt.subplots(subplot_kw={'aspect': 'equal'})
-
-
-
-        radius = 2 * 1.732
+        radius = d*2* 1.732
 
         # first get the colors based of the contents
-        colors, pseudo_colors = self._get_colors_from_contents(cmap,
-                                                               pseudo_cmap)
+        #colors, pseudo_colors = self._get_colors_from_contents(cmap,
+        #                                                       pseudo_cmap)
         # color iterators
         n = 0
         pseudo_n = 0
@@ -268,26 +229,42 @@ class SPI(object):
         # now we loop over all the detectors and if they have contents
         # we will plot them
         for detector in self._detectors:
-
             # first the real detectors
 
             if not detector.is_pseudo_detector:
 
-                if detector.contents is not None:
-
+                if detector.bad:
+                    
                     # create a ploygon and color it based of the contents
 
-                    p = RegularPolygon(xy=detector.origin, numVertices=6, radius=radius,
-                                       facecolor=colors[n], ec='k', lw=3)
+                    p = RegularPolygon(xy=tuple(d*i for i in detector.origin), numVertices=6, radius=radius,
+                                       facecolor='red', ec='k', lw=3)
 
                     ax.add_patch(p)
 
                     # show the detector number
                     if show_detector_number:
-                        ax.text(detector.origin[0], detector.origin[1], detector.detector_number,
-                                ha="center", va="center", color='k', size=14)
+                        ax.text(d*detector.origin[0], d*detector.origin[1], detector.detector_number,
+                                ha="center", va="center", color='k', size=30)
 
                     n += 1
+                    
+                else:
+                    
+                    # create a ploygon and color it based of the contents
+
+                    p = RegularPolygon(xy=tuple(d*i for i in detector.origin), numVertices=6, radius=radius,
+                                       facecolor='green', ec='k', lw=3)
+
+                    ax.add_patch(p)
+
+                    # show the detector number
+                    if show_detector_number:
+                        ax.text(d*detector.origin[0], d*detector.origin[1], detector.detector_number,
+                                ha="center", va="center", color='k', size=30)
+
+                    n += 1
+                
 
             # TODO: plot the double event detectors
 
@@ -314,8 +291,14 @@ class SPI(object):
             #
             #         pseudo_n += 1
 
-        ax.set_xlim(-16, 16)
-        ax.set_ylim(-16, 16)
+        ax.set_xlim(d*-16, d*16)
+        ax.set_ylim(d*-16, d*16)
 
         ax.set_yticks([])
         ax.set_xticks([])
+
+
+    def plot_fit_ppc(self, fits_file):
+        pass
+    
+    
