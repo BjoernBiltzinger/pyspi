@@ -68,15 +68,7 @@ class SPILike(PluginPrototype):
         #self._update_model_in_pyspi()
 
         # Get value of the log likelihood
-        try:
-
-            value = self._spi_analysis.get_log_like(self._likelihood_model)
-            
-        except:
-
-            raise
-
-        return value
+        return self._spi_analysis.get_log_like(self._likelihood_model)
 
     def inner_fit(self):
         """
