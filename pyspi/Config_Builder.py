@@ -1,6 +1,8 @@
 import yaml
+import numpy as np
 
-default_GRB = {'Special_analysis': 'GRB',
+default_GRB = {'Unique_analysis_name': None,
+               'Special_analysis': 'GRB',
                'Time_of_GRB_UTC' : '101010 010101',
                'Event_types': ['single'],
                'Detectors_to_use': 'All',
@@ -9,7 +11,10 @@ default_GRB = {'Special_analysis': 'GRB',
                'Active_Time': '0-100',
                'Background_time_interval_1': '-100--10',
                'Background_time_interval_2': '110-200',
-               'Simmulate': False}
+               'Simmulate': False,
+               'Bkg_estimation': 'Polynominal',
+               'Energy_binned': True,
+               'Ebounds': list(np.logspace(np.log10(20), np.log10(8000), 30))}
             
            
 
