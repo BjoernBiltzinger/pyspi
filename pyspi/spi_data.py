@@ -9,8 +9,6 @@ import h5py
 from pyspi.utils.progress_bar import progress_bar
 import matplotlib.pyplot as plt
 
-#TODO: Data access without afs? 
-
 class SpiData_GRB(object):
 
     def __init__(self, time_of_GRB, afs=True, ebounds=None):
