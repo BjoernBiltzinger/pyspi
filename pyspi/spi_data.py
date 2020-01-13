@@ -8,10 +8,11 @@ from pyspi.io.package_data import get_path_of_data_file, get_path_of_external_da
 import h5py
 from pyspi.utils.progress_bar import progress_bar
 import matplotlib.pyplot as plt
+from pyspi.utils.detector_ids import double_names, triple_names
 
 class SpiData_GRB(object):
 
-    def __init__(self, time_of_GRB, afs=True, ebounds=None):
+    def __init__(self, time_of_GRB, event_types = ["single"], afs=True, ebounds=None):
         """
         Object if one wants to get the data around a GRB time
         :param time_of_GRB: Time of GRB in 'YYMMDD HHMMSS' format. UTC!
@@ -20,6 +21,9 @@ class SpiData_GRB(object):
         """
         self._time_of_GRB = time_of_GRB
 
+        # Which event types are needed?
+        self._event_types = event_types
+        
         if afs:
             print('You chose data access via the afs server')
 
@@ -27,12 +31,14 @@ class SpiData_GRB(object):
         self._pointing_id = self._find_needed_ids()
         
         if afs:
-            
-            # Get the data from the afs server
-            get_files_afs(self._pointing_id)
-            
+            try:
+                # Get the data from the afs server
+                get_files_afs(self._pointing_id)
+            except:
+                # Get the files from the iSDC data archive
+                print('AFS data access did not work. I will try the ISDC data archive.')
+                get_files_isdcarc(self._pointing_id)
         else:
-
             # Get the files from the iSDC data archive 
             get_files_isdcarc(self._pointing_id)
 
@@ -46,7 +52,7 @@ class SpiData_GRB(object):
             self._ene_max = ebounds[1:]
         else:
             # Default energy bins
-            self._ebounds = np.logspace(20,8000,30)
+            self._ebounds = np.logspace(np.log10(20),np.log10(8000),30)
             self._ene_min = self._ebounds[:-1]
             self._ene_max = self._ebounds[1:]
 
@@ -120,7 +126,7 @@ class SpiData_GRB(object):
         """
 
         #TODO Check time. In integral file ISDC_MJD time != DateStart. Which is correct?
-        return time_object.mjd-51544
+        return time_object.tt.mjd-51544
     
     def _ISDC_MJD_to_cxcsec(self, ISDC_MJD_time):
         """
@@ -128,7 +134,7 @@ class SpiData_GRB(object):
         :param ISDC_MJD_time: time in ISDC_MJD time format
         :return: time in cxcsec format (seconds since 1998-01-01 00:00:00)
         """
-        return Time(ISDC_MJD_time+51544, format='mjd').cxcsec
+        return Time(ISDC_MJD_time+51544, format='mjd', scale='tt').cxcsec
         
     def _read_in_pointing_data(self, pointing_id):
         """
@@ -136,88 +142,164 @@ class SpiData_GRB(object):
         :param pointing_id: pointing_id for which we want the data
         :return:
         """
+        # Reference time of GRB
+        GRB_ref_time_cxcsec = self._ISDC_MJD_to_cxcsec(self._time_of_GRB_ISDC_MJD)
         
         with fits.open(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'spi_oper.fits.gz')) as hdu_oper:
-
-            # Energy of all events
-            energy_sgl = hdu_oper[1].data['energy']
-            energy_psd = hdu_oper[2].data['energy']
-            energy_me2 = hdu_oper[4].data['energy']
-            energy_me3 = hdu_oper[5].data['energy']
-
-            # Time of all events in seconds to or since GRB time
-            GRB_ref_time_cxcsec = self._ISDC_MJD_to_cxcsec(self._time_of_GRB_ISDC_MJD)
-            
-            time_sgl = self._ISDC_MJD_to_cxcsec(hdu_oper[1].data['time'])-GRB_ref_time_cxcsec
-            time_psd = self._ISDC_MJD_to_cxcsec(hdu_oper[2].data['time'])-GRB_ref_time_cxcsec
-            time_me2 = self._ISDC_MJD_to_cxcsec(hdu_oper[4].data['time'])-GRB_ref_time_cxcsec
-            time_me3 = self._ISDC_MJD_to_cxcsec(hdu_oper[5].data['time'])-GRB_ref_time_cxcsec
-
-            self._time_start = np.min([time_sgl[0], time_psd[0], time_me2[0], time_me3[0]])
-            self._time_stop = np.max([time_sgl[-1], time_psd[-1], time_me2[-1], time_me3[-1]]) 
-            
-            # Det of all events
-            dets_sgl = hdu_oper[1].data['DETE']
-            dets_psd = hdu_oper[2].data['DETE']
-            dets_me2 = hdu_oper[4].data['DETE']
-            dets_me3 = hdu_oper[5].data['DETE']
-
-        # Build dic with entry for every det
-
-        # For sgl and psd only one det is hit
-        
-        sgl_energy_dict = {}
-        psd_energy_dict = {}
-        me2_energy_dict = {}
-        me3_energy_dict = {}
-
-        sgl_time_dict = {}
-        psd_time_dict = {}
-        me2_time_dict = {}
-        me3_time_dict = {}
-        
-        for i in range(19):
-            mask = dets_sgl==i
-            if True in mask:
-                sgl_energy_dict[i] = energy_sgl[dets_sgl==i]
-                sgl_time_dict[i] = time_sgl[dets_sgl==i]
-            mask = dets_psd==i
-            if True in mask:
-                psd_energy_dict[i] = energy_psd[dets_psd==i]
-                psd_time_dict[i] = time_psd[dets_psd==i]
-
-        # For me2 events two dets are hit
-        for i in range(19):
-            for k in range(19):
-                mask = np.logical_and(dets_me2[:,0]==i, dets_me2[:,1]==k)
-                if True in mask:
-                    me2_energy_dict['{}-{}'.format(i,k)] = energy_me2[mask]
-                    me2_time_dict['{}-{}'.format(i,k)] = time_me2[mask]
+            self._time_start = 10**20
+            self._time_stop = -10**20
+            # Energy, time and dets of all events
+            if "single" in self._event_types:
+                energy_sgl = hdu_oper[1].data['energy']
+                time_sgl = self._ISDC_MJD_to_cxcsec(hdu_oper[1].data['time'])-GRB_ref_time_cxcsec
+                dets_sgl = hdu_oper[1].data['DETE']
+                self._time_start=np.min(time_sgl)
+                self._time_stop=np.max(time_sgl)
                 
-                #me2_energy_dict['{}-{}'.format(i,k)] = energy_me2[np.logical_or(np.logical_and(dets_me2[:,0]==i, dets_me2[:,1]==k), np.logical_and(dets_me2[:,0]==k, dets_me2[:,1]==i))]
-                #me2_time_dict['{}-{}'.format(i,k)] = time_me2[np.logical_or(np.logical_and(dets_me2[:,0]==i, dets_me2[:,1]==k), np.logical_and(dets_me2[:,0]==k, dets_me2[:,1]==i))]
+            if "psd" in self._event_types:
+                energy_psd = hdu_oper[2].data['energy']
+                time_psd = self._ISDC_MJD_to_cxcsec(hdu_oper[2].data['time'])-GRB_ref_time_cxcsec
+                dets_psd = hdu_oper[2].data['DETE']
+                if np.min(time_psd)<self._time_start:
+                    self._time_start=np.min(time_psd)
+                if np.max(time_psd)>self._time_stop:
+                    self._time_stop=np.max(time_psd)
+                    
+            if "double" in self._event_types:
+                energy_me2 = hdu_oper[4].data['energy']
+                time_me2 = self._ISDC_MJD_to_cxcsec(hdu_oper[4].data['time'])-GRB_ref_time_cxcsec
+                dets_me2 = hdu_oper[4].data['DETE']
+                if np.min(time_me2)<self._time_start:
+                    self._time_start=np.min(time_me2)
+                if np.max(time_me2)>self._time_stop:
+                    self._time_stop=np.max(time_me2)
+                
+            if "triple" in self._event_types:
+                energy_me3 = hdu_oper[5].data['energy']
+                time_me3 = self._ISDC_MJD_to_cxcsec(hdu_oper[5].data['time'])-GRB_ref_time_cxcsec
+                dets_me3 = hdu_oper[5].data['DETE']
+                if np.min(time_me3)<self._time_start:
+                    self._time_start=np.min(time_me3)
+                if np.max(time_me3)>self._time_stop:
+                    self._time_stop=np.max(time_me3)
+            
+        # Build dic with entry for every det (0-84)
+        # For sgl and psd only one det is hit
 
-        
-        # For me3 events three dets are hit
-        for i in range(19):
-            for k in range(19):
-                for l in range(19):
-                    mask = np.logical_and(np.logical_and(dets_me3[:,0]==i, dets_me3[:,1]==k), dets_me3[:,2]==l)
-                    if True in mask:
-                        me3_energy_dict['{}-{}-{}'.format(i,k,l)] = energy_me3[mask]
-                        me3_time_dict['{}-{}-{}'.format(i,k,l)] = time_me3[mask]
+        if "single" in self._event_types:
+            sgl_energy_dict = {}
+            sgl_time_dict = {}
+            for i in range(19):
+                mask = dets_sgl==i
+                #if True in mask:
+                sgl_energy_dict[i] = energy_sgl[mask]
+                sgl_time_dict[i] = time_sgl[mask]
+                
+            self._sgl_energy_dict = sgl_energy_dict
+            self._sgl_time_dict = sgl_time_dict
 
-        self._sgl_energy_dict = sgl_energy_dict
-        self._psd_energy_dict = psd_energy_dict
-        self._me2_energy_dict = me2_energy_dict
-        self._me3_energy_dict = me3_energy_dict
+            # Get a list with the dets that seem to be defect (because there are 0 counts in them)
+            self._bad_sgl_dets = np.zeros(19, dtype=bool)
+            for i in range(19):
+                if sgl_energy_dict[i].size==0:
+                    self._bad_sgl_dets[i] = True
 
-        self._sgl_time_dict = sgl_time_dict
-        self._psd_time_dict = psd_time_dict
-        self._me2_time_dict = me2_time_dict
-        self._me3_time_dict = me3_time_dict
+        # PSD events
+        if "psd" in self._event_types:
+            psd_energy_dict = {}
+            psd_time_dict = {}
+            for i in range(19):
+                mask = dets_psd==i
+                psd_energy_dict[i] = energy_psd[mask]
+                psd_time_dict[i] = time_psd[mask]
+                
+            self._psd_energy_dict = psd_energy_dict
+            self._psd_time_dict = psd_time_dict
 
-        
+            # Get a list with the dets that seem to be defect (because there are 0 counts in them)
+            self._bad_psd_dets = np.zeros(19, dtype=bool)
+            for i in range(19):
+                if psd_energy_dict[i].size==0:
+                    self._bad_psd_dets[i] = True
+            
+        # Double events
+        if "double" in self._event_types:
+            me2_energy_dict = {}
+            me2_time_dict = {}
+            # For me2 events two dets are hit
+            for n, (i, k) in enumerate(double_names.values(), start=19):
+                    mask1 = np.logical_and(dets_me2[:,0]==i, dets_me2[:,1]==k)
+                    mask2 = np.logical_and(dets_me2[:,0]==k, dets_me2[:,1]==i)
+
+                    e_array1 = energy_me2[mask1]
+                    e_array2 = energy_me2[mask2]
+
+                    t_array1 = time_me2[mask1]
+                    t_array2 = time_me2[mask2]
+
+                    total_e_array = np.concatenate((e_array1, e_array2))
+                    total_t_array = np.concatenate((t_array1, t_array2))
+
+                    # time sort mask
+                    mask = np.argsort(total_t_array)
+
+                    me2_energy_dict[n] = np.sum(total_e_array[mask], axis=1)
+                    me2_time_dict[n] = total_t_array[mask]
+
+            self._me2_energy_dict = me2_energy_dict
+            self._me2_time_dict = me2_time_dict
+
+            # Get a list with the dets that seem to be defect (because there are 0 counts in them)
+            self._bad_me2_dets = np.zeros(42, dtype=bool)
+            for i in range(19,61):
+                if me2_energy_dict[i].size==0:
+                    self._bad_me2_dets[i-19] = True
+
+        # Triple events
+        if "triple" in self._event_types:
+            me3_energy_dict = {}
+            me3_time_dict = {}
+            # For me3 events three dets are hit
+            for n, (i, j, k) in enumerate(triple_names.values(), start=61):
+                mask1 = np.logical_and(np.logical_and(dets_me3[:,0]==i, dets_me3[:,1]==j), dets_me3[:,2]==k)
+                mask2 = np.logical_and(np.logical_and(dets_me3[:,0]==i, dets_me3[:,1]==k), dets_me3[:,2]==j)
+                mask3 = np.logical_and(np.logical_and(dets_me3[:,0]==j, dets_me3[:,1]==i), dets_me3[:,2]==k)
+                mask4 = np.logical_and(np.logical_and(dets_me3[:,0]==j, dets_me3[:,1]==k), dets_me3[:,2]==i)
+                mask5 = np.logical_and(np.logical_and(dets_me3[:,0]==k, dets_me3[:,1]==i), dets_me3[:,2]==j)
+                mask6 = np.logical_and(np.logical_and(dets_me3[:,0]==k, dets_me3[:,1]==j), dets_me3[:,2]==i)
+
+                e_array1 = energy_me3[mask1]
+                e_array2 = energy_me3[mask2]
+                e_array3 = energy_me3[mask3]
+                e_array4 = energy_me3[mask4]
+                e_array5 = energy_me3[mask5]
+                e_array6 = energy_me3[mask6]
+
+                t_array1 = time_me3[mask1]
+                t_array2 = time_me3[mask2]
+                t_array3 = time_me3[mask3]
+                t_array4 = time_me3[mask4]
+                t_array5 = time_me3[mask5]
+                t_array6 = time_me3[mask6]
+
+                total_e_array = np.concatenate((e_array1, e_array2, e_array3, e_array4, e_array5, e_array6))
+                total_t_array = np.concatenate((t_array1, t_array2, t_array3, t_array4, t_array5, t_array6))
+
+                # time sort mask
+                mask = np.argsort(total_t_array) 
+
+                me3_energy_dict[n] = np.sum(total_e_array[mask], axis=1)
+                me3_time_dict[n] = total_t_array[mask]
+
+            self._me3_energy_dict = me3_energy_dict
+            self._me3_time_dict = me3_time_dict
+
+            # Get a list with the dets that seem to be defect (because there are 0 counts in them)
+            self._bad_me3_dets = np.zeros(24, dtype=bool)
+            for i in range(61,85):
+                if me3_energy_dict[i].size==0:
+                    self._bad_me3_dets[i-61] = True
+
     def energy_bin_all_data(self, ebounds=None):
         """
         Function to bin all data (sgl, psd, me2 and me3) in user defined energy bins
@@ -542,3 +624,7 @@ class SpiData_GRB(object):
     @property
     def sgl_dets_working(self):
         return self.energy_sgl_dict().keys()
+
+    @property
+    def bad_sgl_dets(self):
+        return self._bad_sgl_dets
