@@ -134,18 +134,33 @@ class SPI_GRB_Analysis(object):
         not working detectors into account.
         :return:
         """
-        # Get a mask of the dets that are turned off. (Dets with 0 counts)
-        bad_sgl_dets = self._data_object.bad_sgl_dets
-        
         if self._dets=="All":
 
             # If all dets should be used we will just ignore the ones that are turned off
             if "single" in self._event_types:
+                # Get a mask of the dets that are turned off. (Dets with 0 counts)
+                bad_sgl_dets = self._data_object.bad_sgl_dets
+                
                 self._sgl_dets_to_use = np.arange(0,19,1,dtype=int)[~bad_sgl_dets]
+
+            # If all dets should be used we will just ignore the ones that are turned off
+            if "psd" in self._event_types:
+                # Get a mask of the dets that are turned off. (Dets with 0 counts)
+                bad_psd_dets = self._data_object.bad_psd_dets
+                
+                self._psd_dets_to_use = np.arange(0,19,1,dtype=int)[~bad_psd_dets]
+                
             if "double" in self._event_types:
-                raise NotImplementedError('Double events not yet implemented')
+                # Get a mask of the dets that are turned off. (Dets with 0 counts)
+                bad_me2_dets = self._data_object.bad_me2_dets
+                
+                self._me2_dets_to_use = np.arange(19,61,1,dtype=int)[~bad_me2_dets]
+                
             if "triple" in self._event_types:
-                raise NotImplementedError('Triple events not yet implemented')
+                # Get a mask of the dets that are turned off. (Dets with 0 counts)
+                bad_me3_dets = self._data_object.bad_me3_dets
+
+                self._me3_dets_to_use = np.arange(61,85,1,dtype=int)[~bad_me3_dets]
             
         else:
 
@@ -160,6 +175,7 @@ class SPI_GRB_Analysis(object):
 
             # If single event type is wanted build the array which contains the dets
             if "single" in self._event_types:
+                bad_sgl_dets = self._data_object.bad_sgl_dets
                 self._sgl_dets_to_use = np.array([], dtype=int)
                 for s in single_dets:
                     if not bad_sgl_dets[s]:
@@ -171,13 +187,45 @@ class SPI_GRB_Analysis(object):
                 if single_dets.size>0:
                     warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
 
-            if "double" in self._event_types or double_dets.size>0:
-                raise NotImplementedError('Double events not yet implemented')
-            if "triple" in self._event_types or triple_dets.size>0:
-                raise NotImplementedError('Triple events not yet implemented')
+            if "psd" in self._event_types:
+                bad_psd_dets = self._data_object.bad_psd_dets
+                self._psd_dets_to_use = np.array([], dtype=int)
+                for s in single_dets:
+                    if not bad_psd_dets[s]:
+                        self._psd_dets_to_use = np.append(self._psd_dets_to_use, s)
+                    else:
+                        warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
+                assert self._psd_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
+            else:
+                if single_dets.size>0:
+                    warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
 
-            print(self._sgl_dets_to_use)
-        
+            if "double" in self._event_types:
+                bad_me2_dets = self._data_object.bad_me2_dets
+                self._me2_dets_to_use = np.array([], dtype=int)
+                for s in double_dets:
+                    if not bad_me2_dets[s]:
+                        self._me2_dets_to_use = np.append(self._me2_dets_to_use, s)
+                    else:
+                        warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
+                assert self._me2_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
+            else:
+                if double_dets.size>0:
+                    warnings.warn("You wanted to use some double dets but did not select the double detection event type. I will ignore all double_dets for the rest of the calculation. If you want to use them please restart the calculation with double in the event_types list of the configuration file.")
+                
+            if "triple" in self._event_types or triple_dets.size>0:
+                bad_me3_dets = self._data_object.bad_me3_dets
+                self._me3_dets_to_use = np.array([], dtype=int)
+                for s in triple_dets:
+                    if not bad_me3_dets[s]:
+                        self._me3_dets_to_use = np.append(self._me3_dets_to_use, s)
+                    else:
+                        warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
+                assert self._me3_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
+            else:
+                if triple_dets.size>0:
+                    warnings.warn("You wanted to use some triple dets but did not select the triple detection event type. I will ignore all triple_dets for the rest of the calculation. If you want to use them please restart the calculation with triple in the event_types list of the configuration file.")
+                
     def _get_start_and_stop_times(self):
         """
         Get the input start and stop times of active time and bkg times
@@ -251,12 +299,12 @@ class SPI_GRB_Analysis(object):
         """
         
         if not simmulate:
-            self._data_object = SpiData_GRB(self._time_of_grb, afs=True, ebounds=self._ebounds)
+            self._data_object = SpiData_GRB(self._time_of_grb, afs=True, ebounds=self._ebounds, event_types=self._event_types)
 
             if self._binned:
                 # Bin the data in energy and time - dummy values for time bin step
                 # size and ebounds
-                self._data_object.time_and_energy_bin_sgl(time_bin_step=1,
+                self._data_object.time_and_energy_bin(time_bin_step=1.,
                                                           start=self._bkg1_start-10,
                                                           stop=self._bkg2_stop+10)
             else:
@@ -272,31 +320,47 @@ class SPI_GRB_Analysis(object):
                                                  start=self._bkg1_start-10,
                                                  stop=self._bkg2_stop+10)
 
+        # Build a mask to cover the time bins of the active time
+        time_bins = self._data_object.time_bins
+        
+        self._active_time_mask = np.logical_and(time_bins[:,0]>self._active_start,
+                                                time_bins[:,1]<self._active_stop)
+    
+        # Get time bins
+        self._active_time_bins = self._data_object.time_bins[self._active_time_mask]
+
+        self._real_start_active = self._active_time_bins[0,0]
+        self._real_stop_active = self._active_time_bins[-1,-1]
+
+            
         if 'single' in self._event_types:
             sgl_dets = self._data_object.energy_sgl_dict.keys()
-
-            # Build a mask to cover the time bins of the active time
-            time_bins = self._data_object.time_bins
-
-            self._active_time_mask = np.logical_and(time_bins[:,0]>self._active_start,
-                                  time_bins[:,1]<self._active_stop)
-
-            # Get time bins
-            self._active_time_bins = self._data_object.time_bins[self._active_time_mask]
 
             self._active_time_counts_energy_sgl_dict = {}
             for d in sgl_dets:
                 self._active_time_counts_energy_sgl_dict[d] = np.sum(self._data_object.energy_and_time_bin_sgl_dict[d][self._active_time_mask], axis=0)
 
-            self._real_start_active = self._active_time_bins[0,0]
-            self._real_stop_active = self._active_time_bins[-1,-1]
+        if 'psd' in self._event_types:
+            psd_dets = self._data_object.energy_psd_dict.keys()
 
+            self._active_time_counts_energy_psd_dict = {}
+            for d in psd_dets:
+                self._active_time_counts_energy_psd_dict[d] = np.sum(self._data_object.energy_and_time_bin_psd_dict[d][self._active_time_mask], axis=0)
 
         if 'double' in self._event_types:
-            raise NotImplementedError('Only single events implemented!')
+            me2_dets = self._data_object.energy_me2_dict.keys()
+
+            self._active_time_counts_energy_me2_dict = {}
+            for d in me2_dets:
+                self._active_time_counts_energy_me2_dict[d] = np.sum(self._data_object.energy_and_time_bin_me2_dict[d][self._active_time_mask], axis=0)
+                
         if 'triple' in self._event_types:
-            raise NotImplementedError('Only single events implemented!')
-        
+            me3_dets = self._data_object.energy_me3_dict.keys()
+
+            self._active_time_counts_energy_me3_dict = {}
+            for d in me3_dets:
+                self._active_time_counts_energy_me3_dict[d] = np.sum(self._data_object.energy_and_time_bin_me3_dict[d][self._active_time_mask], axis=0)
+
     def update_model(self, likelihood_model):
         """
         Update the model with the new source positions and spectra
@@ -349,21 +413,52 @@ class SPI_GRB_Analysis(object):
 
         ra_sat = satcoord.lon.deg
         dec_sat = satcoord.lat.deg 
-        
-        # Calculate responses for all dets
-        response = {}
+
+        response_sgl = {}
+        response_psd = {}
+        response_me2 = {}
+        response_me3 = {}
+            
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                response[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
-                
+                response_sgl[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+
+        if 'psd' in self._event_types:
+            for d in self._psd_dets_to_use:
+                response_psd[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True) # TODO: Check response for PSD events
+
+        if 'double' in self._event_types:
+            for d in self._me2_dets_to_use:
+                response_me2[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+
+        if 'triple' in self._event_types:
+            for d in self._me3_dets_to_use:
+                response_me3[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+
         # Get current spectrum of source
         spectrum_bins = self.calculate_spectrum(point_source)
-
-        predicted_count_rates = {}
+        
+        predicted_count_rates_sgl = {}
+        predicted_count_rates_psd = {}
+        predicted_count_rates_me2 = {}
+        predicted_count_rates_me3 = {}
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
-            predicted_count_rates[d] = np.multiply(response[d], spectrum_bins)
-        
+            for d in self._sgl_dets_to_use:
+                predicted_count_rates_sgl[d] = np.multiply(response_sgl[d], spectrum_bins)
+
+        if 'psd' in self._event_types:
+            for d in self._psd_dets_to_use:
+                predicted_count_rates_psd[d] = np.multiply(response_psd[d], spectrum_bins)
+
+        if 'double' in self._event_types:
+            for d in self._me2_dets_to_use:
+                predicted_count_rates_me2[d] = np.multiply(response_me2[d], spectrum_bins)
+
+        if 'triple' in self._event_types:
+            for d in self._me3_dets_to_use:
+                predicted_count_rates_me3[d] = np.multiply(response_me3[d], spectrum_bins)
+
         spectal_parameters = {}
         
         for i, component in enumerate(point_source._components.values()):
@@ -375,8 +470,16 @@ class SPI_GRB_Analysis(object):
             spectal_parameters[i] = spectral_parameters_component
                 
         # Create the entry of the point source
-        self._point_sources[name] = {'ra': point_source.position.ra.value, 'dec': point_source.position.dec.value,
-                                     'response': response, 'predicted_count_rates': predicted_count_rates,
+        self._point_sources[name] = {'ra': point_source.position.ra.value,
+                                     'dec': point_source.position.dec.value,
+                                     'response_sgl': response_sgl,
+                                     'response_psd': response_psd,
+                                     'response_me2': response_me2,
+                                     'response_me3': response_me3,
+                                     'predicted_count_rates_sgl': predicted_count_rates_sgl,
+                                     'predicted_count_rates_psd': predicted_count_rates_psd,
+                                     'predicted_count_rates_me2': predicted_count_rates_me2,
+                                     'predicted_count_rates_me3': predicted_count_rates_me3,
                                      'spectal_parameters': spectal_parameters}
 
             
@@ -400,10 +503,26 @@ class SPI_GRB_Analysis(object):
             ra_sat = satcoord.lon.deg
             dec_sat = satcoord.lat.deg
 
-            response = {}
+            response_sgl = {}
+            response_psd = {}
+            response_me2 = {}
+            response_me3 = {}
+            
             if 'single' in self._event_types:
                 for d in self._sgl_dets_to_use:
-                    response[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+                    response_sgl[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+
+            if 'psd' in self._event_types:
+                for d in self._psd_dets_to_use:
+                    response_psd[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True) #TODO: Check correct response for psd events
+
+            if 'double' in self._event_types:
+                for d in self._me2_dets_to_use:
+                    response_me2[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
+
+            if 'triple' in self._event_types:
+                for d in self._me3_dets_to_use:
+                    response_me3[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
 
             
             #sep = icrscoord.separation(self._pointing_icrs).deg
@@ -438,17 +557,35 @@ class SPI_GRB_Analysis(object):
                         response[d] = np.zeros_like(self._ebounds[:-1])
             """
         else:
-            response = self._point_sources[name]['response']
-        
+            response_sgl = self._point_sources[name]['response_sgl']
+            response_psd = self._point_sources[name]['response_psd']
+            response_me2 = self._point_sources[name]['response_me2']
+            response_me3 = self._point_sources[name]['response_me3']
+            
         # Get current spectrum of source
         spectrum_bins = self.calculate_spectrum(point_source)
 
-        predicted_count_rates = {}
+        predicted_count_rates_sgl = {}
+        predicted_count_rates_psd = {}
+        predicted_count_rates_me2 = {}
+        predicted_count_rates_me3 = {}
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates[d] = np.multiply(response[d], spectrum_bins)
+                predicted_count_rates_sgl[d] = np.multiply(response_sgl[d], spectrum_bins)
 
+        if 'psd' in self._event_types:
+            for d in self._psd_dets_to_use:
+                predicted_count_rates_psd[d] = np.multiply(response_psd[d], spectrum_bins)
+
+        if 'double' in self._event_types:
+            for d in self._me2_dets_to_use:
+                predicted_count_rates_me2[d] = np.multiply(response_me2[d], spectrum_bins)
+
+        if 'triple' in self._event_types:
+            for d in self._me3_dets_to_use:
+                predicted_count_rates_me3[d] = np.multiply(response_me3[d], spectrum_bins)
+                
         spectal_parameters = {}
         for i, component in enumerate(point_source._components.values()):
 
@@ -462,9 +599,16 @@ class SPI_GRB_Analysis(object):
         # Update the entry of the point source
         self._point_sources[name] = {'ra': point_source.position.ra.value,
                                      'dec': point_source.position.dec.value,
-                                     'response': response,
-                                     'predicted_count_rates': predicted_count_rates,
+                                     'response_sgl': response_sgl,
+                                     'response_psd': response_psd,
+                                     'response_me2': response_me2,
+                                     'response_me3': response_me3,
+                                     'predicted_count_rates_sgl': predicted_count_rates_sgl,
+                                     'predicted_count_rates_psd': predicted_count_rates_psd,
+                                     'predicted_count_rates_me2': predicted_count_rates_me2,
+                                     'predicted_count_rates_me3': predicted_count_rates_me3,
                                      'spectal_parameters': spectal_parameters}
+
     def calculate_spectrum(self, spec):
         """
         Calculate the spectrum in the defined energy bins
@@ -486,11 +630,12 @@ class SPI_GRB_Analysis(object):
         :return:
         """
 
-        # Initalize the polynominal background fit to the time before and after the trigger time
-        # to get the temporal changing Background
-        self._bkg = {}
-        self._bkg_active = {}
         if 'single' in self._event_types:
+            # Initalize the polynominal background fit to the time before and after the trigger time
+            # to get the temporal changing Background
+            self._bkg_sgl = {}
+            self._bkg_active_sgl = {}
+
 
             for d in self._sgl_dets_to_use:
 
@@ -498,10 +643,13 @@ class SPI_GRB_Analysis(object):
                 # and det PHA channel
 
                 tsb = TimeSeriesBuilder.from_spi_spectrum('spi_det{}'.format(d),
-                                                          self._data_object,
-                                                          d,
+                                                          self._data_object.time_bins_start,
+                                                          self._data_object.time_bins_stop,
+                                                          self._data_object.time_bin_length,
+                                                          self._data_object.energy_and_time_bin_sgl_dict[d],
                                                           self._response_object,
                                                           poly_order=1)
+                
                 # Set active time and background time
                 tsb.set_active_time_interval(self._active_time)
                 tsb.set_background_interval(self._bkg_time_1, self._bkg_time_2)
@@ -543,51 +691,298 @@ class SPI_GRB_Analysis(object):
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
 
-                self._bkg[d] = {'error': bkg_error, 'counts': bkg_counts} 
-                self._bkg_active[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
+                self._bkg_sgl[d] = {'error': bkg_error, 'counts': bkg_counts} 
+                self._bkg_active_sgl[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
+
+        if 'psd' in self._event_types:
+            # Initalize the polynominal background fit to the time before and after the trigger time
+            # to get the temporal changing Background
+            self._bkg_psd = {}
+            self._bkg_active_psd = {}
+
+
+            for d in self._psd_dets_to_use:
+
+                # Use threeML times series to calculate the background polynominals for every det
+                # and det PHA channel
+
+                tsb = TimeSeriesBuilder.from_spi_spectrum('spi_det{}'.format(d),
+                                                          self._data_object.time_bins_start,
+                                                          self._data_object.time_bins_stop,
+                                                          self._data_object.time_bin_length,
+                                                          self._data_object.energy_and_time_bin_psd_dict[d],
+                                                          self._response_object,
+                                                          poly_order=1)
+                
+                # Set active time and background time
+                tsb.set_active_time_interval(self._active_time)
+                tsb.set_background_interval(self._bkg_time_1, self._bkg_time_2)
+
+                time_series = tsb.time_series
+                polynomials = time_series.polynomials
+                """
+                bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins)))
+                bkg_error = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins))) 
+
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts[i] = p.integral(self._active_time_bins[:,0],
+                                               self._active_time_bins[:,1])
+                    for j, (start, stop) in enumerate(self._active_time_bins):
+
+                        bkg_error[i,j] = p.integral_error(self._active_time_bins[j,0],
+                                                          self._active_time_bins[j,1]) # Correct?
+
+                """
+                # General bkg counts and errors for time bins between self._bkg1_start and self._bkg2_stop
+                bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins)))
+                bkg_error = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins))) 
+
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts[i] = p.integral(self._data_object.time_bins[:,0],
+                                               self._data_object.time_bins[:,1])
+                    for j, (start, stop) in enumerate(self._data_object.time_bins):
+
+                        bkg_error[i,j] = p.integral_error(start,
+                                                          stop)
+
+
+                # Get the bkg counts and errors in the active time
+                bkg_counts_active = np.empty((len(np.asarray(polynomials))))
+                bkg_error_active = np.empty((len(np.asarray(polynomials))))
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts_active[i] = p.integral(self._real_start_active, self._real_stop_active)
+
+                    bkg_error_active[i] = p.integral_error(self._real_start_active,
+                                                      self._real_stop_active) # Correct?
+
+                self._bkg_psd[d] = {'error': bkg_error, 'counts': bkg_counts} 
+                self._bkg_active_psd[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
+
+        if 'double' in self._event_types:
+            # Initalize the polynominal background fit to the time before and after the trigger time
+            # to get the temporal changing Background
+            self._bkg_me2 = {}
+            self._bkg_active_me2 = {}
+
+
+            for d in self._me2_dets_to_use:
+
+                # Use threeML times series to calculate the background polynominals for every det
+                # and det PHA channel
+                tsb = TimeSeriesBuilder.from_spi_spectrum('spi_det{}'.format(d),
+                                                          self._data_object.time_bins_start,
+                                                          self._data_object.time_bins_stop,
+                                                          self._data_object.time_bin_length,
+                                                          self._data_object.energy_and_time_bin_me2_dict[d],
+                                                          self._response_object,
+                                                          poly_order=1)
+
+                # Set active time and background time
+                tsb.set_active_time_interval(self._active_time)
+                tsb.set_background_interval(self._bkg_time_1, self._bkg_time_2)
+
+                time_series = tsb.time_series
+                polynomials = time_series.polynomials
+                """
+                bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins)))
+                bkg_error = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins))) 
+
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts[i] = p.integral(self._active_time_bins[:,0],
+                                               self._active_time_bins[:,1])
+                    for j, (start, stop) in enumerate(self._active_time_bins):
+
+                        bkg_error[i,j] = p.integral_error(self._active_time_bins[j,0],
+                                                          self._active_time_bins[j,1]) # Correct?
+
+                """
+                # General bkg counts and errors for time bins between self._bkg1_start and self._bkg2_stop
+                bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins)))
+                bkg_error = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins))) 
+
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts[i] = p.integral(self._data_object.time_bins[:,0],
+                                               self._data_object.time_bins[:,1])
+                    for j, (start, stop) in enumerate(self._data_object.time_bins):
+
+                        bkg_error[i,j] = p.integral_error(start,
+                                                          stop)
+
+
+                # Get the bkg counts and errors in the active time
+                bkg_counts_active = np.empty((len(np.asarray(polynomials))))
+                bkg_error_active = np.empty((len(np.asarray(polynomials))))
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts_active[i] = p.integral(self._real_start_active, self._real_stop_active)
+
+                    bkg_error_active[i] = p.integral_error(self._real_start_active,
+                                                      self._real_stop_active) # Correct?
+
+                self._bkg_me2[d] = {'error': bkg_error, 'counts': bkg_counts} 
+                self._bkg_active_me2[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
+
+        if 'triple' in self._event_types:
+            # Initalize the polynominal background fit to the time before and after the trigger time
+            # to get the temporal changing Background
+            self._bkg_me3 = {}
+            self._bkg_active_me3 = {}
+
+
+            for d in self._me3_dets_to_use:
+
+                # Use threeML times series to calculate the background polynominals for every det
+                # and det PHA channel
+                tsb = TimeSeriesBuilder.from_spi_spectrum('spi_det{}'.format(d),
+                                                          self._data_object.time_bins_start,
+                                                          self._data_object.time_bins_stop,
+                                                          self._data_object.time_bin_length,
+                                                          self._data_object.energy_and_time_bin_me3_dict[d],
+                                                          self._response_object,
+                                                          poly_order=1)
+
+                # Set active time and background time
+                tsb.set_active_time_interval(self._active_time)
+                tsb.set_background_interval(self._bkg_time_1, self._bkg_time_2)
+
+                time_series = tsb.time_series
+                polynomials = time_series.polynomials
+                """
+                bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins)))
+                bkg_error = np.empty((len(np.asarray(polynomials)),len(self._active_time_bins))) 
+
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts[i] = p.integral(self._active_time_bins[:,0],
+                                               self._active_time_bins[:,1])
+                    for j, (start, stop) in enumerate(self._active_time_bins):
+
+                        bkg_error[i,j] = p.integral_error(self._active_time_bins[j,0],
+                                                          self._active_time_bins[j,1]) # Correct?
+
+                """
+                # General bkg counts and errors for time bins between self._bkg1_start and self._bkg2_stop
+                bkg_counts = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins)))
+                bkg_error = np.empty((len(np.asarray(polynomials)),len(self._data_object.time_bins))) 
+
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts[i] = p.integral(self._data_object.time_bins[:,0],
+                                               self._data_object.time_bins[:,1])
+                    for j, (start, stop) in enumerate(self._data_object.time_bins):
+
+                        bkg_error[i,j] = p.integral_error(start,
+                                                          stop)
+
+
+                # Get the bkg counts and errors in the active time
+                bkg_counts_active = np.empty((len(np.asarray(polynomials))))
+                bkg_error_active = np.empty((len(np.asarray(polynomials))))
+                for i, p in enumerate(np.asarray(polynomials)):
+                    bkg_counts_active[i] = p.integral(self._real_start_active, self._real_stop_active)
+
+                    bkg_error_active[i] = p.integral_error(self._real_start_active,
+                                                      self._real_stop_active) # Correct?
+
+                self._bkg_me3[d] = {'error': bkg_error, 'counts': bkg_counts} 
+                self._bkg_active_me3[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
 
     def _get_model_counts(self, likelihood_model):
         """
-        Get the current model counts for all dets
+        Get the current model counts for all dets #TODO simplify this to only one possible source(This is a GRB analysis)
         :param likelihood_model: current likelihood_model
         :return:
         """
-
+        
         self.update_model(likelihood_model)
-        expected_model_counts = np.zeros((len(self._sgl_dets_to_use),len(self._data_object.ene_min)))
-        for i, d in enumerate(self._sgl_dets_to_use):
-            for point_s in self._point_sources.keys():
-                expected_model_counts[i] += self._point_sources[point_s]['predicted_count_rates'][d]
+        if "single" in self._event_types:
+            expected_model_counts = np.zeros((len(self._sgl_dets_to_use),
+                                              len(self._data_object.ene_min)))
+            for i, d in enumerate(self._sgl_dets_to_use):
+                for point_s in self._point_sources.keys():
+                    expected_model_counts[i] += self._point_sources[point_s]['predicted_count_rates_sgl'][d]
 
-        self._expected_model_counts = expected_model_counts
+            self._expected_model_counts_sgl = expected_model_counts
+
+        if "psd" in self._event_types:
+            expected_model_counts = np.zeros((len(self._psd_dets_to_use),
+                                              len(self._data_object.ene_min)))
+            for i, d in enumerate(self._psd_dets_to_use):
+                for point_s in self._point_sources.keys():
+                    expected_model_counts[i] += self._point_sources[point_s]['predicted_count_rates_psd'][d]
+
+            self._expected_model_counts_psd = expected_model_counts
+
+        if "double" in self._event_types:
+            expected_model_counts = np.zeros((len(self._me2_dets_to_use),
+                                              len(self._data_object.ene_min)))
+            for i, d in enumerate(self._me2_dets_to_use):
+                for point_s in self._point_sources.keys():
+                    expected_model_counts[i] += self._point_sources[point_s]['predicted_count_rates_me2'][d]
+
+            self._expected_model_counts_me2 = expected_model_counts
+            
+        if "triple" in self._event_types:
+            expected_model_counts = np.zeros((len(self._me3_dets_to_use),
+                                              len(self._data_object.ene_min)))
+            for i, d in enumerate(self._me3_dets_to_use):
+                for point_s in self._point_sources.keys():
+                    expected_model_counts[i] += self._point_sources[point_s]['predicted_count_rates_me3'][d]
+
+            self._expected_model_counts_me3 = expected_model_counts
         
     def get_log_like(self, likelihood_model):
         """
         Return the current log likelihood value, only point_source at the moment
-        :return:
+        :return: loglike value
         """
         
         self._get_model_counts(likelihood_model)
 
-        if self._analysis=='GRB':
-            # Use pgstat likelihood (background gaussian + signal poisson)
-            loglike = 0
-            if 'single' in self._event_types:
-                for v, d in enumerate(self._sgl_dets_to_use):
-                    
+        # Use pgstat likelihood (background gaussian + signal poisson)
+        loglike = 0
+        if 'single' in self._event_types:
+            for v, d in enumerate(self._sgl_dets_to_use):
 
-                    loglike += np.sum(poisson_observed_gaussian_background(
-                        self._active_time_counts_energy_sgl_dict[d],
-                        self._bkg_active[d]['counts_active'],
-                        self._bkg_active[d]['error_active'],
-                        self._expected_model_counts[v])[0])
 
-            return loglike
-        else:
-            raise NotImplementedError('Only GRB analysis at the moment!')
+                loglike += np.sum(poisson_observed_gaussian_background(
+                    self._active_time_counts_energy_sgl_dict[d],
+                    self._bkg_active_sgl[d]['counts_active'],
+                    self._bkg_active_sgl[d]['error_active'],
+                    self._expected_model_counts_sgl[v])[0])
 
-    def plot_lightcurve(self):
+        if 'psd' in self._event_types:
+            for v, d in enumerate(self._psd_dets_to_use):
+
+
+                loglike += np.sum(poisson_observed_gaussian_background(
+                    self._active_time_counts_energy_psd_dict[d],
+                    self._bkg_active_psd[d]['counts_active'],
+                    self._bkg_active_psd[d]['error_active'],
+                    self._expected_model_counts_psd[v])[0])
+
+        if 'double' in self._event_types:
+            for v, d in enumerate(self._me2_dets_to_use):
+
+
+                loglike += np.sum(poisson_observed_gaussian_background(
+                    self._active_time_counts_energy_me2_dict[d],
+                    self._bkg_active_me2[d]['counts_active'],
+                    self._bkg_active_me2[d]['error_active'],
+                    self._expected_model_counts_me2[v])[0])
+
+        if 'triple' in self._event_types:
+            for v, d in enumerate(self._me3_dets_to_use):
+
+
+                loglike += np.sum(poisson_observed_gaussian_background(
+                    self._active_time_counts_energy_me3_dict[d],
+                    self._bkg_active_me3[d]['counts_active'],
+                    self._bkg_active_me3[d]['error_active'],
+                    self._expected_model_counts_me3[v])[0])
+
+        return loglike
+
+
+    def plot_sgl_lightcurve(self):
         """
         Plot data and bkg fits of sgl dets
         :return: fig
@@ -602,10 +997,10 @@ class SPI_GRB_Analysis(object):
         
         for i in range(n_dets):
             # Plot data
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_sgl_dict[self._sgl_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_sgl_dict[self._sgl_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._sgl_dets_to_use[i]))
 
             # Plot the bkg fit
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg[self._sgl_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_sgl[self._sgl_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
 
             # Plot active time
             axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
@@ -615,6 +1010,7 @@ class SPI_GRB_Analysis(object):
             axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
 
             axes[i].locator_params(axis='y', nbins=1)
+            axes[i].legend(loc='upper right')
         axes[-1].set_xlabel('Time [s]')
         axes[-1].set_xlim(self._bkg1_start, self._bkg2_stop)
 
@@ -627,6 +1023,129 @@ class SPI_GRB_Analysis(object):
         
         return fig
 
+    def plot_psd_lightcurve(self):
+        """
+        Plot data and bkg fits of sgl dets
+        :return: fig
+        """
+
+        n_dets = len(self._psd_dets_to_use)
+
+        n_rows = np.ceil(n_dets/2.)
+        n_colums = 2
+        
+        fig, axes = plt.subplots(n_dets, 1, sharex=True, figsize=(8.27, 11.69))
+        
+        for i in range(n_dets):
+            # Plot data
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_psd_dict[self._psd_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._psd_dets_to_use[i]))
+
+            # Plot the bkg fit
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_psd[self._psd_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+
+            # Plot active time
+            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+
+            # Plot bkg times
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+
+            axes[i].locator_params(axis='y', nbins=1)
+            axes[i].legend(loc='upper right')
+        axes[-1].set_xlabel('Time [s]')
+        axes[-1].set_xlim(self._bkg1_start, self._bkg2_stop)
+
+        ax_frame = fig.add_subplot(111, frameon=False)
+        ax_frame.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        ax_frame.set_ylabel('Count rates [cnts s$^{-1}$]')
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0)
+        
+        return fig
+
+    def plot_me2_lightcurve(self):
+        """
+        Plot data and bkg fits of sgl dets
+        :return: fig
+        """
+
+        n_dets = len(self._me2_dets_to_use)
+
+        n_rows = np.ceil(n_dets/2.)
+        n_colums = 2
+        
+        fig, axes = plt.subplots(n_dets, 1, sharex=True, figsize=(8.27, 11.69))
+        
+        for i in range(n_dets):
+            # Plot data
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_me2_dict[self._me2_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._me2_dets_to_use[i]))
+
+            # Plot the bkg fit
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_me2[self._me2_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+
+            # Plot active time
+            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+
+            # Plot bkg times
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+
+            axes[i].locator_params(axis='y', nbins=1)
+            axes[i].legend(loc='upper right') 
+        axes[-1].set_xlabel('Time [s]')
+        axes[-1].set_xlim(self._bkg1_start, self._bkg2_stop)
+
+        ax_frame = fig.add_subplot(111, frameon=False)
+        ax_frame.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        ax_frame.set_ylabel('Count rates [cnts s$^{-1}$]')
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0)
+        
+        return fig
+
+    def plot_me3_lightcurve(self):
+        """
+        Plot data and bkg fits of sgl dets
+        :return: fig
+        """
+
+        n_dets = len(self._me3_dets_to_use)
+
+        n_rows = np.ceil(n_dets/2.)
+        n_colums = 2
+        
+        fig, axes = plt.subplots(n_dets, 1, sharex=True, figsize=(8.27, 11.69))
+        
+        for i in range(n_dets):
+            # Plot data
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_me3_dict[self._me3_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._me3_dets_to_use[i]))
+
+            # Plot the bkg fit
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_me3[self._me3_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+
+            # Plot active time
+            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+
+            # Plot bkg times
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+
+            axes[i].locator_params(axis='y', nbins=1)
+            axes[i].legend(loc='upper right')
+        axes[-1].set_xlabel('Time [s]')
+        axes[-1].set_xlim(self._bkg1_start, self._bkg2_stop)
+        
+        ax_frame = fig.add_subplot(111, frameon=False)
+        ax_frame.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        ax_frame.set_ylabel('Count rates [cnts s$^{-1}$]')
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0)
+        
+        return fig
+    
     def save_fit_results_files(self, post_equal_weights_file_path, likelihood_model, overwrite=False):
         """
         Saves all the needed files to reconstruct the result. These files are necessary to create the plots with spi_display.py
@@ -760,13 +1279,12 @@ class SPI_GRB_Analysis(object):
             return np.loadtxt(intext)
 
     
-    def plot_fit_data(self, post_equal_weights_file, likelihood_model):
+    def plot_fit_data_sgl(self, post_equal_weights_file, likelihood_model):
         """
         Plot the data and the fit result in one plot
         :param post_equal_weights_file: file with post_equal_weights parameter samples - for example from multinest
         :return: fig
         """
-
 
         total_active_time = np.sum(self._active_time_bins[:,1]-self._active_time_bins[:,0])
 
@@ -787,11 +1305,9 @@ class SPI_GRB_Analysis(object):
         # mask the sample parameter values
         model_counts = np.empty((n_ppc, len(self._sgl_dets_to_use), len(self._ebounds)-1))
         for i in range(n_ppc):
-            print(masked_parameter_samples[i])
             likelihood_model.set_free_parameters(masked_parameter_samples[i])
             self._get_model_counts(likelihood_model)
-            print(self._expected_model_counts)
-            model_counts[i] = self._expected_model_counts
+            model_counts[i] = self._expected_model_counts_sgl
 
         # poisson noise
         model_counts = np.random.poisson(model_counts)
@@ -800,7 +1316,7 @@ class SPI_GRB_Analysis(object):
         bkg_counts = np.empty((n_ppc, len(self._sgl_dets_to_use), len(self._ebounds)-1))
 
         for j, d in enumerate(self._sgl_dets_to_use):
-            bkg_counts[:,j,:] = np.random.normal(self._bkg_active[d]['counts_active'], self._bkg_active[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
+            bkg_counts[:,j,:] = np.random.normal(self._bkg_active_sgl[d]['counts_active'], self._bkg_active_sgl[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
 
 
         # Fitted GRB count spectrum ppc versus count space data of all dets
@@ -826,18 +1342,8 @@ class SPI_GRB_Analysis(object):
                     active_data = self._active_time_counts_energy_sgl_dict[j]/total_active_time#or axis=1
 
                     # PPC fit count spectrum
-                    print(model_counts[:,index,:])
                     # get counts for all sample parameters and the likelihood_model
-                    model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time #? Where bkg?
-
-                    # Plot number of this det
-                    #plot_number = ((j)*4)/19
-                    #if plot_number<2:
-                    #    x_plot_number = 0
-                    #    y_plot_number = plot_number
-                    #else:
-                    #    x_plot_number = 1
-                    #    y_plot_number = plot_number-2
+                    model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
 
                     q_levels = [0.68,0.95]
                     colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
@@ -865,18 +1371,6 @@ class SPI_GRB_Analysis(object):
                     index+=1
                 # If det not used only plot legend entry with remark "not used or defect"
                 else:
-                    # Plot number of this det
-                    #plot_number = (j*4)/19
-
-                    #if plot_number<2:
-                    #    x_plot_number = 0
-                    #    y_plot_number = plot_number
-                    #else:
-                    #    x_plot_number = 1
-                    #    y_plot_number = plot_number-2
-
-
-
                     red_indices.append(j)
                     axes_array[plot_number].plot([], [], ' ', label='Detector {} \n Not used'.format(j))
 
@@ -887,12 +1381,327 @@ class SPI_GRB_Analysis(object):
                 if i in red_indices:
                     l.get_texts()[0].set_color("red")
                 ax.set_xscale('log')
-                #for n in np.arange(5):
-                #    if i*5+n<19:
-                #        if i*5+n in red_indices:
-                #            l.get_texts()[n].set_color("red")
+
             fig.tight_layout()
             fig.subplots_adjust(hspace=0, wspace=0) 
             fig.savefig('data_plot.pdf')
 
+    def plot_fit_data_psd(self, post_equal_weights_file, likelihood_model):
+        """
+        Plot the data and the fit result in one plot
+        :param post_equal_weights_file: file with post_equal_weights parameter samples - for example from multinest
+        :return: fig
+        """
 
+        total_active_time = np.sum(self._active_time_bins[:,1]-self._active_time_bins[:,0])
+
+        # PPC fit count spectrum
+
+        sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
+
+        # get counts for all sample parameters and the likelihood_model
+        n_ppc = 100
+
+        mask = np.zeros(len(sample_parameters), dtype=int)
+        mask[:n_ppc] = 1
+        np.random.shuffle(mask)
+        mask = mask.astype(bool)
+
+        masked_parameter_samples = sample_parameters[mask]
+
+        # mask the sample parameter values
+        model_counts = np.empty((n_ppc, len(self._psd_dets_to_use), len(self._ebounds)-1))
+        for i in range(n_ppc):
+            likelihood_model.set_free_parameters(masked_parameter_samples[i])
+            self._get_model_counts(likelihood_model)
+            model_counts[i] = self._expected_model_counts_psd
+
+        # poisson noise
+        model_counts = np.random.poisson(model_counts)
+
+        # BKG wit gaussian noise
+        bkg_counts = np.empty((n_ppc, len(self._psd_dets_to_use), len(self._ebounds)-1))
+
+        for j, d in enumerate(self._psd_dets_to_use):
+            bkg_counts[:,j,:] = np.random.normal(self._bkg_active_psd[d]['counts_active'], self._bkg_active_psd[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
+
+
+        # Fitted GRB count spectrum ppc versus count space data of all dets
+
+        # Init figure
+        nrows = 4
+        ncol = 5
+        fig, axes = plt.subplots(nrows, ncol, sharex=True, sharey=True, figsize=(8.27, 11.69))
+        axes_array = axes.flatten()
+        index = 0
+        red_indices = []
+        # Loop over all possible single dets
+        for j in range(19):
+            plot_number = j#(j*4)/19
+            if (plot_number/float(ncol)).is_integer():
+                    axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+
+            # If this single det was used plot the fit vs. data
+            if j in self._psd_dets_to_use:
+
+                # Data rate
+                active_data = self._active_time_counts_energy_psd_dict[j]/total_active_time#or axis=1
+
+                # PPC fit count spectrum
+                # get counts for all sample parameters and the likelihood_model
+                model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
+
+                q_levels = [0.68,0.95]
+                colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
+
+                # get 68 and 95 % boundaries and plot them
+                for i,level in enumerate(q_levels):
+                    low = np.percentile(model_bkg_rates_det, 50-50*level, axis=0)
+                    high = np.percentile(model_bkg_rates_det, 50+50*level, axis=0)
+                    axes_array[plot_number].fill_between(self._ebounds[1:],
+                                                   low,
+                                                   high,
+                                                   color=colors[i],
+                                                   alpha=0.5,
+                                                   zorder=i+1,
+                                                   step='post')
+
+                axes_array[plot_number].step(self._ebounds[1:],
+                                       active_data,
+                                       where='post',
+                                       color='black',
+                                       label='Detector {}'.format(j))
+                if (plot_number/float(ncol)).is_integer():
+                    axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+
+                index+=1
+            # If det not used only plot legend entry with remark "not used or defect"
+            else:
+                red_indices.append(j)
+                axes_array[plot_number].plot([], [], ' ', label='Detector {} \n Not used'.format(j))
+
+        # Make legend and mark the not used dets red
+        for i, ax in enumerate(axes.flatten()):
+            ax.set_xlabel('Energy [keV]')
+            l = ax.legend()
+            if i in red_indices:
+                l.get_texts()[0].set_color("red")
+            ax.set_xscale('log')
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0, wspace=0) 
+        fig.savefig('data_plot.pdf')
+
+    def plot_fit_data_me2(self, post_equal_weights_file, likelihood_model):
+        """
+        Plot the data and the fit result in one plot
+        :param post_equal_weights_file: file with post_equal_weights parameter samples - for example from multinest
+        :return: fig
+        """
+
+        total_active_time = np.sum(self._active_time_bins[:,1]-self._active_time_bins[:,0])
+
+        # PPC fit count spectrum
+
+        sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
+
+        # get counts for all sample parameters and the likelihood_model
+        n_ppc = 100
+
+        mask = np.zeros(len(sample_parameters), dtype=int)
+        mask[:n_ppc] = 1
+        np.random.shuffle(mask)
+        mask = mask.astype(bool)
+
+        masked_parameter_samples = sample_parameters[mask]
+
+        # mask the sample parameter values
+        model_counts = np.empty((n_ppc, len(self._me2_dets_to_use), len(self._ebounds)-1))
+        for i in range(n_ppc):
+            likelihood_model.set_free_parameters(masked_parameter_samples[i])
+            self._get_model_counts(likelihood_model)
+            model_counts[i] = self._expected_model_counts_me2
+
+        # poisson noise
+        model_counts = np.random.poisson(model_counts)
+
+        # BKG wit gaussian noise
+        bkg_counts = np.empty((n_ppc, len(self._me2_dets_to_use), len(self._ebounds)-1))
+
+        for j, d in enumerate(self._me2_dets_to_use):
+            bkg_counts[:,j,:] = np.random.normal(self._bkg_active_me2[d]['counts_active'], self._bkg_active_me2[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
+
+
+        # Fitted GRB count spectrum ppc versus count space data of all dets
+        
+
+        # Init figure
+        nrows = 6
+        ncol = 7
+        fig, axes = plt.subplots(nrows, ncol, sharex=True, sharey=True, figsize=(8.27, 11.69))
+        axes_array = axes.flatten()
+        index = 0
+        red_indices = []
+        # Loop over all possible single dets
+        for j in range(19,61):
+            plot_number = j-19#(j*4)/19
+            if (plot_number/float(ncol)).is_integer():
+                    axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+
+            # If this single det was used plot the fit vs. data
+            if j in self._me2_dets_to_use:
+
+                # Data rate
+                active_data = self._active_time_counts_energy_me2_dict[j]/total_active_time#or axis=1
+
+                # PPC fit count spectrum
+                # get counts for all sample parameters and the likelihood_model
+                model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
+
+                q_levels = [0.68,0.95]
+                colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
+
+                # get 68 and 95 % boundaries and plot them
+                for i,level in enumerate(q_levels):
+                    low = np.percentile(model_bkg_rates_det, 50-50*level, axis=0)
+                    high = np.percentile(model_bkg_rates_det, 50+50*level, axis=0)
+                    axes_array[plot_number].fill_between(self._ebounds[1:],
+                                                   low,
+                                                   high,
+                                                   color=colors[i],
+                                                   alpha=0.5,
+                                                   zorder=i+1,
+                                                   step='post')
+
+                axes_array[plot_number].step(self._ebounds[1:],
+                                       active_data,
+                                       where='post',
+                                       color='black',
+                                       label='Detector {}'.format(j))
+                if (plot_number/float(ncol)).is_integer():
+                    axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+
+                index+=1
+            # If det not used only plot legend entry with remark "not used or defect"
+            else:
+                red_indices.append(j-19)
+                axes_array[plot_number].plot([], [], ' ', label='Detector {} \n Not used'.format(j))
+
+        # Make legend and mark the not used dets red
+        for i, ax in enumerate(axes.flatten()):
+            ax.set_xlabel('Energy [keV]')
+            l = ax.legend()
+            if i in red_indices:
+                l.get_texts()[0].set_color("red")
+            ax.set_xscale('log')
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0, wspace=0) 
+        fig.savefig('data_plot.pdf')
+
+    def plot_fit_data_me3(self, post_equal_weights_file, likelihood_model):
+        """
+        Plot the data and the fit result in one plot
+        :param post_equal_weights_file: file with post_equal_weights parameter samples - for example from multinest
+        :return: fig
+        """
+
+        total_active_time = np.sum(self._active_time_bins[:,1]-self._active_time_bins[:,0])
+
+        # PPC fit count spectrum
+
+        sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
+
+        # get counts for all sample parameters and the likelihood_model
+        n_ppc = 100
+
+        mask = np.zeros(len(sample_parameters), dtype=int)
+        mask[:n_ppc] = 1
+        np.random.shuffle(mask)
+        mask = mask.astype(bool)
+
+        masked_parameter_samples = sample_parameters[mask]
+
+        # mask the sample parameter values
+        model_counts = np.empty((n_ppc, len(self._me3_dets_to_use), len(self._ebounds)-1))
+        for i in range(n_ppc):
+            likelihood_model.set_free_parameters(masked_parameter_samples[i])
+            self._get_model_counts(likelihood_model)
+            model_counts[i] = self._expected_model_counts_me3
+
+        # poisson noise
+        model_counts = np.random.poisson(model_counts)
+
+        # BKG wit gaussian noise
+        bkg_counts = np.empty((n_ppc, len(self._me3_dets_to_use), len(self._ebounds)-1))
+
+        for j, d in enumerate(self._me3_dets_to_use):
+            bkg_counts[:,j,:] = np.random.normal(self._bkg_active_me3[d]['counts_active'], self._bkg_active_me3[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
+
+
+        # Fitted GRB count spectrum ppc versus count space data of all dets
+        
+
+        # Init figure
+        nrows = 4
+        ncol = 6
+        fig, axes = plt.subplots(nrows, ncol, sharex=True, sharey=True, figsize=(8.27, 11.69))
+        axes_array = axes.flatten()
+        index = 0
+        red_indices = []
+        # Loop over all possible single dets
+        for j in range(61,85):
+            plot_number = j-61#(j*4)/19
+            if (plot_number/float(ncol)).is_integer():
+                    axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+
+            # If this single det was used plot the fit vs. data
+            if j in self._me3_dets_to_use:
+
+                # Data rate
+                active_data = self._active_time_counts_energy_me3_dict[j]/total_active_time#or axis=1
+
+                # PPC fit count spectrum
+                # get counts for all sample parameters and the likelihood_model
+                model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
+
+                q_levels = [0.68,0.95]
+                colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
+
+                # get 68 and 95 % boundaries and plot them
+                for i,level in enumerate(q_levels):
+                    low = np.percentile(model_bkg_rates_det, 50-50*level, axis=0)
+                    high = np.percentile(model_bkg_rates_det, 50+50*level, axis=0)
+                    axes_array[plot_number].fill_between(self._ebounds[1:],
+                                                   low,
+                                                   high,
+                                                   color=colors[i],
+                                                   alpha=0.5,
+                                                   zorder=i+1,
+                                                   step='post')
+
+                axes_array[plot_number].step(self._ebounds[1:],
+                                       active_data,
+                                       where='post',
+                                       color='black',
+                                       label='Detector {}'.format(j))
+                if (plot_number/float(ncol)).is_integer():
+                    axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+
+                index+=1
+            # If det not used only plot legend entry with remark "not used or defect"
+            else:
+                red_indices.append(j-61)
+                axes_array[plot_number].plot([], [], ' ', label='Detector {} \n Not used'.format(j))
+
+        # Make legend and mark the not used dets red
+        for i, ax in enumerate(axes.flatten()):
+            ax.set_xlabel('Energy [keV]')
+            l = ax.legend()
+            if i in red_indices:
+                l.get_texts()[0].set_color("red")
+            ax.set_xscale('log')
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0, wspace=0) 
+        fig.savefig('data_plot.pdf')
