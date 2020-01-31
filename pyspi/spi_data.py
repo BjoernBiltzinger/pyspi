@@ -64,12 +64,13 @@ class SpiData_GRB(object):
         """
         if "single" in self._event_types:
             self.time_and_energy_bin_sgl(ebounds, time_bin_step, start, stop)
+            self.time_and_energy_bin_psd(ebounds, time_bin_step, start, stop)
         if "double" in self._event_types:
             self.time_and_energy_bin_me2(ebounds, time_bin_step, start, stop)
         if "triple" in self._event_types:
             self.time_and_energy_bin_me3(ebounds, time_bin_step, start, stop)
-        if "psd" in self._event_types:
-            self.time_and_energy_bin_psd(ebounds, time_bin_step, start, stop)
+        #if "psd" in self._event_types:
+        #    self.time_and_energy_bin_psd(ebounds, time_bin_step, start, stop)
             
     def time_and_energy_bin_sgl(self, ebounds=None, time_bin_step=1, start=None, stop=None):
         """
@@ -217,7 +218,7 @@ class SpiData_GRB(object):
                 self._time_start=np.min(time_sgl)
                 self._time_stop=np.max(time_sgl)
                 
-            if "psd" in self._event_types:
+            #if "psd" in self._event_types:
                 energy_psd = hdu_oper[2].data['energy']
                 time_psd = self._ISDC_MJD_to_cxcsec(hdu_oper[2].data['time'])-GRB_ref_time_cxcsec
                 dets_psd = hdu_oper[2].data['DETE']
@@ -266,7 +267,7 @@ class SpiData_GRB(object):
                     self._bad_sgl_dets[i] = True
 
         # PSD events
-        if "psd" in self._event_types:
+        #if "psd" in self._event_types:
             psd_energy_dict = {}
             psd_time_dict = {}
             for i in range(19):
