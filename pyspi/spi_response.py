@@ -296,7 +296,7 @@ class SPIResponse(object):
         #x= interpolated_effective_area(self._ebounds)
         #y=self._ebounds
         #effective_area = integrate.cumtrapz(x,y)-integrate.cumtrapz(x[:-1], y[:-1], initial=0)
-        effective_area = integrate.trapz(ebins, eff_area, axis=1)
+        effective_area = integrate.trapz(eff_area, ebins, axis=1)
         return effective_area/(self._ene_max-self._ene_min)
 
     def set_location(self, azimuth, zenith):
