@@ -35,7 +35,12 @@ class SPI_GRB_Analysis(object):
         # Which event types should be used?
         self._event_types = configuration['Event_types']
 
-
+        # We need one nuisance parametert if we use the single dets for the efficiency
+        # of the PSD detections in the electronic noise range. Init it to 0.85. Will be changed
+        # by SPILike class if the single events are used
+        if "single" in self._event_types:
+            self._eff_psd = 0.85
+        
         # Time of GRB. Needed to get the correct pointing.
         time_of_grb = configuration['Time_of_GRB_UTC']
         time = datetime.strptime(time_of_grb, '%y%m%d %H%M%S')
@@ -96,7 +101,7 @@ class SPI_GRB_Analysis(object):
             
             print('You have set a unique name for this analysis that was already used before. \
                    I will add the present time to the name {}'.format(self._analysis_name))
-
+            
         # Binned or unbinned analysis?
         self._binned = configuration['Energy_binned']
         if self._binned:
@@ -105,18 +110,24 @@ class SPI_GRB_Analysis(object):
             # If no ebounds are given use the default ones
             if self._ebounds is None:
                 self._ebounds = np.logspace(np.log10(self._emin), np.log10(self._emax), 30)
+            # Construct final energy bins if single events are used
+            if 'single' in self._event_types:
+                self._construct_energy_bins()
         else:
             raise NotImplementedError('Unbinned analysis not implemented!')
 
         # Init the response
         self._init_response()
-
+        
         # Init the data
         self._init_data(self._simmulate)
 
+        
         # Which dets should be used? Can also be 'All' to use all possible
         # dets of the specified event_types
         self._dets = np.array(configuration['Detectors_to_use'])
+
+        # Construct final det selection
         self._det_selection()
         
         # Get the background estimation
@@ -128,6 +139,92 @@ class SPI_GRB_Analysis(object):
         # Set the model 
         self.set_model(likelihood_model)
 
+    def set_psd_eff(self, value):
+        """
+        Set the psd efficency
+        :param value: Value for psd eff
+        :return:
+        """
+        self._eff_psd = value
+
+    def _construct_energy_bins(self):
+        """
+        Function to construct the final energy bins that will be used in the analysis. 
+        Basically only does one thing: If the single events are included in the analysis
+        it ensures that no energybin is covering simultaneously energy outside and inside 
+        of [psd_low_energy, psd_high_energy]. In this area the single detection photons 
+        that were not tested by the PSD suffer the "electronical noise" and are very unrealiable. 
+        The events that have passed the PSD test do not suffer from this "electronical noise". 
+        Thus we want to only use the PSD events in this energy range. Therefore we construct the 
+        ebins in such a way that there are ebins outside of this energy range, for which we will 
+        use normal single + psd events and ebins inside of this energy range for which we only 
+        want to use the psd events.
+        :return:
+        """
+
+        psd_low_energy = 1400
+        psd_high_energy = 1700
+
+        change = False
+        # Case 1400-17000 is completly in the ebound range
+        if self._ebounds[0]<psd_low_energy and self._ebounds[-1]>psd_high_energy:
+            psd_bin = True
+            start_found = False
+            stop_found = False
+            for i, e in enumerate(self._ebounds):
+                if e>=psd_low_energy and not start_found:
+                    start_index = i
+                    start_found=True
+                if e>=1700 and not stop_found:
+                    stop_index = i
+                    stop_found=True
+            self._ebounds = np.insert(self._ebounds, start_index, psd_low_energy)
+            self._ebounds = np.insert(self._ebounds, stop_index+1, psd_high_energy)
+
+            if stop_index-start_index>1:
+                sgl_mask = np.logical_and(np.logical_or(self._ebounds[:-1]<=psd_low_energy,
+                                                        self._ebounds[:-1]>=psd_high_energy),
+                                          np.logical_or(self._ebounds[1:]<=psd_low_energy,
+                                                        self._ebounds[1:]>=psd_high_energy))
+            elif stop_index-start_index==1:
+                sgl_mask = np.ones(len(self._ebounds)-1, dtype=bool)
+                sgl_mask[start_index] = False
+                sgl_mask[stop_index] = False
+            elif stop_index-start_index==0:
+                sgl_mask = np.ones(len(self._ebounds)-1, dtype=bool)
+                sgl_mask[start_index] = False
+            change = True
+        # Upper bound of erange in psd bin
+        elif self._ebounds[0]<psd_low_energy and self._ebounds[-1]>psd_low_energy:
+            psd_bin = True
+            start_found = False
+            for i, e in enumerate(a):
+                if e>=psd_low_energy and not start_found:
+                    start_index = i
+                    start_found=True
+            self._ebounds = np.insert(self._ebounds, start_index, psd_low_energy)
+            sgl_mask = (self._ebounds<psd_low_energy)[:-1]
+            change = True
+        # Lower bound of erange in psd bin
+        elif self._ebounds[0]<psd_high_energy and self._ebounds[-1]>psd_high_energy:
+            psd_bin = True
+            stop_found = False
+            for i, e in enumerate(a):
+                if e>=psd_high_energy and not stop_found:
+                    stop_index = i
+                    stop_found=True
+            a = np.insert(self._ebounds, stop_index, psd_high_energy)
+            sgl_mask = (self._ebounds>=psd_high_energy)[:-1]
+            change=True
+        # else erange completly outside of psd bin => all just single
+        else:
+            sgl_mask = np.ones_like(self._ebounds[:-1], dtype=bool)
+
+        self._sgl_mask = sgl_mask
+
+        if change:
+            print('I had to readjust the ebins to avoid having ebins inside of the single event electronic noise energy range. The new boundaries of the ebins are: {}.'.format(self._ebounds))
+        
     def _det_selection(self):
         """
         Function to figure out which dets should be used in the analysis. Takes user input and 
@@ -144,11 +241,11 @@ class SPI_GRB_Analysis(object):
                 self._sgl_dets_to_use = np.arange(0,19,1,dtype=int)[~bad_sgl_dets]
 
             # If all dets should be used we will just ignore the ones that are turned off
-            if "psd" in self._event_types:
+            #if "psd" in self._event_types:
                 # Get a mask of the dets that are turned off. (Dets with 0 counts)
-                bad_psd_dets = self._data_object.bad_psd_dets
+                #bad_psd_dets = self._data_object.bad_psd_dets
                 
-                self._psd_dets_to_use = np.arange(0,19,1,dtype=int)[~bad_psd_dets]
+                #self._psd_dets_to_use = np.arange(0,19,1,dtype=int)[~bad_sgl_dets]
                 
             if "double" in self._event_types:
                 # Get a mask of the dets that are turned off. (Dets with 0 counts)
@@ -187,18 +284,18 @@ class SPI_GRB_Analysis(object):
                 if single_dets.size>0:
                     warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
 
-            if "psd" in self._event_types:
-                bad_psd_dets = self._data_object.bad_psd_dets
-                self._psd_dets_to_use = np.array([], dtype=int)
-                for s in single_dets:
-                    if not bad_psd_dets[s]:
-                        self._psd_dets_to_use = np.append(self._psd_dets_to_use, s)
-                    else:
-                        warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
-                assert self._psd_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
-            else:
-                if single_dets.size>0:
-                    warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
+            #if "psd" in self._event_types:
+            #    bad_psd_dets = self._data_object.bad_psd_dets
+            #    self._psd_dets_to_use = np.array([], dtype=int)
+            #    for s in single_dets:
+            #        if not bad_psd_dets[s]:
+            #            self._psd_dets_to_use = np.append(self._psd_dets_to_use, s)
+            #        else:
+            #            warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
+            #    assert self._psd_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
+            #else:
+            #    if single_dets.size>0:
+            #        warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
 
             if "double" in self._event_types:
                 bad_me2_dets = self._data_object.bad_me2_dets
@@ -340,12 +437,16 @@ class SPI_GRB_Analysis(object):
             for d in sgl_dets:
                 self._active_time_counts_energy_sgl_dict[d] = np.sum(self._data_object.energy_and_time_bin_sgl_dict[d][self._active_time_mask], axis=0)
 
-        if 'psd' in self._event_types:
+        #if 'psd' in self._event_types:
             psd_dets = self._data_object.energy_psd_dict.keys()
 
             self._active_time_counts_energy_psd_dict = {}
             for d in psd_dets:
                 self._active_time_counts_energy_psd_dict[d] = np.sum(self._data_object.energy_and_time_bin_psd_dict[d][self._active_time_mask], axis=0)
+
+            self._active_time_counts_energy_sgl_psd_sum_dict = {}
+            for d in sgl_dets:
+                self._active_time_counts_energy_sgl_psd_sum_dict[d] = self._active_time_counts_energy_psd_dict[d] + self._active_time_counts_energy_sgl_dict[d]
 
         if 'double' in self._event_types:
             me2_dets = self._data_object.energy_me2_dict.keys()
@@ -418,14 +519,14 @@ class SPI_GRB_Analysis(object):
         response_psd = {}
         response_me2 = {}
         response_me3 = {}
-            
+        
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
                 response_sgl[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
 
-        if 'psd' in self._event_types:
-            for d in self._psd_dets_to_use:
-                response_psd[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True) # TODO: Check response for PSD events
+        #if 'psd' in self._event_types:
+            for d in self._sgl_dets_to_use:
+                response_psd[d] = response_sgl[d]*self._eff_psd # TODO: Check response for PSD events
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
@@ -447,8 +548,8 @@ class SPI_GRB_Analysis(object):
             for d in self._sgl_dets_to_use:
                 predicted_count_rates_sgl[d] = np.multiply(response_sgl[d], spectrum_bins)
 
-        if 'psd' in self._event_types:
-            for d in self._psd_dets_to_use:
+        #if 'psd' in self._event_types:
+            for d in self._sgl_dets_to_use:
                 predicted_count_rates_psd[d] = np.multiply(response_psd[d], spectrum_bins)
 
         if 'double' in self._event_types:
@@ -512,9 +613,9 @@ class SPI_GRB_Analysis(object):
                 for d in self._sgl_dets_to_use:
                     response_sgl[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True)
 
-            if 'psd' in self._event_types:
-                for d in self._psd_dets_to_use:
-                    response_psd[d] = self._response_object.set_location(ra_sat, dec_sat, d, trapz=True) #TODO: Check correct response for psd events
+            #if 'psd' in self._event_types:
+                for d in self._sgl_dets_to_use:
+                    response_psd[d] = response_sgl[d]*self._eff_psd #TODO: Check correct response for psd events
 
             if 'double' in self._event_types:
                 for d in self._me2_dets_to_use:
@@ -558,7 +659,9 @@ class SPI_GRB_Analysis(object):
             """
         else:
             response_sgl = self._point_sources[name]['response_sgl']
-            response_psd = self._point_sources[name]['response_psd']
+            response_psd = {}
+            for key in response_sgl:
+                response_psd[key] = response_sgl[key]*self._eff_psd
             response_me2 = self._point_sources[name]['response_me2']
             response_me3 = self._point_sources[name]['response_me3']
             
@@ -574,8 +677,8 @@ class SPI_GRB_Analysis(object):
             for d in self._sgl_dets_to_use:
                 predicted_count_rates_sgl[d] = np.multiply(response_sgl[d], spectrum_bins)
 
-        if 'psd' in self._event_types:
-            for d in self._psd_dets_to_use:
+        #if 'psd' in self._event_types:
+            for d in self._sgl_dets_to_use:
                 predicted_count_rates_psd[d] = np.multiply(response_psd[d], spectrum_bins)
 
         if 'double' in self._event_types:
@@ -594,7 +697,6 @@ class SPI_GRB_Analysis(object):
                 spectral_parameters_component[key] = component.shape.parameters[key].value
 
             spectal_parameters[i] = spectral_parameters_component
-
 
         # Update the entry of the point source
         self._point_sources[name] = {'ra': point_source.position.ra.value,
@@ -633,8 +735,8 @@ class SPI_GRB_Analysis(object):
         if 'single' in self._event_types:
             # Initalize the polynominal background fit to the time before and after the trigger time
             # to get the temporal changing Background
-            self._bkg_sgl = {}
-            self._bkg_active_sgl = {}
+            self._bkg_sgl_psd_sum = {}
+            self._bkg_active_sgl_psd_sum = {}
 
 
             for d in self._sgl_dets_to_use:
@@ -646,7 +748,8 @@ class SPI_GRB_Analysis(object):
                                                           self._data_object.time_bins_start,
                                                           self._data_object.time_bins_stop,
                                                           self._data_object.time_bin_length,
-                                                          self._data_object.energy_and_time_bin_sgl_dict[d],
+                                                          self._data_object.energy_and_time_bin_sgl_dict[d]+
+                                                          self._data_object.energy_and_time_bin_psd_dict[d],
                                                           self._response_object,
                                                           poly_order=1)
                 
@@ -691,17 +794,17 @@ class SPI_GRB_Analysis(object):
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
 
-                self._bkg_sgl[d] = {'error': bkg_error, 'counts': bkg_counts} 
-                self._bkg_active_sgl[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
+                self._bkg_sgl_psd_sum[d] = {'error': bkg_error, 'counts': bkg_counts} 
+                self._bkg_active_sgl_psd_sum[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
-        if 'psd' in self._event_types:
+        #if 'psd' in self._event_types:
             # Initalize the polynominal background fit to the time before and after the trigger time
             # to get the temporal changing Background
             self._bkg_psd = {}
             self._bkg_active_psd = {}
 
 
-            for d in self._psd_dets_to_use:
+            for d in self._sgl_dets_to_use:
 
                 # Use threeML times series to calculate the background polynominals for every det
                 # and det PHA channel
@@ -900,12 +1003,12 @@ class SPI_GRB_Analysis(object):
                 for point_s in self._point_sources.keys():
                     expected_model_counts[i] += self._point_sources[point_s]['predicted_count_rates_sgl'][d]
 
-            self._expected_model_counts_sgl = expected_model_counts
+            self._expected_model_counts_sgl_psd_sum = expected_model_counts
 
-        if "psd" in self._event_types:
-            expected_model_counts = np.zeros((len(self._psd_dets_to_use),
+        #if "psd" in self._event_types:
+            expected_model_counts = np.zeros((len(self._sgl_dets_to_use),
                                               len(self._data_object.ene_min)))
-            for i, d in enumerate(self._psd_dets_to_use):
+            for i, d in enumerate(self._sgl_dets_to_use):
                 for point_s in self._point_sources.keys():
                     expected_model_counts[i] += self._point_sources[point_s]['predicted_count_rates_psd'][d]
 
@@ -944,20 +1047,20 @@ class SPI_GRB_Analysis(object):
 
 
                 loglike += np.sum(poisson_observed_gaussian_background(
-                    self._active_time_counts_energy_sgl_dict[d],
-                    self._bkg_active_sgl[d]['counts_active'],
-                    self._bkg_active_sgl[d]['error_active'],
-                    self._expected_model_counts_sgl[v])[0])
+                    self._active_time_counts_energy_sgl_psd_sum_dict[d][self._sgl_mask],
+                    self._bkg_active_sgl_psd_sum[d]['counts_active'][self._sgl_mask],
+                    self._bkg_active_sgl_psd_sum[d]['error_active'][self._sgl_mask],
+                    self._expected_model_counts_sgl_psd_sum[v][self._sgl_mask])[0])
 
-        if 'psd' in self._event_types:
-            for v, d in enumerate(self._psd_dets_to_use):
+        #if 'psd' in self._event_types:
+            for v, d in enumerate(self._sgl_dets_to_use):
 
 
                 loglike += np.sum(poisson_observed_gaussian_background(
-                    self._active_time_counts_energy_psd_dict[d],
-                    self._bkg_active_psd[d]['counts_active'],
-                    self._bkg_active_psd[d]['error_active'],
-                    self._expected_model_counts_psd[v])[0])
+                    self._active_time_counts_energy_psd_dict[d][~self._sgl_mask],
+                    self._bkg_active_psd[d]['counts_active'][~self._sgl_mask],
+                    self._bkg_active_psd[d]['error_active'][~self._sgl_mask],
+                    self._expected_model_counts_psd[v][~self._sgl_mask])[0])
 
         if 'double' in self._event_types:
             for v, d in enumerate(self._me2_dets_to_use):
@@ -981,6 +1084,75 @@ class SPI_GRB_Analysis(object):
 
         return loglike
 
+    def plot_ebin_lightcurve_one_det(self, det):
+        """
+        Plot data and bkg fits of sgl dets
+        :return: fig
+        """
+        n_ebin = len(self._ebounds)-1
+        
+        fig, axes = plt.subplots(n_ebin, 1, sharex=True, figsize=(8.27, 11.69))
+
+        if det in range(19):
+            assert "single" in self._event_types, "Single detectors are not used in this analysis."
+            assert det in self._sgl_dets_to_use, "This detector is not used in the analysis"
+            plot_type = "single"
+        elif det in range(19,61):
+            assert "double" in self._event_types, "Double detectors are not used in this analysis"
+            assert det in self._me2_dets_to_use, "This detector is not used in the analysis"
+            plot_type = "double"
+        elif det in range(61,85):
+            assert "triple" in self._event_types, "Triple detectors are not used in this analysis"
+            assert det in self._me3_dets_to_use, "This detector is not used in the analysis"
+            plot_type = "triple"
+        else:
+            raise AssertionError("Please use a valid detector id between 0 and 84")
+
+        for i in range(n_ebin):
+            if plot_type=="single":
+                # Plot data
+                axes[i].step(self._data_object.time_bins, (self._data_object.energy_and_time_bin_sgl_dict[det][:,i]+self._data_object.energy_and_time_bin_psd_dict[det][:,i])/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='{}-{} keV'.format(int(self._ebounds[i]), int(self._ebounds[i+1])), linewidth=0.5)
+
+                # Plot the bkg fit
+                axes[i].step(self._data_object.time_bins, self._bkg_sgl_psd_sum[det]['counts'][i]/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+
+            elif plot_type=="double":
+                # Plot data
+                axes[i].step(self._data_object.time_bins, (self._data_object.energy_and_time_bin_me2_dict[det][:,i])/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='{}-{} keV'.format(int(self._ebounds[i]), int(self._ebounds[i+1])), linewidth=0.5)
+
+                # Plot the bkg fit
+                axes[i].step(self._data_object.time_bins, self._bkg_me2[det]['counts'][i]/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+
+            else:
+                # Plot data
+                axes[i].step(self._data_object.time_bins, (self._data_object.energy_and_time_bin_me3_dict[det][:,i])/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='{}-{} keV'.format(int(self._ebounds[i]), int(self._ebounds[i+1])), linewidth=0.5)
+
+                # Plot the bkg fit
+                axes[i].step(self._data_object.time_bins, self._bkg_me3[det]['counts'][i]/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+
+            # Plot active time
+            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+
+            # Plot bkg times
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+
+            axes[i].locator_params(axis='y', nbins=1)
+            axes[i].legend(loc='upper right')
+        axes[-1].set_xlabel('Time [s]')
+        axes[-1].set_xlim(self._bkg1_start, self._bkg2_stop)
+
+        ax_frame = fig.add_subplot(111, frameon=False)
+        ax_frame.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+        ax_frame.set_ylabel('Count rates [cnts s$^{-1}$]')
+        ax_frame.set_title('Detector {}'.format(det))
+
+        fig.tight_layout()
+        fig.subplots_adjust(hspace=0)
+        
+        return fig
+
+    
 
     def plot_sgl_lightcurve(self):
         """
@@ -997,10 +1169,10 @@ class SPI_GRB_Analysis(object):
         
         for i in range(n_dets):
             # Plot data
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_sgl_dict[self._sgl_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._sgl_dets_to_use[i]))
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), (np.sum(self._data_object.energy_and_time_bin_sgl_dict[self._sgl_dets_to_use[i]], axis=1)+np.sum(self._data_object.energy_and_time_bin_psd_dict[self._sgl_dets_to_use[i]], axis=1))/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._sgl_dets_to_use[i]))
 
             # Plot the bkg fit
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_sgl[self._sgl_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_sgl_psd_sum[self._sgl_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
 
             # Plot active time
             axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
@@ -1292,6 +1464,15 @@ class SPI_GRB_Analysis(object):
 
         sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
 
+        # Check if there is a psd_eff parametert in the post_equal_weights file
+        if sample_parameters.shape[1]>len(likelihood_model.free_parameters):
+            # psd_eff_fit_array 
+            psd_eff_fit_array = sample_parameters[:,-1]
+            sample_parameters = sample_parameters[:,:-1]
+            psd_eff_variable = True
+        else:
+            psd_eff_variable = False
+            
         # get counts for all sample parameters and the likelihood_model
         n_ppc = 100
 
@@ -1301,13 +1482,16 @@ class SPI_GRB_Analysis(object):
         mask = mask.astype(bool)
 
         masked_parameter_samples = sample_parameters[mask]
-
+        if psd_eff_variable:
+            masked_psd_eff_fit_array = psd_eff_fit_array[mask]
         # mask the sample parameter values
         model_counts = np.empty((n_ppc, len(self._sgl_dets_to_use), len(self._ebounds)-1))
         for i in range(n_ppc):
             likelihood_model.set_free_parameters(masked_parameter_samples[i])
+            if psd_eff_variable:
+                self.set_psd_eff(masked_psd_eff_fit_array[i])
             self._get_model_counts(likelihood_model)
-            model_counts[i] = self._expected_model_counts_sgl
+            model_counts[i] = self._expected_model_counts_sgl_psd_sum
 
         # poisson noise
         model_counts = np.random.poisson(model_counts)
@@ -1316,7 +1500,7 @@ class SPI_GRB_Analysis(object):
         bkg_counts = np.empty((n_ppc, len(self._sgl_dets_to_use), len(self._ebounds)-1))
 
         for j, d in enumerate(self._sgl_dets_to_use):
-            bkg_counts[:,j,:] = np.random.normal(self._bkg_active_sgl[d]['counts_active'], self._bkg_active_sgl[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
+            bkg_counts[:,j,:] = np.random.normal(self._bkg_active_sgl_psd_sum[d]['counts_active'], self._bkg_active_sgl_psd_sum[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
 
 
         # Fitted GRB count spectrum ppc versus count space data of all dets
@@ -1339,7 +1523,7 @@ class SPI_GRB_Analysis(object):
                 if j in self._sgl_dets_to_use:
 
                     # Data rate
-                    active_data = self._active_time_counts_energy_sgl_dict[j]/total_active_time#or axis=1
+                    active_data = self._active_time_counts_energy_sgl_psd_sum_dict[j]/total_active_time#or axis=1
 
                     # PPC fit count spectrum
                     # get counts for all sample parameters and the likelihood_model
@@ -1398,6 +1582,15 @@ class SPI_GRB_Analysis(object):
         # PPC fit count spectrum
 
         sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
+        
+        # Check if there is a psd_eff parametert in the post_equal_weights file
+        if sample_parameters.shape[1]>len(likelihood_model.free_parameters):
+            # psd_eff_fit_array 
+            psd_eff_fit_array = sample_parameters[:,-1]
+            sample_parameters = sample_parameters[:,:-1]
+            psd_eff_variable = True
+        else:
+            psd_eff_variable = False
 
         # get counts for all sample parameters and the likelihood_model
         n_ppc = 100
@@ -1505,6 +1698,15 @@ class SPI_GRB_Analysis(object):
 
         sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
 
+        # Check if there is a psd_eff parametert in the post_equal_weights file
+        if sample_parameters.shape[1]>len(likelihood_model.free_parameters):
+            # psd_eff_fit_array 
+            psd_eff_fit_array = sample_parameters[:,-1]
+            sample_parameters = sample_parameters[:,:-1]
+            psd_eff_variable = True
+        else:
+            psd_eff_variable = False
+
         # get counts for all sample parameters and the likelihood_model
         n_ppc = 100
 
@@ -1611,6 +1813,15 @@ class SPI_GRB_Analysis(object):
         # PPC fit count spectrum
 
         sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
+
+        # Check if there is a psd_eff parametert in the post_equal_weights file
+        if sample_parameters.shape[1]>len(likelihood_model.free_parameters):
+            # psd_eff_fit_array 
+            psd_eff_fit_array = sample_parameters[:,-1]
+            sample_parameters = sample_parameters[:,:-1]
+            psd_eff_variable = True
+        else:
+            psd_eff_variable = False
 
         # get counts for all sample parameters and the likelihood_model
         n_ppc = 100

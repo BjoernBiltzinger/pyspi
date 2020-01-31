@@ -1,5 +1,8 @@
 from threeML import PluginPrototype
 from threeML.io.file_utils import sanitize_filename
+from astromodels import Parameter
+import collections
+from threeML import * 
 try:
     from pyspi.spi_analysis import *
 except:
@@ -18,11 +21,6 @@ class SPILike(PluginPrototype):
         :param name: name of instance
         :param pyspi_config: YAML config file
         """
-        # There are no nuisance parameters
-
-        nuisance_parameters = {}
-
-        super(SPILike, self).__init__(name, nuisance_parameters=nuisance_parameters)
 
         if not isinstance(pyspi_config, dict):
 
@@ -40,6 +38,24 @@ class SPILike(PluginPrototype):
 
             # Configuration is a dictionary. Nothing to do
             self._configuration = pyspi_config
+            
+        # There are no nuisance parameters
+        self._event_types = self._configuration['Event_types']
+
+        if "single" in self._event_types:
+            
+            nuisance_parameters = collections.OrderedDict()
+
+            par = Parameter("psd_eff_{}".format(name), 0.86, min_value=0, max_value=1, delta=0.01,
+                            free=True, desc="PSD efficiency in electronic noise range")
+            par.set_uninformative_prior(Uniform_prior)
+            
+            nuisance_parameters[par.name] = par
+            
+        else:
+            nuisance_parameters = {}
+            
+        super(SPILike, self).__init__(name, nuisance_parameters=nuisance_parameters)
 
 
     def set_model(self, likelihood_model):
@@ -49,15 +65,19 @@ class SPILike(PluginPrototype):
         """
 
         self._likelihood_model = likelihood_model
-
+        
         self._spi_analysis = SPIAnalysis(self._configuration, self._likelihood_model)
         #self._gta, self._pts_energies = _get_PySpi_instance(self._configuration, likelihood_model_instance)
-
+        if "single" in self._event_types:
+            self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
     def _update_model_in_pyspi(self):
         """
         Update model in pyspi
         """
         self._spi_analysis.update_model(self._likelihood_model)
+        
+        if "single" in self._event_types:
+            self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
         
     def get_log_like(self):
         """
@@ -66,7 +86,8 @@ class SPILike(PluginPrototype):
 
         # Update all sources on the fermipy side
         #self._update_model_in_pyspi()
-
+        if "single" in self._event_types:
+            self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
         # Get value of the log likelihood
         return self._spi_analysis.get_log_like(self._likelihood_model)
 
