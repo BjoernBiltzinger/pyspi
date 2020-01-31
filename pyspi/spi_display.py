@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.patches import RegularPolygon
+from astromodels import *
 
 from pyspi.io.array_to_cmap import array_to_cmap
 
@@ -297,8 +298,50 @@ class SPI(object):
         ax.set_yticks([])
         ax.set_xticks([])
 
+    def _loadtxt2d(self, intext):
+        try:
+            return np.loadtxt(intext, ndmin=2)
+        except:
+            return np.loadtxt(intext)
 
-    def plot_fit_ppc(self, fits_file):
-        pass
-    
-    
+        
+    def plot_fit_ppc(self, data_folder, polygon_plot=True):
+        """
+        Plot the results of a fit which results files are located in data_folder
+        :param data_folder: Folder where to find the results files
+        :param polygon_plot: Use the polygon_plot style?
+        :return: fig
+        """
+
+        
+
+        # Get needed data from files
+        likelihood_model = load_model(os.join.path(data_folder, 'likelihood_model.yaml'))
+        sample_parameters = self._loadtxt2d(post_equal_weights_file)[:,:-1]
+
+        h5file = h5py.File(os.join.path(data_folder, 'data_and_background_info.h5'), 'r')
+
+        used_single_dets = h5file['Used Single Dets']
+        ebounds = h5file['Ebounds']
+        nppc = h5file['N_PPC']
+        if used_single_dets!=0:
+            single_dets_used = True
+            sgl_counts = np.zeros((19, len(ebounds)-1))
+            sgl_bkg_counts = np.zeros((nppc, len(used_single_dets), len(ebounds)-1))
+            sgl_model_counts = np.zeros((nppc, len(used_single_dets), len(ebounds)-1))
+            index=0
+            for j in range(19):
+                sgl_counts[j] = h5file['Detector {}'.format(j)]['Detected counts']
+                if j
+                sgl_bkg_counts[j] = h5file['Detector {}'.format(j)]['Background counts ppc']
+                sgl_model_counts[j] = h5file['Detector {}'.format(j)]['Model counts ppc']
+                
+        else:
+            single_dets_used = False
+            
+        h5file.close()
+        
+        if polygon_plot:
+            pass
+        else:
+            raise NotImplementedError('Only polygon_plot at the moment')
