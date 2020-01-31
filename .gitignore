@@ -100,3 +100,6 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# hdf5 files - too large...
+.hdf5
