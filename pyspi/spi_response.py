@@ -223,7 +223,7 @@ class SPIResponse(object):
         self._binned_effective_area_per_detector = binned_effective_area_per_detector
         return np.array(binned_effective_area_per_detector)
     
-    def get_binned_effective_area_det(self, azimuth, zenith, det, ebounds=None, gamma=None):
+    def get_binned_effective_area_det(self, det, ebounds=None, gamma=None):
         """FIXME! briefly describe function
 
         :param azimuth: 
@@ -234,7 +234,7 @@ class SPIResponse(object):
 
         """
 
-        interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
+        interpolated_effective_area = self._current_interpolated_effective_area[det]
 
         if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
@@ -247,11 +247,11 @@ class SPIResponse(object):
         for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
 
             if gamma is not None:
-                integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
+                integrand = lambda x: (x**gamma) * interpolated_effective_area(x)
 
             else:
 
-                integrand = lambda x: interpolated_effective_area[det](x)
+                integrand = lambda x: interpolated_effective_area(x)
 
             # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
             effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
@@ -259,7 +259,7 @@ class SPIResponse(object):
             
         return effective_area
     
-    def get_binned_effective_area_det_trapz(self, azimuth, zenith, det, ebounds=None, gamma=None):
+    def get_binned_effective_area_det_trapz(self, det, ebounds=None, gamma=None):
         """FIXME! briefly describe function
 
         :param azimuth: 
@@ -270,7 +270,7 @@ class SPIResponse(object):
 
         """
 
-        interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)[det]
+        interpolated_effective_area = self._current_interpolated_effective_area[det]
         
         if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
@@ -278,37 +278,48 @@ class SPIResponse(object):
         #effective_area = integrate.cumtrapz(interpolated_effective_area(self.ebounds), self.ebounds)                   
         n_energy_bins = len(self._ebounds) - 1
         
-        effective_area = np.zeros(n_energy_bins)
+        #effective_area = np.zeros(n_energy_bins)
 
-        for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
-            """
-            if gamma is not None:
-                integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
+        #for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
+            
+        #    effective_area[i] = integrate.trapz([interpolated_effective_area(lo),interpolated_effective_area(hi)], [lo,hi])/(hi-lo)
+        ebins = np.empty((len(self._ene_min), 2))
+        eff_area = np.empty_like(ebins)
 
-            else:
+        ebins[:,0] = self._ene_min
+        ebins[:,1] = self._ene_max
 
-                integrand = lambda x: interpolated_effective_area[det](x)
-
-            # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
-            effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
-            """
-            effective_area[i] = integrate.trapz([interpolated_effective_area(lo),interpolated_effective_area(hi)], [lo,hi])/(hi-lo)
+        inter = interpolated_effective_area(self._ebounds)
         
-        return effective_area
+        eff_area[:,0] = inter[:-1]
+        eff_area[:,1] = inter[1:]
+        #x= interpolated_effective_area(self._ebounds)
+        #y=self._ebounds
+        #effective_area = integrate.cumtrapz(x,y)-integrate.cumtrapz(x[:-1], y[:-1], initial=0)
+        effective_area = integrate.trapz(ebins, eff_area, axis=1)
+        return effective_area/(self._ene_max-self._ene_min)
 
-    def set_location(self, azimuth, zenith, det, trapz=True):
+    def set_location(self, azimuth, zenith):
+        """
+        Update location and get new irf values for this location
+        :param azimuth: Azimuth of position in spacecraft coordinates
+        :param zenith: Zenith of position in spacecraft coordinates
+        """
         azimuth = np.deg2rad(azimuth)
         zenith = np.deg2rad(zenith)
-        #if trapz:
-        #    self._matrix = np.diag(self.get_binned_effective_area_det_trapz(azimuth, zenith, det))
-        #else:
-        #    self._matrix = np.diag(self.get_binned_effective_area_det(azimuth, zenith, det))
+
+        self._current_interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
+    
+    def get_eff_area_det(self, det, trapz=True):
+        """
+        Get the effective_area for the current position for all Ebins
+        :param det: Detector
+        :param trapz: Trapz integration? Much fast but can be inaccurate...
+        """
         if trapz:
-            return self.get_binned_effective_area_det_trapz(azimuth, zenith, det)
+            return self.get_binned_effective_area_det_trapz(det)
         else:
-            return self.get_binned_effective_area_det(azimuth, zenith, det)
-        
-        return self._matrix
+            return self.get_binned_effective_area_det(det)
     
     @property
     def matrix(self):
