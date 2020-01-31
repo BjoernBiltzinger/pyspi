@@ -172,7 +172,7 @@ class SPIResponse(object):
         for det_number in range(self._n_dets):
 
             #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
-
+            
             tmp = log_interp1d(self._energies_database, weighted_irf[:, det_number])
             
             interpolated_irfs.append(tmp)
