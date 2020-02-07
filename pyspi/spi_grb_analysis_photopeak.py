@@ -1,6 +1,6 @@
 from pyspi.spi_data import *
 from pyspi.spi_data_grb_synth import *
-from pyspi.spi_response import *
+from pyspi.spi_response_photopeak import *
 from pyspi.spi_pointing import *
 from pyspi.spi_frame import *
 import astropy.units as u
@@ -8,6 +8,7 @@ from astropy.coordinates import ICRS, Galactic, SkyCoord
 from astropy.time.core import Time
 from datetime import datetime
 import os
+import inspect
 from shutil import copyfile, rmtree
 
 from pyspi.io.package_data import get_path_of_external_data_dir
@@ -15,7 +16,7 @@ from pyspi.io.package_data import get_path_of_external_data_dir
 from threeML.utils.statistics.likelihood_functions import *
 from threeML import *
 
-class SPI_GRB_Analysis(object):
+class SPI_GRB_Analysis_Photopeak(object):
 
     def __init__(self, configuration, likelihood_model):
         """
@@ -23,7 +24,6 @@ class SPI_GRB_Analysis(object):
         :param configuration: Configuration dictionary
         :param likelihood_model: The inital astromodels likelihood_model
         """
-
         # TODO: Add a test if the configuration file is valid for a GRB analysis
 
         # Which energy range?
@@ -138,7 +138,7 @@ class SPI_GRB_Analysis(object):
 
         # Set the model 
         self.set_model(likelihood_model)
-
+                
     def set_psd_eff(self, value):
         """
         Set the psd efficency
@@ -386,7 +386,7 @@ class SPI_GRB_Analysis(object):
         :return:
         """
 
-        self._response_object = SPIResponse(ebounds=self._ebounds, time=self._time_of_grb)
+        self._response_object = SPIResponse_Photopeak(ebounds=self._ebounds, time=self._time_of_grb)
 
                 
     def _init_data(self, simmulate):
@@ -490,7 +490,6 @@ class SPI_GRB_Analysis(object):
         """
         self._point_sources = {}
         for point_source in likelihood_model.point_sources.values():
-
             # Calculate influence of source on every det
             self.create_pointsource(point_source.name, point_source)
 
@@ -506,7 +505,6 @@ class SPI_GRB_Analysis(object):
         :param point_source: Astromodel point source 
         :return:
         """
-
         assert name not in self._point_sources.keys(), 'Can not create the source {} twice!'.format(name)
         # ra and dec to sat coord
         icrscoord = SkyCoord(ra=point_source.position.ra.value, dec=point_source.position.dec.value, unit='deg', frame='icrs')
@@ -524,19 +522,19 @@ class SPI_GRB_Analysis(object):
         
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                response_sgl[d] = self._response_object.get_drm_det_trapz(d)
-
+                response_sgl[d] = self._response_object.get_eff_area_det(d, trapz=True)
+                
         #if 'psd' in self._event_types:
             for d in self._sgl_dets_to_use:
                 response_psd[d] = response_sgl[d]*self._eff_psd # TODO: Check response for PSD events
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                response_me2[d] = self._response_object.get_drm_det_trapz(d)
+                response_me2[d] = self._response_object.get_eff_area_det(d, trapz=True)
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                response_me3[d] = self._response_object.get_drm_det_trapz(d)
+                response_me3[d] = self._response_object.get_eff_area_det(d, trapz=True)
 
         # Get current spectrum of source
         spectrum_bins = self.calculate_spectrum(point_source)
@@ -548,19 +546,19 @@ class SPI_GRB_Analysis(object):
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_sgl[d] = np.dot(response_sgl[d], spectrum_bins)
+                predicted_count_rates_sgl[d] = np.multiply(response_sgl[d], spectrum_bins)
 
         #if 'psd' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_psd[d] = np.dot(response_psd[d], spectrum_bins)
+                predicted_count_rates_psd[d] = np.multiply(response_psd[d], spectrum_bins)
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                predicted_count_rates_me2[d] = np.dot(response_me2[d], spectrum_bins)
+                predicted_count_rates_me2[d] = np.multiply(response_me2[d], spectrum_bins)
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                predicted_count_rates_me3[d] = np.dot(response_me3[d], spectrum_bins)
+                predicted_count_rates_me3[d] = np.multiply(response_me3[d], spectrum_bins)
 
         spectal_parameters = {}
         
@@ -615,7 +613,7 @@ class SPI_GRB_Analysis(object):
             
             if 'single' in self._event_types:
                 for d in self._sgl_dets_to_use:
-                    response_sgl[d] = self._response_object.get_drm_det_trapz(d)
+                    response_sgl[d] = self._response_object.get_eff_area_det(d, trapz=True)
 
             #if 'psd' in self._event_types:
                 for d in self._sgl_dets_to_use:
@@ -623,11 +621,11 @@ class SPI_GRB_Analysis(object):
 
             if 'double' in self._event_types:
                 for d in self._me2_dets_to_use:
-                    response_me2[d] = self._response_object.get_drm_det_trapz(d) 
+                    response_me2[d] = self._response_object.get_eff_area_det(d, trapz=True)
 
             if 'triple' in self._event_types:
                 for d in self._me3_dets_to_use:
-                    response_me3[d] = self._response_object.get_drm_det_trapz(d) 
+                    response_me3[d] = self._response_object.get_eff_area_det(d, trapz=True)
 
             
             #sep = icrscoord.separation(self._pointing_icrs).deg
@@ -679,19 +677,19 @@ class SPI_GRB_Analysis(object):
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_sgl[d] = np.dot(response_sgl[d], spectrum_bins)
+                predicted_count_rates_sgl[d] = np.multiply(response_sgl[d], spectrum_bins)
 
         #if 'psd' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_psd[d] = np.dot(response_psd[d], spectrum_bins)
+                predicted_count_rates_psd[d] = np.multiply(response_psd[d], spectrum_bins)
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                predicted_count_rates_me2[d] = np.dot(response_me2[d], spectrum_bins)
+                predicted_count_rates_me2[d] = np.multiply(response_me2[d], spectrum_bins)
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                predicted_count_rates_me3[d] = np.dot(response_me3[d], spectrum_bins)
+                predicted_count_rates_me3[d] = np.multiply(response_me3[d], spectrum_bins)
                 
         spectal_parameters = {}
         for i, component in enumerate(point_source._components.values()):
@@ -998,7 +996,6 @@ class SPI_GRB_Analysis(object):
         :param likelihood_model: current likelihood_model
         :return:
         """
-        
         self.update_model(likelihood_model)
         if "single" in self._event_types:
             expected_model_counts = np.zeros((len(self._sgl_dets_to_use),
@@ -1570,7 +1567,7 @@ class SPI_GRB_Analysis(object):
                 if i in red_indices:
                     l.get_texts()[0].set_color("red")
                 ax.set_xscale('log')
-                #ax.set_yscale('log')
+
             fig.tight_layout()
             fig.subplots_adjust(hspace=0, wspace=0) 
             fig.savefig('data_plot.pdf')
