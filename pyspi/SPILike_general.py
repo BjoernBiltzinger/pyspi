@@ -2,7 +2,8 @@ from threeML import PluginPrototype
 from threeML.io.file_utils import sanitize_filename
 from astromodels import Parameter
 import collections
-from threeML import * 
+from threeML import *
+#from pyspi.spi_analysis import *
 try:
     from pyspi.spi_analysis import *
 except:
@@ -41,7 +42,7 @@ class SPILike(PluginPrototype):
             
         # There are no nuisance parameters
         self._event_types = self._configuration['Event_types']
-
+        self._photo_peak_only = self._configuration['Use_only_photopeak']
         if "single" in self._event_types:
             
             nuisance_parameters = collections.OrderedDict()
@@ -66,7 +67,7 @@ class SPILike(PluginPrototype):
 
         self._likelihood_model = likelihood_model
         
-        self._spi_analysis = SPIAnalysis(self._configuration, self._likelihood_model)
+        self._spi_analysis = getspianalysis(self._configuration, self._likelihood_model, photopeak_only=self._photo_peak_only)
         #self._gta, self._pts_energies = _get_PySpi_instance(self._configuration, likelihood_model_instance)
         if "single" in self._event_types:
             self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
