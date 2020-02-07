@@ -14,7 +14,8 @@ default_GRB = {'Unique_analysis_name': None,
                'Simmulate': False,
                'Bkg_estimation': 'Polynominal',
                'Energy_binned': True,
-               'Ebounds': list(np.logspace(np.log10(20), np.log10(8000), 30))}
+               'Ebounds': list(np.logspace(np.log10(20), np.log10(8000), 30)),
+               'Use_only_photopeak': False}
             
            
 
