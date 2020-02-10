@@ -21,7 +21,7 @@ def log_interp1d(xx, yy, kind='linear'):
     log_interp = lambda zz: np.power(10.0, lin_interp(np.log10(zz)))
     return log_interp
 
-class SPIResponse(object):
+class Response(object):
     def __init__(self, ebounds=None, time=None):
         """FIXME! briefly describe function
         :param time: Time object, with the time for which the valid response should be used
@@ -33,68 +33,7 @@ class SPIResponse(object):
         self._load_irfs(time)
         if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
-        
-    def _load_irfs(self, time=None):
-        """FIXME! briefly describe function
-        :param time: Time object, with the time for which the valid response should be used
-        :returns: 
-        :rtype: 
-        """
-        
-        if time==None:
-            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
-            print('Using the default irfs. The ones that are valid between 10/05/27 12:45:00 and present (YY/MM/DD HH:MM:SS)')
-            
-        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_irfs_database_0.hdf5')
-            print('Using the irfs that are valid between Start and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
-            
-        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_irfs_database_1.hdf5')
-            print('Using the irfs that are valid between 03/07/06 06:00:00 and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
-
-        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_irfs_database_2.hdf5')
-            print('Using the irfs that are valid between 04/07/17 08:20:06 and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
-
-        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_irfs_database_3.hdf5')
-            print('Using the irfs that are valid between 09/02/19 09:59:57 and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
-
-        else:
-            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
-            print('Using the irfs that are valid between 10/05/27 12:45:00 and present (YY/MM/DD HH:MM:SS)')
-
-        irf_database = h5py.File(irf_file, 'r')
-
-        self._energies_database = irf_database['energies'].value
-
-        self._ebounds = self._energies_database
-        self._ene_min = self._energies_database[:-1]
-        self._ene_max = self._energies_database[1:]
-        
-        irf_data = irf_database['irfs']
-
-        self._irfs = irf_data[()]
-
-        self._irfs_photopeak = self._irfs[...,0]
-        self._irfs_nonphoto_1 = self._irfs[...,1]
-        self._irfs_nonphoto_2 = self._irfs[...,2]
-        
-        self._irf_xmin = irf_data.attrs['irf_xmin']
-        self._irf_ymin = irf_data.attrs['irf_ymin']
-        self._irf_xbin = irf_data.attrs['irf_xbin']
-        self._irf_ybin = irf_data.attrs['irf_ybin']
-        self._irf_nx = irf_data.attrs['nx']
-        self._irf_ny = irf_data.attrs['ny']
-        
-        irf_database.close()
-
-        self._n_dets = self._irfs.shape[1]
-
-        self._ebounds_rmf_2_base, self._rmf_2_base = load_rmf_non_ph_1()
-        self._ebounds_rmf_3_base, self._rmf_3_base = load_rmf_non_ph_2()
-        
+                
     def get_xy_pos(self, azimuth, zenith):
         """
         FIXME! briefly describe function
@@ -118,316 +57,7 @@ class SPIResponse(object):
         y_pos = (zenith_pointing * np.sin(azimuth_pointing) - self._irf_ymin) / self._irf_ybin
 
         return x_pos, y_pos
-
-    def set_binned_data_energy_bounds(self, ebounds):
-        """
-        Change the energy bins for the binned effective_area
-        :param ebounds: New ebinedges: ebounds[:-1] start of ebins, ebounds[1:] end of ebins
-        :return:
-        """
-
-        if not np.array_equal(ebounds, self._ebounds):
-            
-            print('You have changed the energy boundaries for the binned effective_area calculation in the further calculations!')
-            self._ene_min = ebounds[:-1]
-            self._ene_max = ebounds[1:]
-            self._ebounds = ebounds
-
-            self._rmf2 = self._rebin_rmfs(self._ebounds, self._ebounds_rmf_2_base, self._rmf_2_base)
-            self._rmf3 = self._rebin_rmfs(self._ebounds, self._ebounds_rmf_3_base, self._rmf_3_base)
-            
-    def _rebin_rmfs(self, new_ebins, old_ebins, old_rmf):
-        """
-        Rebin base rmf's to new ebins
-        :param new_ebins: New energy bins
-        :param old_ebins: Ebins in base rmf
-        :param old_rmf: base rmf
-        """
-        def low_index_bracket(value, array):
-            for i in range(len(array)-1):
-                if value>=array[i] and value<array[i+1]:
-                    return i
-            return -1
-
-        def bilinint(x, y, matrix, x0, y0):
-
-            x1_ind, x2_ind = np.abs(x-x0).argsort()[:2]
-            y1_ind, y2_ind = np.abs(y-y0).argsort()[:2]
-
-            x1 = x[x1_ind]
-            x2 = x[x2_ind]
-            y1 = x[y1_ind]
-            y2 = x[y2_ind]
-
-            denom = (x2-x1)*(y2-y1)
-            value = (matrix[x1_ind, y1_ind]*(x2-x0)*(y2-y0)+ matrix[x2_ind, y1_ind]*(x0-x1)*(y2-y0)+matrix[x1_ind, y2_ind]*(x2-x0)*(y0-y1)+matrix[x2_ind, y2_ind]*(x0-x1)*(y0-y1))/denom
-            return value
-
         
-        min_e_old = old_ebins[:-1]
-        max_e_old = old_ebins[1:]
-
-        min_e_new = new_ebins[:-1]
-        max_e_new = new_ebins[1:]
-        """
-        ChIdx = np.empty_like(min_e_new, dtype=int)
-        for i, (emin, emax) in enumerate(zip(min_e_new, max_e_new)):
-            val = (emax-emin)/(emin)
-            if val<0.02:
-                ChIdx[i] = 1
-            elif val<0.05:
-                ChIdx[i] = 2
-            elif val<0.1:
-                ChIdx[i] = 5
-            elif val<0.2:
-                ChIdx[i] = 10
-            elif val<0.3:
-                ChIdx[i] = 15
-            elif val<0.4:
-                ChIdx[i] = 20
-            else:
-                ChIdx[i] = 30
-
-        temp_y_low = []
-        for i in range(len(min_e_new)):
-            for j in range(ChIdx[i]):
-                temp_y_low.append(min_e_new[i]+((max_e_new[i]-min_e_new[i])/ChIdx[i])*j)
-        temp_y_low = np.array(temp_y_low)
-
-        temp_y_high = np.empty_like(temp_y_low)
-        temp_y_high[:-1]=temp_y_low[1:]
-        temp_y_high[-1]=max_e_new[-1]
-
-        temp_x_low = temp_y_low
-        temp_x_high = temp_y_high
-
-        x_new_temp = np.power(10., (np.log10(temp_x_low)+np.log10(temp_x_high))/2.)
-        y_new_temp = np.power(10., (np.log10(temp_y_low)+np.log10(temp_y_high))/2.)
-        """
-        x_old = np.power(10., (np.log10(min_e_old)+np.log10(max_e_old))/2.)
-        y_old = np.power(10., (np.log10(min_e_old)+np.log10(max_e_old))/2.)
-
-        matrix = (np.copy(old_rmf)/(max_e_old-min_e_old))
-        diag_old = np.diag(np.copy(old_rmf))
-        x_new_temp = np.power(10., (np.log10(min_e_new)+np.log10(max_e_new))/2.)
-        y_new_temp = np.power(10., (np.log10(min_e_new)+np.log10(max_e_new))/2.)
-
-        IntMatrix = np.zeros((len(x_new_temp),len(y_new_temp)))
-        for i in range(len(IntMatrix)):
-
-            j = low_index_bracket(x_new_temp[i], x_old)
-
-            if j!=0:
-                matrix[j,j] = matrix[j, j-1]
-                matrix[j+1, j+1] = matrix[j+1,j]
-            for k in range(i):
-                IntMatrix[i,k] = bilinint(x_old, y_old, matrix, x_new_temp[i], y_new_temp[k])
-            IntMatrix[i] *= max_e_new-min_e_new
-            #print(max_e_new[i]-min_e_new[i])
-            # Diag interpolation
-            IntMatrix[i,i] = diag_old[j]*(1-(x_new_temp[i]-x_old[j])/(x_old[j+1]-x_old[j])) + (x_new_temp[i]-x_old[j])/(x_old[j+1]-x_old[j])*diag_old[j+1]
-
-        return IntMatrix
-
-        
-    def effective_area_per_detector(self, azimuth, zenith):
-        """FIXME! briefly describe function
-
-        :param azimuth: 
-        :param zenith: 
-        :returns:  the effective area array (n_energie X n_detectors)
-
-
-        """
-
-        # get the x,y position on the grid
-        x, y = self.get_xy_pos(azimuth, zenith)
-
-        # compute the weights between the grids
-        wgt, xx, yy = self._get_irf_weights(x, y)
-
-
-        # If outside of the response pattern set response to zero
-        try:
-            # select these points on the grid and weight them together
-            weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
-            weighted_irf_nonph_1 = self._irfs_nonphoto_1[...,xx,yy].dot(wgt)
-            weighted_irf_nonph_2 = self._irfs_nonphoto_2[...,xx,yy].dot(wgt)
-        except IndexError:
-            weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
-            weighted_irf_nonph_1 = np.zeros_like(self._irfs_nonphoto_1[...,20,20])
-            weighted_irf_nonph_2 = np.zeros_like(self._irfs_nonphoto_2[...,20,20])
-            
-        return weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2
-
-    # WAY TO GO: Get irfs_ph, irfs_nonph1 and irfs_nonph2 for a given direction => build base drm from this direction
-    # => Rebin this base drm to the wanted energy bins 
-
-    def interpolated_irfs(self, azimuth, zenith):
-        """
-        Return three lists with the interploated irf curves for
-        each detector
-
-        :param azimuth: 
-        :param zenith: 
-        :returns: 
-        :rtype: 
-
-        """
-
-        weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2 = self.effective_area_per_detector(azimuth, zenith)
-
-        
-        
-        interpolated_irfs_ph = []
-        interpolated_irfs_nonph1 = []
-        interpolated_irfs_nonph2 = []
-        
-        for det_number in range(self._n_dets):
-
-            #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
-            
-            tmp = log_interp1d(self._energies_database, weighted_irf_ph[:, det_number])
-            tmp2 = log_interp1d(self._energies_database, weighted_irf_nonph_1[:, det_number])
-            tmp3 = log_interp1d(self._energies_database, weighted_irf_nonph_2[:, det_number])
-            
-            interpolated_irfs_ph.append(tmp)
-            interpolated_irfs_nonph1.append(tmp2)
-            interpolated_irfs_nonph2.append(tmp3)
-
-        return interpolated_irfs_ph, interpolated_irfs_nonph1, interpolated_irfs_nonph2
-            
-
-
-    def get_binned_effective_area(self, azimuth, zenith, ebounds=None, gamma=None):
-        """FIXME! briefly describe function
-
-        :param azimuth: 
-        :param zenith: 
-        :param ebounds: 
-        :returns: 
-        :rtype: 
-
-        """
-
-        interpolated_effective_area = self.interpolated_effective_area(azimuth, zenith)
-
-        binned_effective_area_per_detector = []
-        if ebounds is not None:
-            self.set_binned_data_energy_bounds(ebounds)
-
-                            
-        n_energy_bins = len(self._ebounds) - 1
-        
-        for det in range(self._n_dets):
-
-            effective_area = np.zeros(n_energy_bins)
-
-            for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
-
-                if gamma is not None:
-                    integrand = lambda x: (x**gamma) * interpolated_effective_area[det](x)
-
-                else:
-
-                    integrand = lambda x: interpolated_effective_area[det](x)
-
-                # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
-                effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
-
-            
-            binned_effective_area_per_detector.append(effective_area)
-
-        self._binned_effective_area_per_detector = binned_effective_area_per_detector
-        return np.array(binned_effective_area_per_detector)
-    
-    def get_binned_effective_area_det(self, det, ebounds=None, gamma=None):
-        """FIXME! briefly describe function
-
-        :param azimuth: 
-        :param zenith: 
-        :param ebounds: 
-        :returns: 
-        :rtype: 
-
-        """
-
-        interpolated_effective_area = self._current_interpolated_effective_area[det]
-
-        if ebounds is not None:
-            self.set_binned_data_energy_bounds(ebounds)
-
-                            
-        n_energy_bins = len(self._ebounds) - 1
-        
-        effective_area = np.zeros(n_energy_bins)
-
-        for i, (lo,hi) in enumerate(zip(self._ene_min, self._ene_max)):
-
-            if gamma is not None:
-                integrand = lambda x: (x**gamma) * interpolated_effective_area(x)
-
-            else:
-
-                integrand = lambda x: interpolated_effective_area(x)
-
-            # TODO: Is this (hi-lo) factor correct? Must be normalized to bin size, correct?
-            effective_area[i] =  integrate.quad(integrand, lo, hi)[0]/(hi-lo)
-
-            
-        return effective_area
-    
-    def get_drm_det_trapz(self, det):
-        """FIXME! briefly describe function
-
-        :param azimuth: 
-        :param zenith: 
-        :param ebounds: 
-        :returns: 
-        :rtype: 
-
-        """
-
-        interpolated_irfs_ph = self._current_interpolated_irfs_ph[det]
-        interpolated_irfs_nonph1 = self._current_interpolated_irfs_nonph1[det]
-        interpolated_irfs_nonph2 = self._current_interpolated_irfs_nonph2[det]
-        
-
-        n_energy_bins = len(self._ebounds) - 1
-        
-        ebins = np.empty((len(self._ene_min), 2))
-
-        # photopeak integrated irfs
-        ebins[:,0] = self._ene_min
-        ebins[:,1] = self._ene_max
-
-        ph_irfs = np.empty_like(ebins)
-        inter = interpolated_irfs_ph(self._ebounds)
-        
-        ph_irfs[:,0] = inter[:-1]
-        ph_irfs[:,1] = inter[1:]
-        ph_irfs_int = integrate.trapz(ph_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
-
-        # RMF1 and RMF2 matrix
-        nonph1_irfs = np.empty_like(ebins)
-        inter = interpolated_irfs_nonph1(self._ebounds)
-        
-        nonph1_irfs[:,0] = inter[:-1]
-        nonph1_irfs[:,1] = inter[1:]
-        nonph1_irfs_int = integrate.trapz(nonph1_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
-        
-        nonph2_irfs = np.empty_like(ebins)
-        inter = interpolated_irfs_nonph2(self._ebounds)
-        
-        nonph2_irfs[:,0] = inter[:-1]
-        nonph2_irfs[:,1] = inter[1:]
-        nonph2_irfs_int = integrate.trapz(nonph2_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
-
-        # Build DRM
-        drm = ph_irfs_int*np.identity(len(self._ene_min)) + nonph1_irfs_int*self._rmf2.T + nonph1_irfs_int*self._rmf3.T
-        
-        return drm
-
     def set_location(self, azimuth, zenith):
         """
         Update location and get new irf values for this location
@@ -437,22 +67,15 @@ class SPIResponse(object):
         azimuth = np.deg2rad(azimuth)
         zenith = np.deg2rad(zenith)
 
-        self._current_interpolated_irfs_ph, self._current_interpolated_irfs_nonph1, self._current_interpolated_irfs_nonph2 = self.interpolated_irfs(azimuth, zenith)
-    
-    def get_eff_area_det(self, det, trapz=True):
+        self._interpolated_irfs(azimuth, zenith)
+            
+    def get_response_det(self, det):
         """
-        Get the effective_area for the current position for all Ebins
+        Get the response for the current position for one detector
         :param det: Detector
-        :param trapz: Trapz integration? Much fast but can be inaccurate...
         """
-        if trapz:
-            return self.get_drm_det_trapz(det)
-        else:
-            return self.get_binned_effective_area_det(det)
-    
-    @property
-    def matrix(self):
-        return self._matrix
+
+        return self._get_response_det(det)
 
     def _get_irf_weights(self, x_pos, y_pos):
         """FIXME! briefly describe function
@@ -645,9 +268,6 @@ class SPIResponse(object):
     @property
     def ene_max(self):
         return self._ene_max
-
-    def binned_effective_area_detector(self, det_number):
-        return self._binned_effective_area_per_detector[det_number]
     
     @property
     def rod(self):
@@ -659,6 +279,440 @@ class SPIResponse(object):
         return HTML(filename=get_path_of_data_file('roland.html'))
 
 
+class ResponseRMF(Response):
+
+    def __init__(self, ebounds=None, time=None):
+        """
+        Init Response object with total RMF used
+        :param ebound: Ebounds of Ebins
+        :param time: Time for which the response should be valid
+        :return:
+        """
+        super(ResponseRMF, self).__init__(ebounds, time)
+        
+    def _load_irfs(self, time=None):
+        """FIXME! briefly describe function
+        :param time: Time object, with the time for which the valid response should be used
+        :returns: 
+        :rtype: 
+        """
+        
+        if time==None:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            print('Using the default irfs. The ones that are valid between 10/05/27 12:45:00'\
+                  ' and present (YY/MM/DD HH:MM:SS)')
+            
+        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
+            print('Using the irfs that are valid between Start'\
+                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+            
+        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
+            print('Using the irfs that are valid between 03/07/06 06:00:00'\
+                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+
+        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
+            print('Using the irfs that are valid between 04/07/17 08:20:06'\
+                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+
+        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
+            print('Using the irfs that are valid between 09/02/19 09:59:57'\
+                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+
+        else:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            print('Using the irfs that are valid between 10/05/27 12:45:00'\
+                  ' and present (YY/MM/DD HH:MM:SS)')
+
+        irf_database = h5py.File(irf_file, 'r')
+
+        self._energies_database = irf_database['energies'].value
+
+        self._ebounds = self._energies_database
+        self._ene_min = self._energies_database[:-1]
+        self._ene_max = self._energies_database[1:]
+        
+        irf_data = irf_database['irfs']
+
+        self._irfs = irf_data[()]
+
+        self._irfs_photopeak = self._irfs[...,0]
+        self._irfs_nonphoto_1 = self._irfs[...,1]
+        self._irfs_nonphoto_2 = self._irfs[...,2]
+
+        del self._irfs
+
+        self._irf_xmin = irf_data.attrs['irf_xmin']
+        self._irf_ymin = irf_data.attrs['irf_ymin']
+        self._irf_xbin = irf_data.attrs['irf_xbin']
+        self._irf_ybin = irf_data.attrs['irf_ybin']
+        self._irf_nx = irf_data.attrs['nx']
+        self._irf_ny = irf_data.attrs['ny']
+        
+        irf_database.close()
+
+        self._n_dets = self._irfs_photopeak.shape[1]
+
+        self._ebounds_rmf_2_base, self._rmf_2_base = load_rmf_non_ph_1()
+        self._ebounds_rmf_3_base, self._rmf_3_base = load_rmf_non_ph_2()
+
+    def set_binned_data_energy_bounds(self, ebounds):
+        """
+        Change the energy bins for the binned effective_area
+        :param ebounds: New ebinedges: ebounds[:-1] start of ebins, ebounds[1:] end of ebins
+        :return:
+        """
+
+        if not np.array_equal(ebounds, self._ebounds):
+            
+            print('You have changed the energy boundaries for the binned effective_area calculation in the further calculations!')
+            self._ene_min = ebounds[:-1]
+            self._ene_max = ebounds[1:]
+            self._ebounds = ebounds
+
+            self._rmf2 = self._rebin_rmfs(self._ebounds, self._ebounds_rmf_2_base, self._rmf_2_base)
+            self._rmf3 = self._rebin_rmfs(self._ebounds, self._ebounds_rmf_3_base, self._rmf_3_base)
+
+    def _rebin_rmfs(self, new_ebins, old_ebins, old_rmf):
+        """
+        Rebin base rmf's to new ebins
+        :param new_ebins: New energy bins
+        :param old_ebins: Ebins in base rmf
+        :param old_rmf: base rmf
+        """
+        def low_index_bracket(value, array):
+            for i in range(len(array)-1):
+                if value>=array[i] and value<array[i+1]:
+                    return i
+            return -1
+
+        def bilinint(x, y, matrix, x0, y0):
+
+            x1_ind, x2_ind = np.abs(x-x0).argsort()[:2]
+            y1_ind, y2_ind = np.abs(y-y0).argsort()[:2]
+
+            x1 = x[x1_ind]
+            x2 = x[x2_ind]
+            y1 = x[y1_ind]
+            y2 = x[y2_ind]
+
+            denom = (x2-x1)*(y2-y1)
+            value = (matrix[x1_ind, y1_ind]*(x2-x0)*(y2-y0)+ matrix[x2_ind, y1_ind]*(x0-x1)*(y2-y0)+matrix[x1_ind, y2_ind]*(x2-x0)*(y0-y1)+matrix[x2_ind, y2_ind]*(x0-x1)*(y0-y1))/denom
+            return value
+
+        
+        min_e_old = old_ebins[:-1]
+        max_e_old = old_ebins[1:]
+
+        min_e_new = new_ebins[:-1]
+        max_e_new = new_ebins[1:]
+    
+        x_old = np.power(10., (np.log10(min_e_old)+np.log10(max_e_old))/2.)
+        y_old = np.power(10., (np.log10(min_e_old)+np.log10(max_e_old))/2.)
+
+        matrix = (np.copy(old_rmf)/(max_e_old-min_e_old))
+        diag_old = np.diag(np.copy(old_rmf))
+        x_new_temp = np.power(10., (np.log10(min_e_new)+np.log10(max_e_new))/2.)
+        y_new_temp = np.power(10., (np.log10(min_e_new)+np.log10(max_e_new))/2.)
+
+        IntMatrix = np.zeros((len(x_new_temp),len(y_new_temp)))
+        for i in range(len(IntMatrix)):
+
+            j = low_index_bracket(x_new_temp[i], x_old)
+
+            if j!=0:
+                matrix[j,j] = matrix[j, j-1]
+                matrix[j+1, j+1] = matrix[j+1,j]
+            for k in range(i):
+                IntMatrix[i,k] = bilinint(x_old, y_old, matrix, x_new_temp[i], y_new_temp[k])
+            IntMatrix[i] *= max_e_new-min_e_new
+    
+            # Diag interpolation
+            IntMatrix[i,i] = diag_old[j]*(1-(x_new_temp[i]-x_old[j])/(x_old[j+1]-x_old[j])) + (x_new_temp[i]-x_old[j])/(x_old[j+1]-x_old[j])*diag_old[j+1]
+
+        return IntMatrix
+
+    def _get_response_det(self, det):
+        """
+        Get response for a given det
+        :param det: Detector ID
+        :returns: Full DRM
+        """
+
+        interpolated_irfs_ph = self._current_interpolated_irfs_ph[det]
+        interpolated_irfs_nonph1 = self._current_interpolated_irfs_nonph1[det]
+        interpolated_irfs_nonph2 = self._current_interpolated_irfs_nonph2[det]
+        
+
+        n_energy_bins = len(self._ebounds) - 1
+        
+        ebins = np.empty((len(self._ene_min), 2))
+
+        # photopeak integrated irfs
+        ebins[:,0] = self._ene_min
+        ebins[:,1] = self._ene_max
+
+        ph_irfs = np.empty_like(ebins)
+        inter = interpolated_irfs_ph(self._ebounds)
+        
+        ph_irfs[:,0] = inter[:-1]
+        ph_irfs[:,1] = inter[1:]
+        ph_irfs_int = integrate.trapz(ph_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+
+        # RMF1 and RMF2 matrix
+        nonph1_irfs = np.empty_like(ebins)
+        inter = interpolated_irfs_nonph1(self._ebounds)
+        
+        nonph1_irfs[:,0] = inter[:-1]
+        nonph1_irfs[:,1] = inter[1:]
+        nonph1_irfs_int = integrate.trapz(nonph1_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+        
+        nonph2_irfs = np.empty_like(ebins)
+        inter = interpolated_irfs_nonph2(self._ebounds)
+        
+        nonph2_irfs[:,0] = inter[:-1]
+        nonph2_irfs[:,1] = inter[1:]
+        nonph2_irfs_int = integrate.trapz(nonph2_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+
+        # Build DRM
+        drm = ph_irfs_int*np.identity(len(self._ene_min)) + \
+            nonph1_irfs_int*self._rmf2.T + nonph1_irfs_int*self._rmf3.T
+        
+        return drm
+
+    def _weighted_irfs(self, azimuth, zenith):
+        """
+        Calculate the weighted irfs for the three event types for a given position
+        :param azimuth: Azimuth position in sat frame 
+        :param zenith: Zenith position in sat frame
+        :returns:
+        """
+
+        # get the x,y position on the grid
+        x, y = self.get_xy_pos(azimuth, zenith)
+
+        # compute the weights between the grids
+        wgt, xx, yy = self._get_irf_weights(x, y)
+
+
+        # If outside of the response pattern set response to zero
+        try:
+            # select these points on the grid and weight them together
+            weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
+            weighted_irf_nonph_1 = self._irfs_nonphoto_1[...,xx,yy].dot(wgt)
+            weighted_irf_nonph_2 = self._irfs_nonphoto_2[...,xx,yy].dot(wgt)
+        except IndexError:
+            weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
+            weighted_irf_nonph_1 = np.zeros_like(self._irfs_nonphoto_1[...,20,20])
+            weighted_irf_nonph_2 = np.zeros_like(self._irfs_nonphoto_2[...,20,20])
+            
+        return weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2
+
+    
+    def _interpolated_irfs(self, azimuth, zenith):
+        """
+        Return three lists with the interploated irf curves for
+        each detector
+
+        :param azimuth: 
+        :param zenith: 
+        :returns: 
+        :rtype: 
+
+        """
+
+        weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2 = self._weighted_irfs(azimuth, zenith)
+
+        
+        
+        interpolated_irfs_ph = []
+        interpolated_irfs_nonph1 = []
+        interpolated_irfs_nonph2 = []
+        
+        for det_number in range(self._n_dets):
+
+            #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
+            
+            tmp = log_interp1d(self._energies_database, weighted_irf_ph[:, det_number])
+            tmp2 = log_interp1d(self._energies_database, weighted_irf_nonph_1[:, det_number])
+            tmp3 = log_interp1d(self._energies_database, weighted_irf_nonph_2[:, det_number])
+            
+            interpolated_irfs_ph.append(tmp)
+            interpolated_irfs_nonph1.append(tmp2)
+            interpolated_irfs_nonph2.append(tmp3)
+            
+        self._current_interpolated_irfs_ph = interpolated_irfs_ph
+        self._current_interpolated_irfs_nonph1 = interpolated_irfs_nonph1
+        self._current_interpolated_irfs_nonph2 = interpolated_irfs_nonph2
+
+class ResponsePhotopeak(Response):
+
+    def __init__(self, ebounds=None, time=None):
+        """
+        Init Response object with only Photopeak effective area used
+        :param ebound: Ebounds of Ebins
+        :param time: Time for which the response should be valid
+        :return:
+        """
+        super(ResponsePhotopeak, self).__init__(ebounds, time)
+        
+    def _load_irfs(self, time=None):
+        """FIXME! briefly describe function
+        :param time: Time object, with the time for which the valid response should be used
+        :returns: 
+        :rtype: 
+        """
+        
+        if time==None:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            print('Using the default irfs. The ones that are valid between 10/05/27 12:45:00'\
+                  ' and present (YY/MM/DD HH:MM:SS)')
+            
+        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
+            print('Using the irfs that are valid between Start'\
+                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+            
+        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
+            print('Using the irfs that are valid between 03/07/06 06:00:00'\
+                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+
+        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
+            print('Using the irfs that are valid between 04/07/17 08:20:06'\
+                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+
+        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
+            print('Using the irfs that are valid between 09/02/19 09:59:57'\
+                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+
+        else:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            print('Using the irfs that are valid between 10/05/27 12:45:00'\
+                  ' and present (YY/MM/DD HH:MM:SS)')
+
+        irf_database = h5py.File(irf_file, 'r')
+
+        self._energies_database = irf_database['energies'].value
+
+        self._ebounds = self._energies_database
+        self._ene_min = self._energies_database[:-1]
+        self._ene_max = self._energies_database[1:]
+        
+        irf_data = irf_database['irfs']
+
+        self._irfs = irf_data[()]
+
+        self._irfs_photopeak = self._irfs[...,0]
+
+        del self._irfs
+        
+        self._irf_xmin = irf_data.attrs['irf_xmin']
+        self._irf_ymin = irf_data.attrs['irf_ymin']
+        self._irf_xbin = irf_data.attrs['irf_xbin']
+        self._irf_ybin = irf_data.attrs['irf_ybin']
+        self._irf_nx = irf_data.attrs['nx']
+        self._irf_ny = irf_data.attrs['ny']
+        
+        irf_database.close()
+
+        self._n_dets = self._irfs_photopeak.shape[1]
+
+    def set_binned_data_energy_bounds(self, ebounds):
+        """
+        Change the energy bins for the binned effective_area
+        :param ebounds: New ebinedges: ebounds[:-1] start of ebins, ebounds[1:] end of ebins
+        :return:
+        """
+
+        if not np.array_equal(ebounds, self._ebounds):
+            
+            print('You have changed the energy boundaries for the binned effective_area calculation in the further calculations!')
+            self._ene_min = ebounds[:-1]
+            self._ene_max = ebounds[1:]
+            self._ebounds = ebounds
+
+    def _get_response_det(self, det):
+        """
+        Get response for a given det
+        :param det: Detector ID
+        :returns: Full DRM
+        """
+
+        interpolated_irfs = self._current_interpolated_irfs_ph[det]
+        
+        n_energy_bins = len(self._ebounds) - 1
+        
+        ebins = np.empty((len(self._ene_min), 2))
+        eff_area = np.empty_like(ebins)
+
+        ebins[:,0] = self._ene_min
+        ebins[:,1] = self._ene_max
+
+        inter = interpolated_irfs(self._ebounds)
+        
+        eff_area[:,0] = inter[:-1]
+        eff_area[:,1] = inter[1:]
+
+        effective_area = integrate.trapz(eff_area, ebins, axis=1)
+        
+        return effective_area/(self._ene_max-self._ene_min)
+
+    def _weighted_irfs(self, azimuth, zenith):
+        """
+        Calculate the weighted irfs for the three event types for a given position
+        :param azimuth: Azimuth position in sat frame 
+        :param zenith: Zenith position in sat frame
+        :returns:
+        """
+
+        # get the x,y position on the grid
+        x, y = self.get_xy_pos(azimuth, zenith)
+
+        # compute the weights between the grids
+        wgt, xx, yy = self._get_irf_weights(x, y)
+
+
+        # If outside of the response pattern set response to zero
+        try:
+            # select these points on the grid and weight them together
+            weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
+
+        except IndexError:
+            weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
+
+            
+        return weighted_irf_ph
+
+    
+    def _interpolated_irfs(self, azimuth, zenith):
+        """
+        Get interploated irf curves for each detector
+        :param azimuth: azimuth in sat frame of source
+        :param zenith: zenith in sat frame of source
+        :returns: 
+        """
+
+        weighted_irf_ph = self._weighted_irfs(azimuth, zenith)
+
+        
+        
+        interpolated_irfs_ph = []
+        
+        for det_number in range(self._n_dets):
+
+            #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
+            
+            tmp = log_interp1d(self._energies_database, weighted_irf_ph[:, det_number])
+            
+            interpolated_irfs_ph.append(tmp)
+            
+        self._current_interpolated_irfs_ph = interpolated_irfs_ph
 
 def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     

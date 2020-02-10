@@ -1,6 +1,6 @@
 from pyspi.spi_data import *
 from pyspi.spi_data_grb_synth import *
-from pyspi.spi_response import *
+from pyspi.spi_response import ResponsePhotopeak, ResponseRMF
 from pyspi.spi_pointing import *
 from pyspi.spi_frame import *
 import astropy.units as u
@@ -18,11 +18,11 @@ from threeML import *
 import seaborn as sns
 sns.set_palette('pastel')
 
-class SPI_GRB_Analysis(object):
+class GRBAnalysis(object):
 
     def __init__(self, configuration, likelihood_model):
         """
-        Init a Spi Analysis object for an analysis of a GRB. Superclass of SPIAnalysis.
+        Init a Spi Analysis object for an analysis of a GRB.
         :param configuration: Configuration dictionary
         :param likelihood_model: The inital astromodels likelihood_model
         """
@@ -383,15 +383,6 @@ class SPI_GRB_Analysis(object):
 
         self._pointing_icrs = pointing_sat.transform_to('icrs')
         
-    def _init_response(self):
-        """
-        Initalize the response object
-        :return:
-        """
-
-        self._response_object = SPIResponse(ebounds=self._ebounds, time=self._time_of_grb)
-
-                
     def _init_data(self, simmulate):
         """
         Get the data object with all the data we need
@@ -510,9 +501,15 @@ class SPI_GRB_Analysis(object):
         :return:
         """
 
-        assert name not in self._point_sources.keys(), 'Can not create the source {} twice!'.format(name)
+        assert name not in self._point_sources.keys(), \
+            'Can not create the source {} twice!'.format(name)
+        
         # ra and dec to sat coord
-        icrscoord = SkyCoord(ra=point_source.position.ra.value, dec=point_source.position.dec.value, unit='deg', frame='icrs')
+        icrscoord = SkyCoord(ra=point_source.position.ra.value,
+                             dec=point_source.position.dec.value,
+                             unit='deg',
+                             frame='icrs')
+        
         satcoord = icrscoord.transform_to(self._frame_object)
 
         ra_sat = satcoord.lon.deg
@@ -527,7 +524,7 @@ class SPI_GRB_Analysis(object):
         
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                response_sgl[d] = self._response_object.get_drm_det_trapz(d)
+                response_sgl[d] = self._response_object.get_response_det(d)
 
         #if 'psd' in self._event_types:
             for d in self._sgl_dets_to_use:
@@ -535,11 +532,11 @@ class SPI_GRB_Analysis(object):
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                response_me2[d] = self._response_object.get_drm_det_trapz(d)
+                response_me2[d] = self._response_object.get_response_det(d)
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                response_me3[d] = self._response_object.get_drm_det_trapz(d)
+                response_me3[d] = self._response_object.get_response_det(d)
 
         # Get current spectrum of source
         spectrum_bins = self.calculate_spectrum(point_source)
@@ -551,19 +548,19 @@ class SPI_GRB_Analysis(object):
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_sgl[d] = np.dot(response_sgl[d], spectrum_bins)
+                predicted_count_rates_sgl[d] = self._fold(response_sgl[d], spectrum_bins)
 
         #if 'psd' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_psd[d] = np.dot(response_psd[d], spectrum_bins)
+                predicted_count_rates_psd[d] = self._fold(response_psd[d], spectrum_bins)
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                predicted_count_rates_me2[d] = np.dot(response_me2[d], spectrum_bins)
+                predicted_count_rates_me2[d] = self._fold(response_me2[d], spectrum_bins)
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                predicted_count_rates_me3[d] = np.dot(response_me3[d], spectrum_bins)
+                predicted_count_rates_me3[d] = self._fold(response_me3[d], spectrum_bins)
 
         spectal_parameters = {}
         
@@ -597,12 +594,18 @@ class SPI_GRB_Analysis(object):
         :return:
         """
 
-        assert name in self._point_sources.keys(), 'The source with the name {} does not exists yet. We can not create a new source on the fly!'.format(name)
+        assert name in self._point_sources.keys(), \
+            'The source with the name {} does not exists yet. We can not create a new source on the fly!'.format(name)
         
         # if position has changed recalculate response with new position - response is a callable function of Energy
-        if point_source.position.ra.value != self._point_sources[name]['ra'] or point_source.position.dec.value != self._point_sources[name]['dec']:
+        if point_source.position.ra.value != self._point_sources[name]['ra'] or \
+           point_source.position.dec.value != self._point_sources[name]['dec']:
+
             # ra and dec to sat coord
-            icrscoord = SkyCoord(ra=point_source.position.ra.value, dec=point_source.position.dec.value, unit='deg', frame='icrs')
+            icrscoord = SkyCoord(ra=point_source.position.ra.value,
+                                 dec=point_source.position.dec.value,
+                                 unit='deg',
+                                 frame='icrs')
 
             satcoord = icrscoord.transform_to(self._frame_object)
 
@@ -614,11 +617,12 @@ class SPI_GRB_Analysis(object):
             response_me2 = {}
             response_me3 = {}
 
-            self._response_object.set_location(ra_sat, dec_sat)
+            self._response_object.set_location(ra_sat,
+                                               dec_sat)
             
             if 'single' in self._event_types:
                 for d in self._sgl_dets_to_use:
-                    response_sgl[d] = self._response_object.get_drm_det_trapz(d)
+                    response_sgl[d] = self._response_object.get_response_det(d)
 
             #if 'psd' in self._event_types:
                 for d in self._sgl_dets_to_use:
@@ -626,44 +630,12 @@ class SPI_GRB_Analysis(object):
 
             if 'double' in self._event_types:
                 for d in self._me2_dets_to_use:
-                    response_me2[d] = self._response_object.get_drm_det_trapz(d) 
+                    response_me2[d] = self._response_object.get_response_det(d) 
 
             if 'triple' in self._event_types:
                 for d in self._me3_dets_to_use:
-                    response_me3[d] = self._response_object.get_drm_det_trapz(d) 
-
-            
-            #sep = icrscoord.separation(self._pointing_icrs).deg
-            
-            """
-            if sep<180:
-                satcoord = icrscoord.transform_to(self._frame_object)
-
-                #ra_sat = satcoord.lon.deg
-                #dec_sat = satcoord.lat.deg
-
-                #Try new#
-                ra_sat = satcoord.lon.rad
-                dec_sat = satcoord.lat.rad
-                x = np.cos(ra_sat)*np.cos(dec_sat)
-                y = np.sin(ra_sat)*np.cos(dec_sat)
-                z = np.sin(dec_sat)
-                zenith = np.rad2deg(np.arccos(x))
-                azimuth = np.rad2deg(np.arctan2(z,y))
-                # Calculate responses for all dets
-                response = {}
-                if 'single' in self._event_types:
-                    for d in self._sgl_dets:
-                        response[d] = self._response_object.set_location(azimuth, zenith, d, trapz=True)
-
-            # When sep>45 it is outside of FOV -> set responses to zero - TODO: use good prior to
-            # avoid this
-            else:
-                response = {}
-                if 'single' in self._event_types:
-                    for d in self._sgl_dets:
-                        response[d] = np.zeros_like(self._ebounds[:-1])
-            """
+                    response_me3[d] = self._response_object.get_response_det(d)
+                    
         else:
             response_sgl = self._point_sources[name]['response_sgl']
             response_psd = {}
@@ -682,19 +654,18 @@ class SPI_GRB_Analysis(object):
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_sgl[d] = np.dot(response_sgl[d], spectrum_bins)
+                predicted_count_rates_sgl[d] = self._fold(response_sgl[d], spectrum_bins)
 
-        #if 'psd' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_psd[d] = np.dot(response_psd[d], spectrum_bins)
+                predicted_count_rates_psd[d] = self._fold(response_psd[d], spectrum_bins)
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                predicted_count_rates_me2[d] = np.dot(response_me2[d], spectrum_bins)
+                predicted_count_rates_me2[d] = self._fold(response_me2[d], spectrum_bins)
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                predicted_count_rates_me3[d] = np.dot(response_me3[d], spectrum_bins)
+                predicted_count_rates_me3[d] = self._fold(response_me3[d], spectrum_bins)
                 
         spectal_parameters = {}
         for i, component in enumerate(point_source._components.values()):
@@ -1925,3 +1896,67 @@ class SPI_GRB_Analysis(object):
         fig.tight_layout()
         fig.subplots_adjust(hspace=0, wspace=0) 
         fig.savefig('data_plot.pdf')
+
+class GRBAnalysisRMF(GRBAnalysis):
+
+    def __init__(self, configuration, likelihood_model):
+        """
+        Init GRB analysis if the full RMF shoud be used in the fit (slower but correct).
+
+        :param configuration: Configuration setup as dict
+        :param likelihood_model: Astromodel instance describing the used model
+        :return:
+        """
+        
+        super(GRBAnalysisRMF, self).__init__(configuration, likelihood_model)
+
+    def _fold(self, response, spectrum_bins):
+        """
+        Get the counts in all Ebins for given response (matrix in this case) and 
+        integrated flux in the defined spectrum bins.
+        
+        :param response: Response Matrix
+        :param spectrum_bins: Integrated flux in defined spectral bins
+        """
+        return np.dot(response, spectrum_bins)
+
+    def _init_response(self):
+        """
+        Initalize the response object with RMF
+        :return:
+        """
+
+        self._response_object = ResponseRMF(ebounds=self._ebounds, time=self._time_of_grb)
+
+    
+class GRBAnalysisPhotopeak(GRBAnalysis):
+
+    def __init__(self, configuration, likelihood_model):
+        """
+        Init GRB analysis if only the photopeak eff area shoud be used in the 
+        fit (faster but not really  correct).
+
+        :param configuration: Configuration setup as dict
+        :param likelihood_model: Astromodel instance describing the used model
+        :return:
+        """
+        
+        super(GRBAnalysisPhotopeak, self).__init__(configuration, likelihood_model)
+
+    def _fold(self, response, spectrum_bins):
+        """
+        Get the counts in all Ebins for given response (array in this case) and 
+        integrated flux in the defined spectrum bins.
+        
+        :param response: Photopeak Response Array
+        :param spectrum_bins: Integrated flux in defined spectral bins
+        """
+        return np.multiply(response, spectrum_bins)
+
+    def _init_response(self):
+        """
+        Initalize the response object without RMF
+        :return:
+        """
+
+        self._response_object = ResponsePhotopeak(ebounds=self._ebounds, time=self._time_of_grb)

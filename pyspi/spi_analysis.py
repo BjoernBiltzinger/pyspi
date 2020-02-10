@@ -1,6 +1,5 @@
-from pyspi.spi_grb_analysis import SPI_GRB_Analysis
+from pyspi.spi_grb_analysis import GRBAnalysisRMF, GRBAnalysisPhotopeak
 from pyspi.spi_constantsource_analysis import SPI_CS_Analysis
-from pyspi.spi_grb_analysis_photopeak import SPI_GRB_Analysis_Photopeak
 
 def getspianalysis(configuration, likelihood_model, photopeak_only=False):
     """
@@ -13,9 +12,9 @@ def getspianalysis(configuration, likelihood_model, photopeak_only=False):
     analysis = configuration['Special_analysis']
     if analysis=='GRB':
         if photopeak_only:
-            return SPI_GRB_Analysis_Photopeak(configuration, likelihood_model)
+            return GRBAnalysisPhotopeak(configuration, likelihood_model)
         else:
-            return SPI_GRB_Analysis(configuration, likelihood_model)
+            return GRBAnalysisRMF(configuration, likelihood_model)
     elif analysis=='Constant_Source':
         return SPI_CS_Analysis(configuration, likelihood_model)
     else:
