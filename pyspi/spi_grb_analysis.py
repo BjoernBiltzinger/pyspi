@@ -15,6 +15,9 @@ from pyspi.io.package_data import get_path_of_external_data_dir
 from threeML.utils.statistics.likelihood_functions import *
 from threeML import *
 
+import seaborn as sns
+sns.set_palette('pastel')
+
 class SPI_GRB_Analysis(object):
 
     def __init__(self, configuration, likelihood_model):
@@ -1534,8 +1537,8 @@ class SPI_GRB_Analysis(object):
                     # Add poisson noise
                     model_bkg_rates_det = np.random.poisson(model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
 
-                    q_levels = [0.68,0.95]
-                    colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
+                    q_levels = [0.68,0.95, 0.99]
+                    colors = ['#354458', '#3A9AD9', '#29ABA4']#['#588C73', '#85C4B9', '#8C4646']# TODO change this to more fancy colors
 
                     # get 68 and 95 % boundaries and plot them
                     for i,level in enumerate(q_levels):
@@ -1544,15 +1547,16 @@ class SPI_GRB_Analysis(object):
                         axes_array[plot_number].fill_between(self._ebounds[1:],
                                                        low,
                                                        high,
-                                                       color=colors[i],
                                                        alpha=0.5,
-                                                       zorder=i+1,
+                                                       color=colors[i],
+                                                       zorder=10-i,
                                                        step='post')
 
                     axes_array[plot_number].step(self._ebounds[1:],
                                            active_data,
                                            where='post',
                                            color='black',
+                                                 zorder=19,
                                            label='Detector {}'.format(j))
                     if (plot_number/float(ncol)).is_integer():
                         axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
