@@ -3,7 +3,7 @@ from threeML.io.file_utils import sanitize_filename
 from astromodels import Parameter
 import collections
 from threeML import *
-#from pyspi.spi_analysis import *
+from pyspi.spi_analysis import *
 try:
     from pyspi.spi_analysis import *
 except:
