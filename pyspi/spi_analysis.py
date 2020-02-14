@@ -18,5 +18,7 @@ def getspianalysis(configuration, likelihood_model, photopeak_only=False):
     elif analysis=='Constant_Source':
         return SPI_CS_Analysis(configuration, likelihood_model)
     else:
-        raise AssertionError('Please use a valid Special Analysis type. Either GRB for a GRB analysis orox Constant_Source for constant sources (like point sources that are constant in time)')
+        raise AssertionError('Please use a valid Special Analysis type.' \
+                             ' Either GRB for a GRB analysis or Constant_Source'/
+                             ' for constant sources (like point sources that are constant in time)')
             
