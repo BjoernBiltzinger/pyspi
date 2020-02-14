@@ -11,10 +11,10 @@ default_GRB = {'Unique_analysis_name': None,
                'Active_Time': '0-100',
                'Background_time_interval_1': '-100--10',
                'Background_time_interval_2': '110-200',
-               'Simmulate': False,
+               'Simulate': None,
                'Bkg_estimation': 'Polynominal',
                'Energy_binned': True,
-               'Ebounds': list(np.logspace(np.log10(20), np.log10(8000), 30)),
+               'Ebounds': np.logspace(np.log10(20), np.log10(8000), 30).tolist(),
                'Use_only_photopeak': False}
             
            
@@ -45,6 +45,8 @@ class basic_config_builder_GRB(object):
         """
         for key, value in kwargs.iteritems():
             assert key in self._config.keys(), 'Please use valid key. Only {} are available.'.format(self._config.keys())
+            if key=='Ebounds':
+                value=value.tolist()
             self._config[key] = value
         with open(self._config_savepath, 'w') as file:
             yaml.dump(self._config, file)
@@ -54,7 +56,7 @@ class basic_config_builder_GRB(object):
         Display current config file
         :return:
         """
-        print yaml.dump(self._config)
+        print(yaml.dump(self._config))
 
     @property
     def config(self):

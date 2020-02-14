@@ -9,8 +9,9 @@ import h5py
 from pyspi.utils.progress_bar import progress_bar
 import matplotlib.pyplot as plt
 from pyspi.utils.detector_ids import double_names, triple_names
+from scipy.integrate import trapz
 
-class SpiData_GRB(object):
+class DataGRB(object):
 
     def __init__(self, time_of_GRB, event_types = ["single"], afs=True, ebounds=None):
         """
@@ -795,3 +796,98 @@ class SpiData_GRB(object):
         return self._bad_me3_dets
 
     
+class DataGRBSimulate(DataGRB):
+
+    def __init__(self, time_of_GRB, response_object, ra=10., dec=10.,
+                 duration_of_GRB=10,GRB_spectrum_function=None, psd_eff=0.85, afs=True,
+                 ebounds=None, event_types=["single"]):
+        """
+        Data object with an simulated GRB added to a real SPI data file.
+        :param time_of_GRB: Time of simulated GRB in 'YYMMDD HHMMSS' format. UTC!
+        :param response_object: Response object for this pointing. Needed to simulate GRB.
+        :param ra: Ra coordinates of simulated GRB in sat coord. (deg)
+        :param dec: Dec coordinates of simulated GRB in sat coord. (deg)
+        :param duration_of_GRB: Duration of synth GRB (s)
+        :param GRB_spectrum_function: Function of the GRB spectrum
+        :param psd_edd: PSD effectivity
+        :param afs: Use afs server?
+        :return:
+        """
+
+        super(DataGRBSimulate, self).__init__(time_of_GRB, event_types, afs, ebounds)
+
+        self._response_object = response_object
+        self._F_GRB = GRB_spectrum_function
+        self._t_GRB = duration_of_GRB
+        self._ra = ra
+        self._dec = dec
+        self._psd_eff = psd_eff
+        
+    def add_GRB_binned(self):
+
+        assert self._F_GRB is not None, 'Please give a function for spectrum of GRB'
+
+        #eff_area = response_object.get_binned_effective_area(np.deg2rad(ra),np.deg2rad(dec))
+        
+
+        # Flux calculation in bins
+        
+        Flux_max = np.array([])
+        
+        for i, (e_l, e_h) in enumerate(zip(self._ebounds[:-1],self._ebounds[1:])):
+            
+            Flux_max = np.append(Flux_max, trapz([self._F_GRB(e_l), self._F_GRB(e_h)],[e_l,e_h]))
+            
+
+        #counts_rates_max = np.multiply(Flux_max, eff_area) 
+
+        first_bin = np.argmax(self.time_bins_start[self.time_bins_start<0])
+        index_range = first_bin+1 + range(len(self.time_bins_start[np.logical_and(self.time_bins_start>0, self.time_bins_start<self._t_GRB)]))      
+        wgt_time = np.array([])
+        #np.random.seed(1000)
+        for i in index_range:
+            if self.time_bins_start[i]<self._t_GRB/3.:
+                wgt_time = np.append(wgt_time, ((self.time_bins_start[i])/(self._t_GRB/3.))**(2.))
+            else:
+                wgt_time = np.append(wgt_time, ((self._t_GRB/3.)/(self.time_bins_start[i]))**(2.))
+
+        if "single" in self._event_types:
+            for d in self.energy_and_time_bin_sgl_dict.keys():
+                self._response_object.set_location(self._ra, self._dec)
+                eff_area = self._response_object.get_response_det(d)
+
+                for i in index_range:
+                    try:
+                        self.energy_and_time_bin_sgl_dict[d][i] += np.random.poisson((1-self._psd_eff)*eff_area*Flux_max*wgt_time[i-index_range[0]]*self.time_bin_length[i])
+                        self.energy_and_time_bin_psd_dict[d][i] += np.random.poisson((self._psd_eff)*eff_area*Flux_max*wgt_time[i-index_range[0]]*self.time_bin_length[i])
+
+                    except:
+                        self.energy_and_time_bin_sgl_dict[d][i] += np.random.poisson((1-self._psd_eff)*np.dot(eff_area,Flux_max*wgt_time[i-index_range[0]])*self.time_bin_length[i])
+                        self.energy_and_time_bin_psd_dict[d][i] += np.random.poisson((self._psd_eff)*np.dot(eff_area,Flux_max*wgt_time[i-index_range[0]])*self.time_bin_length[i])
+                        
+        if "double" in self._event_types: 
+            for d in self.energy_and_time_bin_me2_dict.keys():
+                self._response_object.set_location(self._ra, self._dec)
+                eff_area = self._response_object.get_response_det(d)
+
+                for i in index_range:
+                    try:
+                        self.energy_and_time_bin_me2_dict[d][i] += np.random.poisson(eff_area*Flux_max*wgt_time[i-index_range[0]]*self.time_bin_length[i])
+                        
+                    except:
+                        self.energy_and_time_bin_me2_dict[d][i] += np.random.poisson(np.dot(eff_area,Flux_max*wgt_time[i-index_range[0]])*self.time_bin_length[i])
+                        
+        if "triple" in self._event_types: 
+            for d in self.energy_and_time_bin_me3_dict.keys():
+                self._response_object.set_location(self._ra, self._dec)
+                eff_area = self._response_object.get_response_det(d)
+
+                for i in index_range:
+                    try:
+                        self.energy_and_time_bin_me3_dict[d][i] += np.random.poisson(eff_area*Flux_max*wgt_time[i-index_range[0]]*self.time_bin_length[i])
+                    except:
+                        self.energy_and_time_bin_me3_dict[d][i] += np.random.poisson(np.dot(eff_area,Flux_max*wgt_time[i-index_range[0]])*self.time_bin_length[i])
+                        
+        print('Added GRB from 0 to {} seconds at position ra {} dec {} to binned sgl data'.format(self._t_GRB, self._ra, self._dec))
+
+        

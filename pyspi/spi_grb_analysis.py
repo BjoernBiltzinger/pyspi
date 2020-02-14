@@ -1,5 +1,4 @@
 from pyspi.spi_data import *
-from pyspi.spi_data_grb_synth import *
 from pyspi.spi_response import ResponsePhotopeak, ResponseRMF
 from pyspi.spi_pointing import *
 from pyspi.spi_frame import *
@@ -9,6 +8,7 @@ from astropy.time.core import Time
 from datetime import datetime
 import os
 from shutil import copyfile, rmtree
+import sys
 
 from pyspi.io.package_data import get_path_of_external_data_dir
 
@@ -62,9 +62,9 @@ class GRBAnalysis(object):
             raise NotImplementedError('Background model is not yet implemented.')
             
         # Simmulate a GRB at the given time? Only used for testing!
-        self._simmulate = configuration['Simmulate']
+        self._simulate = configuration['Simulate']
 
-        if self._simmulate:
+        if self._simulate is not None:
             
             sys.stdout.write('CAUTION! You selected to simmulate a GRB at the given active time! If you want to analyse a real GRB this will lead to completly wrong results! Please confirm that you wanted to simmulate a GRB [y/n]. ')
             
@@ -80,6 +80,12 @@ class GRBAnalysis(object):
             else:
                sys.stdout.write("Please respond with 'y' or 'n'")
 
+            self._simulate_ra = self._simulate['ra']
+            self._simulate_dec = self._simulate['dec']
+            self._simulate_duration = self._simulate['duration']
+            self._simulate_K = self._simulate['K']
+            self._simulate_index = self._simulate['index']
+            
         # Translate the input time ranges in start and stop times
         self._get_start_and_stop_times()
 
@@ -123,7 +129,7 @@ class GRBAnalysis(object):
         self._init_response()
         
         # Init the data
-        self._init_data(self._simmulate)
+        self._init_data()
 
         
         # Which dets should be used? Can also be 'All' to use all possible
@@ -287,19 +293,6 @@ class GRBAnalysis(object):
                 if single_dets.size>0:
                     warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
 
-            #if "psd" in self._event_types:
-            #    bad_psd_dets = self._data_object.bad_psd_dets
-            #    self._psd_dets_to_use = np.array([], dtype=int)
-            #    for s in single_dets:
-            #        if not bad_psd_dets[s]:
-            #            self._psd_dets_to_use = np.append(self._psd_dets_to_use, s)
-            #        else:
-            #            warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
-            #    assert self._psd_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
-            #else:
-            #    if single_dets.size>0:
-            #        warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
-
             if "double" in self._event_types:
                 bad_me2_dets = self._data_object.bad_me2_dets
                 self._me2_dets_to_use = np.array([], dtype=int)
@@ -383,14 +376,14 @@ class GRBAnalysis(object):
 
         self._pointing_icrs = pointing_sat.transform_to('icrs')
         
-    def _init_data(self, simmulate):
+    def _init_data(self):
         """
         Get the data object with all the data we need
         :return:
         """
         
-        if not simmulate:
-            self._data_object = SpiData_GRB(self._time_of_grb, afs=True, ebounds=self._ebounds, event_types=self._event_types)
+        if self._simulate is None:
+            self._data_object = DataGRB(self._time_of_grb, afs=True, ebounds=self._ebounds, event_types=self._event_types)
 
             if self._binned:
                 # Bin the data in energy and time - dummy values for time bin step
@@ -402,15 +395,27 @@ class GRBAnalysis(object):
                 raise NotImplementedError('Only binned analysis implemented at the moment!')
         else:
             def GRB_spectrum(E):
-                return 0.01*np.power(float(E)/100., -2.)
+                return self._simulate_K*np.power(float(E)/100., self._simulate_index)
 
-            self._data_object = SpiData_synthGRB(self._time_of_grb, self._response_object,
-                                                 ra=5., dec=5., duration_of_GRB=30.,
-                                                 GRB_spectrum_function=GRB_spectrum,
-                                                 afs=True, ebounds=self._ebounds,
-                                                 start=self._bkg1_start-10,
-                                                 stop=self._bkg2_stop+10)
-
+            #simulate_pos_icrs = SkyCoord(ra=self._simulate_ra, dec=self._simulate_dec,
+            #                             unit='deg', frame='icrs')
+            #print(simulate_pos_icrs)
+            #simulate_ra_sat = simulate_pos_icrs.transform_to(self._frame_object).lon.deg
+            #simulate_dec_sat = simulate_pos_icrs.transform_to(self._frame_object).lat.deg
+            
+            self._data_object = DataGRBSimulate(self._time_of_grb, self._response_object,
+                                                ra=self._simulate_ra, dec=self._simulate_dec,
+                                                duration_of_GRB=self._simulate_duration,
+                                                GRB_spectrum_function=GRB_spectrum,
+                                                afs=True, ebounds=self._ebounds,
+                                                event_types=self._event_types)
+            if self._binned:
+                self._data_object.time_and_energy_bin(time_bin_step=1.,
+                                                      start=self._bkg1_start-10,
+                                                      stop=self._bkg2_stop+10)
+                self._data_object.add_GRB_binned()
+            else:
+                raise NotImplementedError('Only binned analysis implemented at the moment!')
         # Build a mask to cover the time bins of the active time
         time_bins = self._data_object.time_bins
         
@@ -1147,17 +1152,17 @@ class GRBAnalysis(object):
         
         for i in range(n_dets):
             # Plot data
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), (np.sum(self._data_object.energy_and_time_bin_sgl_dict[self._sgl_dets_to_use[i]], axis=1)+np.sum(self._data_object.energy_and_time_bin_psd_dict[self._sgl_dets_to_use[i]], axis=1))/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._sgl_dets_to_use[i]))
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), (np.sum(self._data_object.energy_and_time_bin_sgl_dict[self._sgl_dets_to_use[i]], axis=1)+np.sum(self._data_object.energy_and_time_bin_psd_dict[self._sgl_dets_to_use[i]], axis=1))/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#4a4e4d', label='Det {}'.format(self._sgl_dets_to_use[i]), zorder=3)
 
             # Plot the bkg fit
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_sgl_psd_sum[self._sgl_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_sgl_psd_sum[self._sgl_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#851e3e', zorder=4)
 
             # Plot active time
-            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+            axes[i].axvspan(self._active_start, self._active_stop, color='#88d8b0', zorder=2)
 
             # Plot bkg times
-            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
-            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='#2e003e', zorder=1)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='#2e003e', zorder=1)
 
             axes[i].locator_params(axis='y', nbins=1)
             axes[i].legend(loc='upper right')
@@ -1179,7 +1184,7 @@ class GRBAnalysis(object):
         :return: fig
         """
 
-        n_dets = len(self._psd_dets_to_use)
+        n_dets = len(self._sgl_dets_to_use)
 
         n_rows = np.ceil(n_dets/2.)
         n_colums = 2
@@ -1188,17 +1193,17 @@ class GRBAnalysis(object):
         
         for i in range(n_dets):
             # Plot data
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_psd_dict[self._psd_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._psd_dets_to_use[i]))
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_psd_dict[self._psd_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#4a4e4d', label='Det {}'.format(self._psd_dets_to_use[i]), zorder=3)
 
             # Plot the bkg fit
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_psd[self._psd_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_psd[self._psd_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#851e3e', zorder=4)
 
             # Plot active time
-            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+            axes[i].axvspan(self._active_start, self._active_stop, color='#88d8b0', zorder=2)
 
             # Plot bkg times
-            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
-            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='#2e003e', zorder=1)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='#2e003e', zorder=1)
 
             axes[i].locator_params(axis='y', nbins=1)
             axes[i].legend(loc='upper right')
@@ -1229,17 +1234,17 @@ class GRBAnalysis(object):
         
         for i in range(n_dets):
             # Plot data
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_me2_dict[self._me2_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._me2_dets_to_use[i]))
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_me2_dict[self._me2_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#4a4e4d', label='Det {}'.format(self._me2_dets_to_use[i]), zorder=3)
 
             # Plot the bkg fit
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_me2[self._me2_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_me2[self._me2_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#851e3e', zorder=4)
 
             # Plot active time
-            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+            axes[i].axvspan(self._active_start, self._active_stop, color='#88d8b0', zorder=2)
 
             # Plot bkg times
-            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
-            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='#2e003e', zorder=1)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='#2e003e', zorder=1)
 
             axes[i].locator_params(axis='y', nbins=1)
             axes[i].legend(loc='upper right') 
@@ -1270,17 +1275,17 @@ class GRBAnalysis(object):
         
         for i in range(n_dets):
             # Plot data
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_me3_dict[self._me3_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='black', label='Det {}'.format(self._me3_dets_to_use[i]))
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._data_object.energy_and_time_bin_me3_dict[self._me3_dets_to_use[i]], axis=1)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#4a4e4d', label='Det {}'.format(self._me3_dets_to_use[i]), zorder=3)
 
             # Plot the bkg fit
-            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_me3[self._me3_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='red')
+            axes[i].plot(np.mean(self._data_object.time_bins, axis=1), np.sum(self._bkg_me3[self._me3_dets_to_use[i]]['counts'], axis=0)/(self._data_object.time_bins[:,1]-self._data_object.time_bins[:,0]), color='#851e3e', zorder=4)
 
             # Plot active time
-            axes[i].axvspan(self._active_start, self._active_stop, color='green', alpha=0.2)
+            axes[i].axvspan(self._active_start, self._active_stop, color='#88d8b0', zorder=2)
 
             # Plot bkg times
-            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='red', alpha=0.2)
-            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='red', alpha=0.2)
+            axes[i].axvspan(self._bkg1_start, self._bkg1_stop, color='#2e003e', zorder=1)
+            axes[i].axvspan(self._bkg2_start, self._bkg2_stop, color='#2e003e', zorder=1)
 
             axes[i].locator_params(axis='y', nbins=1)
             axes[i].legend(loc='upper right')
@@ -1480,6 +1485,8 @@ class GRBAnalysis(object):
         for j, d in enumerate(self._sgl_dets_to_use):
             bkg_counts[:,j,:] = np.random.normal(self._bkg_active_sgl_psd_sum[d]['counts_active'], self._bkg_active_sgl_psd_sum[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
 
+        # Set negative bkg to zeros
+        bkg_counts = np.where(bkg_counts<0, 0, bkg_counts)
 
         # Fitted GRB count spectrum ppc versus count space data of all dets
         if 'single' in self._event_types:
@@ -1583,21 +1590,23 @@ class GRBAnalysis(object):
         masked_parameter_samples = sample_parameters[mask]
 
         # mask the sample parameter values
-        model_counts = np.empty((n_ppc, len(self._psd_dets_to_use), len(self._ebounds)-1))
+        model_counts = np.empty((n_ppc, len(self._sgl_dets_to_use), len(self._ebounds)-1))
         for i in range(n_ppc):
             likelihood_model.set_free_parameters(masked_parameter_samples[i])
             self._get_model_counts(likelihood_model)
             model_counts[i] = self._expected_model_counts_psd
 
         # poisson noise
-        model_counts = np.random.poisson(model_counts)
+        #model_counts = np.random.poisson(model_counts)
 
         # BKG wit gaussian noise
-        bkg_counts = np.empty((n_ppc, len(self._psd_dets_to_use), len(self._ebounds)-1))
+        bkg_counts = np.empty((n_ppc, len(self._sgl_dets_to_use), len(self._ebounds)-1))
 
         for j, d in enumerate(self._psd_dets_to_use):
             bkg_counts[:,j,:] = np.random.normal(self._bkg_active_psd[d]['counts_active'], self._bkg_active_psd[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
 
+        # Set negative bkg to zeros
+        bkg_counts = np.where(bkg_counts<0, 0, bkg_counts)
 
         # Fitted GRB count spectrum ppc versus count space data of all dets
 
@@ -1622,10 +1631,10 @@ class GRBAnalysis(object):
 
                 # PPC fit count spectrum
                 # get counts for all sample parameters and the likelihood_model
-                model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
+                model_bkg_rates_det = np.random.poisson(model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
 
-                q_levels = [0.68,0.95]
-                colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
+                q_levels = [0.68,0.95, 0.99]
+                colors = ['#354458', '#3A9AD9', '#29ABA4']
 
                 # get 68 and 95 % boundaries and plot them
                 for i,level in enumerate(q_levels):
@@ -1636,13 +1645,14 @@ class GRBAnalysis(object):
                                                    high,
                                                    color=colors[i],
                                                    alpha=0.5,
-                                                   zorder=i+1,
+                                                   zorder=10-i,
                                                    step='post')
 
                 axes_array[plot_number].step(self._ebounds[1:],
                                        active_data,
                                        where='post',
                                        color='black',
+                                             zorder=19,
                                        label='Detector {}'.format(j))
                 if (plot_number/float(ncol)).is_integer():
                     axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
@@ -1705,7 +1715,7 @@ class GRBAnalysis(object):
             model_counts[i] = self._expected_model_counts_me2
 
         # poisson noise
-        model_counts = np.random.poisson(model_counts)
+        #model_counts = np.random.poisson(model_counts)
 
         # BKG wit gaussian noise
         bkg_counts = np.empty((n_ppc, len(self._me2_dets_to_use), len(self._ebounds)-1))
@@ -1713,10 +1723,9 @@ class GRBAnalysis(object):
         for j, d in enumerate(self._me2_dets_to_use):
             bkg_counts[:,j,:] = np.random.normal(self._bkg_active_me2[d]['counts_active'], self._bkg_active_me2[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
 
-
-        # Fitted GRB count spectrum ppc versus count space data of all dets
-        
-
+        # Set negative bkg to zeros
+        bkg_counts = np.where(bkg_counts<0, 0, bkg_counts)
+            
         # Init figure
         nrows = 6
         ncol = 7
@@ -1738,10 +1747,10 @@ class GRBAnalysis(object):
 
                 # PPC fit count spectrum
                 # get counts for all sample parameters and the likelihood_model
-                model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
+                model_bkg_rates_det = np.random.poisson(model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
 
-                q_levels = [0.68,0.95]
-                colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
+                q_levels = [0.68,0.95, 0.99]
+                colors = ['#354458', '#3A9AD9', '#29ABA4']
 
                 # get 68 and 95 % boundaries and plot them
                 for i,level in enumerate(q_levels):
@@ -1752,13 +1761,14 @@ class GRBAnalysis(object):
                                                    high,
                                                    color=colors[i],
                                                    alpha=0.5,
-                                                   zorder=i+1,
+                                                         zorder=10-i,
                                                    step='post')
 
                 axes_array[plot_number].step(self._ebounds[1:],
                                        active_data,
                                        where='post',
                                        color='black',
+                                             zorder=19,
                                        label='Detector {}'.format(j))
                 if (plot_number/float(ncol)).is_integer():
                     axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
@@ -1821,18 +1831,17 @@ class GRBAnalysis(object):
             model_counts[i] = self._expected_model_counts_me3
 
         # poisson noise
-        model_counts = np.random.poisson(model_counts)
+        #model_counts = np.random.poisson(model_counts)
 
         # BKG wit gaussian noise
         bkg_counts = np.empty((n_ppc, len(self._me3_dets_to_use), len(self._ebounds)-1))
 
         for j, d in enumerate(self._me3_dets_to_use):
             bkg_counts[:,j,:] = np.random.normal(self._bkg_active_me3[d]['counts_active'], self._bkg_active_me3[d]['error_active'], size=(n_ppc,len(self._ebounds)-1))
-
-
-        # Fitted GRB count spectrum ppc versus count space data of all dets
-        
-
+            
+        # Set negative bkg to zeros
+        bkg_counts = np.where(bkg_counts<0, 0, bkg_counts)
+            
         # Init figure
         nrows = 4
         ncol = 6
@@ -1854,10 +1863,10 @@ class GRBAnalysis(object):
 
                 # PPC fit count spectrum
                 # get counts for all sample parameters and the likelihood_model
-                model_bkg_rates_det = (model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
+                model_bkg_rates_det = np.random.poisson(model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
 
-                q_levels = [0.68,0.95]
-                colors = ['lightgreen', 'darkgreen']# TODO change this to more fancy colors
+                q_levels = [0.68,0.95, 0.99]
+                colors = ['#354458', '#3A9AD9', '#29ABA4']
 
                 # get 68 and 95 % boundaries and plot them
                 for i,level in enumerate(q_levels):
@@ -1868,13 +1877,14 @@ class GRBAnalysis(object):
                                                    high,
                                                    color=colors[i],
                                                    alpha=0.5,
-                                                   zorder=i+1,
+                                                   zorder=10-i,
                                                    step='post')
 
                 axes_array[plot_number].step(self._ebounds[1:],
                                        active_data,
                                        where='post',
                                        color='black',
+                                             zorder=19,
                                        label='Detector {}'.format(j))
                 if (plot_number/float(ncol)).is_integer():
                     axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
