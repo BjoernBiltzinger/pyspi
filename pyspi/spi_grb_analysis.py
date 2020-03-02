@@ -2,6 +2,9 @@ from pyspi.spi_data import *
 from pyspi.spi_response import ResponsePhotopeak, ResponseRMF
 from pyspi.spi_pointing import *
 from pyspi.spi_frame import *
+from pyspi.utils.likelihood import Likelihood
+
+from astromodels import *
 import astropy.units as u
 from astropy.coordinates import ICRS, Galactic, SkyCoord
 from astropy.time.core import Time
@@ -28,15 +31,26 @@ class GRBAnalysis(object):
         """
 
         # TODO: Add a test if the configuration file is valid for a GRB analysis
+        # Which event types should be used?
+        self._event_types = configuration['Event_types']
 
         # Which energy range?
         self._emin = float(configuration['emin'])
         self._emax = float(configuration['emax'])
-        
-        #self._dets = configuration['Detectors_to_use']
 
-        # Which event types should be used?
-        self._event_types = configuration['Event_types']
+        # Binned or unbinned analysis?
+        self._binned = configuration['Energy_binned']
+        if self._binned:
+            # Set ebounds of energy bins
+            self._ebounds = np.array(configuration['Ebounds'])
+            # If no ebounds are given use the default ones
+            if self._ebounds is None:
+                self._ebounds = np.logspace(np.log10(self._emin), np.log10(self._emax), 30)
+            # Construct final energy bins if single events are used
+            if 'single' in self._event_types:
+                self._construct_energy_bins()
+        else:
+            raise NotImplementedError('Unbinned analysis not implemented!')
 
         # We need one nuisance parametert if we use the single dets for the efficiency
         # of the PSD detections in the electronic noise range. Init it to 0.85. Will be changed
@@ -66,7 +80,7 @@ class GRBAnalysis(object):
 
         if self._simulate is not None:
             
-            sys.stdout.write('CAUTION! You selected to simmulate a GRB at the given active time! If you want to analyse a real GRB this will lead to completly wrong results! Please confirm that you wanted to simmulate a GRB [y/n]. ')
+            sys.stdout.write('CAUTION! You selected to simmulate a source at the given active time! If you want to analyse a real GRB this will lead to completly wrong results! Please confirm that you wanted to simmulate a source [y/n]. ')
             
             # raw_input returns the empty string for "enter"
             yes = {'yes','y', 'ye', ''}
@@ -79,13 +93,65 @@ class GRBAnalysis(object):
                raise AssertionError("Okay. I will aboard the calculation here. Please set the 'Simmulate' flag in the config file to False")
             else:
                sys.stdout.write("Please respond with 'y' or 'n'")
+            self._simulate_dict = {}
 
-            self._simulate_ra = self._simulate['ra']
-            self._simulate_dec = self._simulate['dec']
-            self._simulate_duration = self._simulate['duration']
-            self._simulate_K = self._simulate['K']
-            self._simulate_index = self._simulate['index']
-            
+            n_source = 0
+            for s in self._simulate.keys():
+                if s=="General":
+                    self._simulate_ra = self._simulate[s]['ra']
+                    self._simulate_dec = self._simulate[s]['dec']
+                    self._simulate_duration = self._simulate[s]['duration']
+                    self._simulate_response = self._simulate[s]['simulate_response']
+
+                else:
+                    assert "Function" in self._simulate[s].keys(), "I need the Function info to build the source!"
+                
+                    func = self._simulate[s]["Function"]
+                    if func == 'Band':
+                        shape = Band()
+                        assert "K" in self._simulate[s].keys(), "Please give a normalization for the Band-function (K)."
+                        assert "alpha" in self._simulate[s].keys(), "Please give a low energy slope for the Band-function (alpha)."
+                        assert "beta" in self._simulate[s].keys(), "Please give a high energy slope for the Band-function (beta)"
+                        assert "xp" in self._simulate[s].keys(), "Please give a peak energy for the Band-function (xp)"
+
+                        shape.K = self._simulate[s]["K"]
+                        shape.alpha = self._simulate[s]["alpha"]
+                        shape.beta = self._simulate[s]["beta"]
+                        shape.xp = self._simulate[s]["xp"]
+
+                    elif func == 'Pl':
+                        shape = Powerlaw()
+                        assert "K" in self._simulate[s].keys(), "Please give a normalization for the Powerlaw-function (K)."
+                        assert "index" in self._simulate[s].keys(), "Please give a slope for the Powerlaw-function (index)."
+
+                        shape.K = self._simulate[s]["K"]
+                        shape.index = self._simulate[s]["index"]
+
+                    elif func == 'Cpl':
+                        shape = Cutoff_powerlaw()
+                        assert "K" in self._simulate[s].keys(), "Please give a normalization for the Cutoff-Powerlaw-Function (K)."
+                        assert "index" in self._simulate[s].keys(), "Please give a slope for the Cutoff-Powerlaw-function (index)."
+                        assert "xc" in self._simulate[s].keys(), "Please give a cutoff energy for the Cutoff-Powerlaw-function (xc)"
+
+                        shape.K = self._simulate[s]["K"]
+                        shape.index = self._simulate[s]["index"]
+                        shape.xc = self._simulate[s]["xc"]
+
+                    elif func == 'Line':
+                        shape = Gaussian_Line()
+                        assert "K" in self._simulate[s].keys(), "Please give a normalization for the Gaussian-Line-function (K)."
+                        assert "E0" in self._simulate[s].keys(), "Please give an energy for the Gaussian-Line--function (E0)."
+                        assert "sigma" in self._simulate[s].keys(), "Please give a width for the Gaussian-Line-function (sigma)"
+
+                        shape.K = self._simulate[s]["K"]
+                        shape.E0 = self._simulate[s]["E0"]
+                        shape.sigma = self._simulate[s]["sigma"]
+                    else:
+                        raise NotImplementedError('Only Band, Pl, Cpl and Line are implemented')
+
+                    self._simulate_dict[n_source] = shape
+                    n_source += 1
+                
         # Translate the input time ranges in start and stop times
         self._get_start_and_stop_times()
 
@@ -111,20 +177,6 @@ class GRBAnalysis(object):
             print('You have set a unique name for this analysis that was already used before. \
                    I will add the present time to the name {}'.format(self._analysis_name))
             
-        # Binned or unbinned analysis?
-        self._binned = configuration['Energy_binned']
-        if self._binned:
-            # Set ebounds of energy bins
-            self._ebounds = np.array(configuration['Ebounds'])
-            # If no ebounds are given use the default ones
-            if self._ebounds is None:
-                self._ebounds = np.logspace(np.log10(self._emin), np.log10(self._emax), 30)
-            # Construct final energy bins if single events are used
-            if 'single' in self._event_types:
-                self._construct_energy_bins()
-        else:
-            raise NotImplementedError('Unbinned analysis not implemented!')
-
         # Init the response
         self._init_response()
         
@@ -148,6 +200,9 @@ class GRBAnalysis(object):
         # Set the model 
         self.set_model(likelihood_model)
 
+        # Set Likelihood class
+        self._init_likelihood()
+        
     def set_psd_eff(self, value):
         """
         Set the psd efficency
@@ -361,6 +416,14 @@ class GRBAnalysis(object):
                 self._bkg2_start = float(split[0])
                 self._bkg2_stop = float(split[1])
 
+
+    def _init_likelihood(self):
+        """
+        Initalize Likelihood object. Will be used later to calculate the sum of all log-likelihoods
+        :return:
+        """
+        self._likelihood = Likelihood(numba_cpu=True, parallel=True)
+        
     def _init_frame(self):
         """
         Initalize the spi frame object, that is needed to transform ICRS coordinates to
@@ -393,27 +456,33 @@ class GRBAnalysis(object):
                                                           stop=self._bkg2_stop+10)
             else:
                 raise NotImplementedError('Only binned analysis implemented at the moment!')
+            
         else:
-            def GRB_spectrum(E):
-                return self._simulate_K*np.power(float(E)/100., self._simulate_index)
-
             #simulate_pos_icrs = SkyCoord(ra=self._simulate_ra, dec=self._simulate_dec,
             #                             unit='deg', frame='icrs')
             #print(simulate_pos_icrs)
             #simulate_ra_sat = simulate_pos_icrs.transform_to(self._frame_object).lon.deg
             #simulate_dec_sat = simulate_pos_icrs.transform_to(self._frame_object).lat.deg
+            if self._simulate_response=='RMF':
+                response_object_sim = ResponseRMF(ebounds=self._ebounds, time=self._time_of_grb)
+            elif self._simulate_response=='Photopeak':
+                response_object_sim = ResponsePhotopeak(ebounds=self._ebounds, time=self._time_of_grb)
+            else:
+                raise AssertionError
             
-            self._data_object = DataGRBSimulate(self._time_of_grb, self._response_object,
-                                                ra=self._simulate_ra, dec=self._simulate_dec,
-                                                duration_of_GRB=self._simulate_duration,
-                                                GRB_spectrum_function=GRB_spectrum,
-                                                afs=True, ebounds=self._ebounds,
-                                                event_types=self._event_types)
+
+            self._data_object = DataGRBSimulate(self._time_of_grb, response_object_sim,
+                                                    ra=self._simulate_ra, dec=self._simulate_dec,
+                                                    duration_of_GRB=self._simulate_duration,
+                                                    shapes = self._simulate_dict,
+                                                    afs=True, ebounds=self._ebounds,
+                                                    event_types=self._event_types)
+            
             if self._binned:
                 self._data_object.time_and_energy_bin(time_bin_step=1.,
                                                       start=self._bkg1_start-10,
                                                       stop=self._bkg2_stop+10)
-                self._data_object.add_GRB_binned()
+                self._data_object.add_sources_simulated()
             else:
                 raise NotImplementedError('Only binned analysis implemented at the moment!')
         # Build a mask to cover the time bins of the active time
@@ -427,7 +496,7 @@ class GRBAnalysis(object):
 
         self._real_start_active = self._active_time_bins[0,0]
         self._real_stop_active = self._active_time_bins[-1,-1]
-
+        self._active_time_seconds = self._real_stop_active - self._real_start_active
             
         if 'single' in self._event_types:
             sgl_dets = self._data_object.energy_sgl_dict.keys()
@@ -553,19 +622,19 @@ class GRBAnalysis(object):
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_sgl[d] = self._fold(response_sgl[d], spectrum_bins)
+                predicted_count_rates_sgl[d] = self._fold(response_sgl[d], spectrum_bins)*self._active_time_seconds
 
         #if 'psd' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_psd[d] = self._fold(response_psd[d], spectrum_bins)
+                predicted_count_rates_psd[d] = self._fold(response_psd[d], spectrum_bins)*self._active_time_seconds
 
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                predicted_count_rates_me2[d] = self._fold(response_me2[d], spectrum_bins)
+                predicted_count_rates_me2[d] = self._fold(response_me2[d], spectrum_bins)*self._active_time_seconds
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                predicted_count_rates_me3[d] = self._fold(response_me3[d], spectrum_bins)
+                predicted_count_rates_me3[d] = self._fold(response_me3[d], spectrum_bins)*self._active_time_seconds
 
         spectal_parameters = {}
         
@@ -659,18 +728,17 @@ class GRBAnalysis(object):
         # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
         if 'single' in self._event_types:
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_sgl[d] = self._fold(response_sgl[d], spectrum_bins)
-
+                predicted_count_rates_sgl[d] = self._fold(response_sgl[d], spectrum_bins)*self._active_time_seconds
             for d in self._sgl_dets_to_use:
-                predicted_count_rates_psd[d] = self._fold(response_psd[d], spectrum_bins)
-
+                predicted_count_rates_psd[d] = self._fold(response_psd[d], spectrum_bins)*self._active_time_seconds
+            
         if 'double' in self._event_types:
             for d in self._me2_dets_to_use:
-                predicted_count_rates_me2[d] = self._fold(response_me2[d], spectrum_bins)
+                predicted_count_rates_me2[d] = self._fold(response_me2[d], spectrum_bins)*self._active_time_seconds
 
         if 'triple' in self._event_types:
             for d in self._me3_dets_to_use:
-                predicted_count_rates_me3[d] = self._fold(response_me3[d], spectrum_bins)
+                predicted_count_rates_me3[d] = self._fold(response_me3[d], spectrum_bins)*self._active_time_seconds
                 
         spectal_parameters = {}
         for i, component in enumerate(point_source._components.values()):
@@ -714,7 +782,6 @@ class GRBAnalysis(object):
         - Background model for constant point sources or extended_sources
         :return:
         """
-
         if 'single' in self._event_types:
             # Initalize the polynominal background fit to the time before and after the trigger time
             # to get the temporal changing Background
@@ -776,7 +843,7 @@ class GRBAnalysis(object):
 
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
-
+                #bkg_error_active = np.where(bkg_error_active==0, 1e-10, bkg_error_active)
                 self._bkg_sgl_psd_sum[d] = {'error': bkg_error, 'counts': bkg_counts} 
                 self._bkg_active_sgl_psd_sum[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
@@ -840,7 +907,7 @@ class GRBAnalysis(object):
 
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
-
+                #bkg_error_active = np.where(bkg_error_active==0, 1e-10, bkg_error_active) 
                 self._bkg_psd[d] = {'error': bkg_error, 'counts': bkg_counts} 
                 self._bkg_active_psd[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
@@ -903,7 +970,7 @@ class GRBAnalysis(object):
 
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
-
+                #bkg_error_active = np.where(bkg_error_active==0, 1e-10, bkg_error_active) 
                 self._bkg_me2[d] = {'error': bkg_error, 'counts': bkg_counts} 
                 self._bkg_active_me2[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
@@ -966,7 +1033,7 @@ class GRBAnalysis(object):
 
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
-
+                #bkg_error_active = np.where(bkg_error_active==0, 1e-10, bkg_error_active) 
                 self._bkg_me3[d] = {'error': bkg_error, 'counts': bkg_counts} 
                 self._bkg_active_me3[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
@@ -1028,42 +1095,66 @@ class GRBAnalysis(object):
         if 'single' in self._event_types:
             for v, d in enumerate(self._sgl_dets_to_use):
 
-
-                loglike += np.sum(poisson_observed_gaussian_background(
+                loglike += self._likelihood.PG_stat(
                     self._active_time_counts_energy_sgl_psd_sum_dict[d][self._sgl_mask],
                     self._bkg_active_sgl_psd_sum[d]['counts_active'][self._sgl_mask],
                     self._bkg_active_sgl_psd_sum[d]['error_active'][self._sgl_mask],
-                    self._expected_model_counts_sgl_psd_sum[v][self._sgl_mask])[0])
-
+                    self._expected_model_counts_sgl_psd_sum[v][self._sgl_mask])
+                
+                #loglike += np.sum(poisson_observed_gaussian_background(
+                #    self._active_time_counts_energy_sgl_psd_sum_dict[d][self._sgl_mask],
+                #    self._bkg_active_sgl_psd_sum[d]['counts_active'][self._sgl_mask],
+                #    self._bkg_active_sgl_psd_sum[d]['error_active'][self._sgl_mask],
+                #    self._expected_model_counts_sgl_psd_sum[v][self._sgl_mask])[0])
+                
         #if 'psd' in self._event_types:
             for v, d in enumerate(self._sgl_dets_to_use):
 
+                if np.sum(~self._sgl_mask)>0:
 
-                loglike += np.sum(poisson_observed_gaussian_background(
-                    self._active_time_counts_energy_psd_dict[d][~self._sgl_mask],
-                    self._bkg_active_psd[d]['counts_active'][~self._sgl_mask],
-                    self._bkg_active_psd[d]['error_active'][~self._sgl_mask],
-                    self._expected_model_counts_psd[v][~self._sgl_mask])[0])
+                    loglike += self._likelihood.PG_stat(
+                        self._active_time_counts_energy_psd_dict[d][~self._sgl_mask],
+                        self._bkg_active_psd[d]['counts_active'][~self._sgl_mask],
+                        self._bkg_active_psd[d]['error_active'][~self._sgl_mask],
+                        self._expected_model_counts_psd[v][~self._sgl_mask])
+                        
+                    #loglike += np.sum(poisson_observed_gaussian_background(
+                    #    self._active_time_counts_energy_psd_dict[d][~self._sgl_mask],
+                    #    self._bkg_active_psd[d]['counts_active'][~self._sgl_mask],
+                    #    self._bkg_active_psd[d]['error_active'][~self._sgl_mask],
+                    #    self._expected_model_counts_psd[v][~self._sgl_mask])[0])
 
         if 'double' in self._event_types:
             for v, d in enumerate(self._me2_dets_to_use):
 
-
-                loglike += np.sum(poisson_observed_gaussian_background(
+                loglike += self._likelihood.PG_stat(
                     self._active_time_counts_energy_me2_dict[d],
                     self._bkg_active_me2[d]['counts_active'],
                     self._bkg_active_me2[d]['error_active'],
-                    self._expected_model_counts_me2[v])[0])
+                    self._expected_model_counts_me2[v])
+
+                
+                #loglike += np.sum(poisson_observed_gaussian_background(
+                #    self._active_time_counts_energy_me2_dict[d],
+                #    self._bkg_active_me2[d]['counts_active'],
+                #    self._bkg_active_me2[d]['error_active'],
+                #    self._expected_model_counts_me2[v])[0])
 
         if 'triple' in self._event_types:
             for v, d in enumerate(self._me3_dets_to_use):
 
-
-                loglike += np.sum(poisson_observed_gaussian_background(
+                loglike += self._likelihood.PG_stat(
                     self._active_time_counts_energy_me3_dict[d],
                     self._bkg_active_me3[d]['counts_active'],
                     self._bkg_active_me3[d]['error_active'],
-                    self._expected_model_counts_me3[v])[0])
+                    self._expected_model_counts_me3[v])
+                    
+
+                #loglike += np.sum(poisson_observed_gaussian_background(
+                #    self._active_time_counts_energy_me3_dict[d],
+                #    self._bkg_active_me3[d]['counts_active'],
+                #    self._bkg_active_me3[d]['error_active'],
+                #    self._expected_model_counts_me3[v])[0])
 
         return loglike
 
@@ -1344,10 +1435,8 @@ class GRBAnalysis(object):
         # mask the sample parameter values
         model_counts = np.empty((n_ppc, len(self._sgl_dets_to_use), len(self._ebounds)-1))
         for i in range(n_ppc):
-            print(masked_parameter_samples[i])
             likelihood_model.set_free_parameters(masked_parameter_samples[i])
             self._get_model_counts(likelihood_model)
-            print(self._expected_model_counts)
             model_counts[i] = self._expected_model_counts
 
         # poisson noise
@@ -1488,6 +1577,9 @@ class GRBAnalysis(object):
         # Set negative bkg to zeros
         bkg_counts = np.where(bkg_counts<0, 0, bkg_counts)
 
+        # Ebin sizes
+        ebin_sizes = self._ebounds[1:]-self._ebounds[:-1]
+        
         # Fitted GRB count spectrum ppc versus count space data of all dets
         if 'single' in self._event_types:
 
@@ -1513,15 +1605,15 @@ class GRBAnalysis(object):
                     # PPC fit count spectrum
                     # get counts for all sample parameters and the likelihood_model
                     # Add poisson noise
-                    model_bkg_rates_det = np.random.poisson(model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
+                    model_bkg_rates_det = np.random.poisson((model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time) 
 
                     q_levels = [0.68,0.95, 0.99]
                     colors = ['#354458', '#3A9AD9', '#29ABA4']#['#588C73', '#85C4B9', '#8C4646']# TODO change this to more fancy colors
 
                     # get 68 and 95 % boundaries and plot them
                     for i,level in enumerate(q_levels):
-                        low = np.percentile(model_bkg_rates_det, 50-50*level, axis=0)
-                        high = np.percentile(model_bkg_rates_det, 50+50*level, axis=0)
+                        low = np.percentile(model_bkg_rates_det/ebin_sizes, 50-50*level, axis=0)
+                        high = np.percentile(model_bkg_rates_det/ebin_sizes, 50+50*level, axis=0)
                         axes_array[plot_number].fill_between(self._ebounds[1:],
                                                        low,
                                                        high,
@@ -1531,13 +1623,13 @@ class GRBAnalysis(object):
                                                        step='post')
 
                     axes_array[plot_number].step(self._ebounds[1:],
-                                           active_data,
+                                           active_data/ebin_sizes,
                                            where='post',
                                            color='black',
                                                  zorder=19,
                                            label='Detector {}'.format(j))
                     if (plot_number/float(ncol)).is_integer():
-                        axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+                        axes_array[plot_number].set_ylabel('Count rate [cts $s^{-1}$ $keV^{-1}$]')
 
                     index+=1
                 # If det not used only plot legend entry with remark "not used or defect"
