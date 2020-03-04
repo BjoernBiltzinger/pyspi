@@ -110,7 +110,7 @@ class basic_config_builder_Constant_Source(object):
         """
         for key, value in kwargs.iteritems():
             assert key in self._config.keys(), 'Please use valid key. Only {} are available.'.format(self._config.keys())
-            if key=='Ebounds' or 'Pointings':
+            if key=='Ebounds' or key=='Pointings':
                 value=value.tolist()
             self._config[key] = value
         with open(self._config_savepath, 'w') as file:
