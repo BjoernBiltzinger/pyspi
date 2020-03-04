@@ -42,19 +42,25 @@ class SPILike(PluginPrototype):
             
         # There are no nuisance parameters
         self._event_types = self._configuration['Event_types']
-        self._photo_peak_only = self._configuration['Use_only_photopeak']
+
+        nuisance_parameters ={}
+        nuisance_parameters = collections.OrderedDict()
+        
+        self._analysis = self._configuration['Special_analysis']
+        if self._analysis=="Constant_Source":
+            par = Parameter("bkg_norm_{}".format(name), 0.99, min_value=0, max_value=1, delta=0.01,
+                            free=True, desc="Norm of bkg")
+            par.set_uninformative_prior(Uniform_prior)
+
+            nuisance_parameters[par.name] = par
+
         if "single" in self._event_types:
-            
-            nuisance_parameters = collections.OrderedDict()
 
             par = Parameter("psd_eff_{}".format(name), 0.86, min_value=0, max_value=1, delta=0.01,
                             free=True, desc="PSD efficiency in electronic noise range")
             par.set_uninformative_prior(Uniform_prior)
             
             nuisance_parameters[par.name] = par
-            
-        else:
-            nuisance_parameters = {}
             
         super(SPILike, self).__init__(name, nuisance_parameters=nuisance_parameters)
 
@@ -67,10 +73,13 @@ class SPILike(PluginPrototype):
 
         self._likelihood_model = likelihood_model
         
-        self._spi_analysis = getspianalysis(self._configuration, self._likelihood_model, photopeak_only=self._photo_peak_only)
+        self._spi_analysis = getspianalysis(self._configuration, self._likelihood_model)
         #self._gta, self._pts_energies = _get_PySpi_instance(self._configuration, likelihood_model_instance)
         if "single" in self._event_types:
             self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
+        if self._analysis=="Constant_Source":
+            self._spi_analysis.set_bkg_norm(self._nuisance_parameters['bkg_norm_{}'.format(self.name)].value)
+
     def _update_model_in_pyspi(self):
         """
         Update model in pyspi
@@ -79,6 +88,8 @@ class SPILike(PluginPrototype):
         
         if "single" in self._event_types:
             self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
+        if self._analysis=="Constant_Source":
+            self._spi_analysis.set_bkg_norm(self._nuisance_parameters['bkg_norm_{}'.format(self.name)].value)
         
     def get_log_like(self):
         """
@@ -89,6 +100,8 @@ class SPILike(PluginPrototype):
         #self._update_model_in_pyspi()
         if "single" in self._event_types:
             self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
+        if self._analysis=="Constant_Source":
+            self._spi_analysis.set_bkg_norm(self._nuisance_parameters['bkg_norm_{}'.format(self.name)].value)
         # Get value of the log likelihood
         return self._spi_analysis.get_log_like(self._likelihood_model)
 
