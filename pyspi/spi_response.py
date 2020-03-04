@@ -19,17 +19,54 @@ except:
 if has_numba:
     @njit([float64[:](float64[:,::1], float64[:,::1])])
     def trapz_numba(y,x):
+        """
+        Fast trapz integration with numba
+        :param x: x values
+        :param y: y values
+        :return: Trapz integrated
+        """
         return np.trapz(y,x)
 
+    @njit(float64[:](float64[:],float64[:],float64[:]))
+    def log_interp1d(x_new, x_old, y_old):
+        """
+        Linear interpolation in log space for base value pairs (x_old, y_old)
+        for new x_values x_new
+        :param x_old: Old x values used for interpolation
+        :param y_old: Old y values used for interpolation
+        :param x_new: New x values
+        :retrun: y_new from liner interpolation in log space
+        """
+        # log of all
+        logx = np.log10(x_old)
+        logxnew = np.log10(x_new)
+        # Avoid nan entries for yy=0 entries
+        logy = np.log10(np.where(y_old<=0, 1e-99, y_old))
+        
+        lin_interp = np.interp(logxnew,logx, logy)                                                                                                                                             
 
+        return 10**lin_interp
+else:        
+    @njit(float64[:](float64[:],float64[:],float64[:]))
+    def log_interp1d(x_new, x_old, y_old):
+        """
+        Linear interpolation in log space for base value pairs (x_old, y_old)
+        for new x_values x_new
+        :param x_old: Old x values used for interpolation
+        :param y_old: Old y values used for interpolation
+        :param x_new: New x values
+        :retrun: y_new from liner interpolation in log space
+        """
+        # log of all
+        logx = np.log10(x_old)
+        logxnew = np.log10(x_new)
+        # Avoid nan entries for yy=0 entries
+        logy = np.log10(np.where(y_old<=0, 1e-99, y_old))
+        
+        lin_interp = np.interp(logxnew,logx, logy)                                                                                                                                             
 
-def log_interp1d(xx, yy, kind='linear'):
-    logx = np.log10(xx)
-    # Avoid nan entries for yy=0 entries
-    logy = np.log10(np.where(yy<=0, 1e-32, yy))
-    lin_interp = interpolate.interp1d(logx, logy, kind=kind)
-    log_interp = lambda zz: np.power(10.0, lin_interp(np.log10(zz)))
-    return log_interp
+        return 10**lin_interp
+
 
 class Response(object):
     def __init__(self, ebounds=None, time=None):
@@ -76,9 +113,8 @@ class Response(object):
         """
         azimuth = np.deg2rad(azimuth)
         zenith = np.deg2rad(zenith)
-
-        self._interpolated_irfs(azimuth, zenith)
-            
+        self._weighted_irfs(azimuth, zenith)
+        
     def get_response_det(self, det):
         """
         Get the response for the current position for one detector
@@ -451,12 +487,7 @@ class ResponseRMF(Response):
         :param det: Detector ID
         :returns: Full DRM
         """
-
-        interpolated_irfs_ph = self._current_interpolated_irfs_ph[det]
-        interpolated_irfs_nonph1 = self._current_interpolated_irfs_nonph1[det]
-        interpolated_irfs_nonph2 = self._current_interpolated_irfs_nonph2[det]
         
-
         n_energy_bins = len(self._ebounds) - 1
         
         ebins = np.empty((len(self._ene_min), 2))
@@ -466,19 +497,20 @@ class ResponseRMF(Response):
         ebins[:,1] = self._ene_max
 
         ph_irfs = np.empty_like(ebins)
-        inter = interpolated_irfs_ph(self._ebounds)
+
+        # Get interpolated irfs
+        inter = log_interp1d(self._ebounds, self._energies_database, self._weighted_irf_ph[:, det])
         
         ph_irfs[:,0] = inter[:-1]
         ph_irfs[:,1] = inter[1:]
         if has_numba:
-            print('Using numba...')
             ph_irfs_int = trapz_numba(ph_irfs, ebins)/(self._ene_max-self._ene_min)
         else:
             ph_irfs_int = integrate.trapz(ph_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
 
         # RMF1 and RMF2 matrix
         nonph1_irfs = np.empty_like(ebins)
-        inter = interpolated_irfs_nonph1(self._ebounds)
+        inter = log_interp1d(self._ebounds, self._energies_database, self._weighted_irf_nonph_1[:, det]) 
         
         nonph1_irfs[:,0] = inter[:-1]
         nonph1_irfs[:,1] = inter[1:]
@@ -488,7 +520,7 @@ class ResponseRMF(Response):
             nonph1_irfs_int = integrate.trapz(nonph1_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
 
         nonph2_irfs = np.empty_like(ebins)
-        inter = interpolated_irfs_nonph2(self._ebounds)
+        inter = log_interp1d(self._ebounds, self._energies_database, self._weighted_irf_nonph_2[:, det]) 
         
         nonph2_irfs[:,0] = inter[:-1]
         nonph2_irfs[:,1] = inter[1:]
@@ -522,52 +554,52 @@ class ResponseRMF(Response):
         # If outside of the response pattern set response to zero
         try:
             # select these points on the grid and weight them together
-            weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
-            weighted_irf_nonph_1 = self._irfs_nonphoto_1[...,xx,yy].dot(wgt)
-            weighted_irf_nonph_2 = self._irfs_nonphoto_2[...,xx,yy].dot(wgt)
+            self._weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
+            self._weighted_irf_nonph_1 = self._irfs_nonphoto_1[...,xx,yy].dot(wgt)
+            self._weighted_irf_nonph_2 = self._irfs_nonphoto_2[...,xx,yy].dot(wgt)
         except IndexError:
-            weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
-            weighted_irf_nonph_1 = np.zeros_like(self._irfs_nonphoto_1[...,20,20])
-            weighted_irf_nonph_2 = np.zeros_like(self._irfs_nonphoto_2[...,20,20])
+            self._weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
+            self._weighted_irf_nonph_1 = np.zeros_like(self._irfs_nonphoto_1[...,20,20])
+            self._weighted_irf_nonph_2 = np.zeros_like(self._irfs_nonphoto_2[...,20,20])
             
-        return weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2
+        #return weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2
 
     
-    def _interpolated_irfs(self, azimuth, zenith):
-        """
-        Return three lists with the interploated irf curves for
-        each detector
+    #def _interpolated_irfs(self, azimuth, zenith):
+    #    """
+    #    Return three lists with the interploated irf curves for
+    #    each detector#
 
-        :param azimuth: 
-        :param zenith: 
-        :returns: 
-        :rtype: 
+    #     :param azimuth: 
+    #    :param zenith: 
+    #    :returns: 
+    #    :rtype: 
 
-        """
+    #     """
 
-        weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2 = self._weighted_irfs(azimuth, zenith)
+    #    weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2 = self._weighted_irfs(azimuth, zenith)
 
         
         
-        interpolated_irfs_ph = []
-        interpolated_irfs_nonph1 = []
-        interpolated_irfs_nonph2 = []
+    #    interpolated_irfs_ph = []
+    #    interpolated_irfs_nonph1 = []
+    #    interpolated_irfs_nonph2 = []
         
-        for det_number in range(self._n_dets):
+    #    for det_number in range(self._n_dets):
 
             #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
             
-            tmp = log_interp1d(self._energies_database, weighted_irf_ph[:, det_number])
-            tmp2 = log_interp1d(self._energies_database, weighted_irf_nonph_1[:, det_number])
-            tmp3 = log_interp1d(self._energies_database, weighted_irf_nonph_2[:, det_number])
+    #        tmp = log_interp1d(self._energies_database, weighted_irf_ph[:, det_number])
+    #        tmp2 = log_interp1d(self._energies_database, weighted_irf_nonph_1[:, det_number])
+    #        tmp3 = log_interp1d(self._energies_database, weighted_irf_nonph_2[:, det_number])
             
-            interpolated_irfs_ph.append(tmp)
-            interpolated_irfs_nonph1.append(tmp2)
-            interpolated_irfs_nonph2.append(tmp3)
+    #        interpolated_irfs_ph.append(tmp)
+    #        interpolated_irfs_nonph1.append(tmp2)
+    #        interpolated_irfs_nonph2.append(tmp3)
             
-        self._current_interpolated_irfs_ph = interpolated_irfs_ph
-        self._current_interpolated_irfs_nonph1 = interpolated_irfs_nonph1
-        self._current_interpolated_irfs_nonph2 = interpolated_irfs_nonph2
+    #    self._current_interpolated_irfs_ph = interpolated_irfs_ph
+    #    self._current_interpolated_irfs_nonph1 = interpolated_irfs_nonph1
+    #    self._current_interpolated_irfs_nonph2 = interpolated_irfs_nonph2
 
 class ResponsePhotopeak(Response):
 
@@ -664,8 +696,6 @@ class ResponsePhotopeak(Response):
         :param det: Detector ID
         :returns: Full DRM
         """
-
-        interpolated_irfs = self._current_interpolated_irfs_ph[det]
         
         n_energy_bins = len(self._ebounds) - 1
         
@@ -675,12 +705,16 @@ class ResponsePhotopeak(Response):
         ebins[:,0] = self._ene_min
         ebins[:,1] = self._ene_max
 
-        inter = interpolated_irfs(self._ebounds)
+        inter = inter = log_interp1d(self._ebounds,
+                                     self._energies_database,
+                                     self._weighted_irf_ph[:, det])
         
         eff_area[:,0] = inter[:-1]
         eff_area[:,1] = inter[1:]
-
-        effective_area = integrate.trapz(eff_area, ebins, axis=1)
+        if has_numba:
+            effective_area = trapz_numba(eff_area, ebins)
+        else:
+            effective_area = integrate.trapz(eff_area, ebins, axis=1)
         
         return effective_area/(self._ene_max-self._ene_min)
 
@@ -702,38 +736,38 @@ class ResponsePhotopeak(Response):
         # If outside of the response pattern set response to zero
         try:
             # select these points on the grid and weight them together
-            weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
+            self._weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
 
         except IndexError:
-            weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
+            self._weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
 
             
-        return weighted_irf_ph
+        #return weighted_irf_ph
 
     
-    def _interpolated_irfs(self, azimuth, zenith):
-        """
-        Get interploated irf curves for each detector
-        :param azimuth: azimuth in sat frame of source
-        :param zenith: zenith in sat frame of source
-        :returns: 
-        """
+    #def _interpolated_irfs(self, azimuth, zenith):
+    #    """
+    #    Get interploated irf curves for each detector
+    #    :param azimuth: azimuth in sat frame of source
+    #    :param zenith: zenith in sat frame of source
+    #    :returns: 
+    #    """
 
-        weighted_irf_ph = self._weighted_irfs(azimuth, zenith)
+    #    weighted_irf_ph = self._weighted_irfs(azimuth, zenith)
 
         
         
-        interpolated_irfs_ph = []
+    #    interpolated_irfs_ph = []
         
-        for det_number in range(self._n_dets):
+    #    for det_number in range(self._n_dets):
 
             #tmp = interpolate.interp1d(self._energies, weighted_irf[:, det_number])
             
-            tmp = log_interp1d(self._energies_database, weighted_irf_ph[:, det_number])
+    #        tmp = log_interp1d(self._energies_database, weighted_irf_ph[:, det_number])
             
-            interpolated_irfs_ph.append(tmp)
+    #        interpolated_irfs_ph.append(tmp)
             
-        self._current_interpolated_irfs_ph = interpolated_irfs_ph
+    #    self._current_interpolated_irfs_ph = interpolated_irfs_ph
 
 def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     
