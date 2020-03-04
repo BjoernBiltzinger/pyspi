@@ -1,5 +1,5 @@
 from pyspi.spi_grb_analysis import GRBAnalysisRMF, GRBAnalysisPhotopeak
-from pyspi.spi_constantsource_analysis import SPI_CS_Analysis
+from pyspi.spi_constantsource_analysis import ConstantSourceAnalysisRMF, ConstantSourceAnalysisPhotopeak
 
 def getspianalysis(configuration, likelihood_model, photopeak_only=False):
     """
@@ -10,13 +10,18 @@ def getspianalysis(configuration, likelihood_model, photopeak_only=False):
     """
     # Which kind of analysis?
     analysis = configuration['Special_analysis']
+    photopeak_only = configuration['Use_only_photopeak']
+
     if analysis=='GRB':
         if photopeak_only:
             return GRBAnalysisPhotopeak(configuration, likelihood_model)
         else:
             return GRBAnalysisRMF(configuration, likelihood_model)
     elif analysis=='Constant_Source':
-        return SPI_CS_Analysis(configuration, likelihood_model)
+        if photopeak_only:
+            return ConstantSourceAnalysisPhotopeak(configuration, likelihood_model)
+        else:
+            return ConstantSourceAnalysisRMF(configuration, likelihood_model)
     else:
         raise AssertionError('Please use a valid Special Analysis type.' \
                              ' Either GRB for a GRB analysis or Constant_Source'/
