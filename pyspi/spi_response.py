@@ -10,6 +10,16 @@ from IPython.display import HTML
 
 from pyspi.io.package_data import get_path_of_data_file
 
+try:
+    from numba import njit, vectorize, cuda, prange, float64, int64
+    has_numba = True
+except:
+    has_numba = False
+
+if has_numba:
+    @njit([float64[:](float64[:,::1], float64[:,::1])])
+    def trapz_numba(y,x):
+        return np.trapz(y,x)
 
 
 
@@ -460,7 +470,11 @@ class ResponseRMF(Response):
         
         ph_irfs[:,0] = inter[:-1]
         ph_irfs[:,1] = inter[1:]
-        ph_irfs_int = integrate.trapz(ph_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+        if has_numba:
+            print('Using numba...')
+            ph_irfs_int = trapz_numba(ph_irfs, ebins)/(self._ene_max-self._ene_min)
+        else:
+            ph_irfs_int = integrate.trapz(ph_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
 
         # RMF1 and RMF2 matrix
         nonph1_irfs = np.empty_like(ebins)
@@ -468,14 +482,21 @@ class ResponseRMF(Response):
         
         nonph1_irfs[:,0] = inter[:-1]
         nonph1_irfs[:,1] = inter[1:]
-        nonph1_irfs_int = integrate.trapz(nonph1_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
-        
+        if has_numba:
+            nonph1_irfs_int = trapz_numba(nonph1_irfs, ebins)/(self._ene_max-self._ene_min)
+        else:
+            nonph1_irfs_int = integrate.trapz(nonph1_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+
         nonph2_irfs = np.empty_like(ebins)
         inter = interpolated_irfs_nonph2(self._ebounds)
         
         nonph2_irfs[:,0] = inter[:-1]
         nonph2_irfs[:,1] = inter[1:]
-        nonph2_irfs_int = integrate.trapz(nonph2_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+        
+        if has_numba:
+            nonph2_irfs_int = trapz_numba(nonph2_irfs, ebins)/(self._ene_max-self._ene_min)
+        else:
+            nonph2_irfs_int = integrate.trapz(nonph2_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
 
         # Build DRM
         drm = ph_irfs_int*np.identity(len(self._ene_min)) + \
