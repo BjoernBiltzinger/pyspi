@@ -11,14 +11,14 @@ from IPython.display import HTML
 from pyspi.io.package_data import get_path_of_data_file
 
 try:
-    from numba import njit, vectorize, cuda, prange, float64, int64
+    from numba import njit, float64
     has_numba = True
 except:
     has_numba = False
 
 if has_numba:
     @njit([float64[:](float64[:,::1], float64[:,::1])])
-    def trapz_numba(y,x):
+    def trapz(y,x):
         """
         Fast trapz integration with numba
         :param x: x values
@@ -43,10 +43,14 @@ if has_numba:
         # Avoid nan entries for yy=0 entries
         logy = np.log10(np.where(y_old<=0, 1e-99, y_old))
         
-        lin_interp = np.interp(logxnew,logx, logy)                                                                                                                                             
+        lin_interp = np.interp(logxnew,logx, logy)
 
         return 10**lin_interp
-else:        
+    
+else:
+    
+    from numpy import trapz
+    
     @njit(float64[:](float64[:],float64[:],float64[:]))
     def log_interp1d(x_new, x_old, y_old):
         """
@@ -63,10 +67,10 @@ else:
         # Avoid nan entries for yy=0 entries
         logy = np.log10(np.where(y_old<=0, 1e-99, y_old))
         
-        lin_interp = np.interp(logxnew,logx, logy)                                                                                                                                             
+        lin_interp = np.interp(logxnew,logx, logy)
 
         return 10**lin_interp
-
+    
 
 class Response(object):
     def __init__(self, ebounds=None, time=None):
@@ -503,10 +507,8 @@ class ResponseRMF(Response):
         
         ph_irfs[:,0] = inter[:-1]
         ph_irfs[:,1] = inter[1:]
-        if has_numba:
-            ph_irfs_int = trapz_numba(ph_irfs, ebins)/(self._ene_max-self._ene_min)
-        else:
-            ph_irfs_int = integrate.trapz(ph_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+
+        ph_irfs_int = trapz(ph_irfs, ebins)/(self._ene_max-self._ene_min)
 
         # RMF1 and RMF2 matrix
         nonph1_irfs = np.empty_like(ebins)
@@ -514,10 +516,8 @@ class ResponseRMF(Response):
         
         nonph1_irfs[:,0] = inter[:-1]
         nonph1_irfs[:,1] = inter[1:]
-        if has_numba:
-            nonph1_irfs_int = trapz_numba(nonph1_irfs, ebins)/(self._ene_max-self._ene_min)
-        else:
-            nonph1_irfs_int = integrate.trapz(nonph1_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+        
+        nonph1_irfs_int = trapz(nonph1_irfs, ebins)/(self._ene_max-self._ene_min)
 
         nonph2_irfs = np.empty_like(ebins)
         inter = log_interp1d(self._ebounds, self._energies_database, self._weighted_irf_nonph_2[:, det]) 
@@ -525,10 +525,8 @@ class ResponseRMF(Response):
         nonph2_irfs[:,0] = inter[:-1]
         nonph2_irfs[:,1] = inter[1:]
         
-        if has_numba:
-            nonph2_irfs_int = trapz_numba(nonph2_irfs, ebins)/(self._ene_max-self._ene_min)
-        else:
-            nonph2_irfs_int = integrate.trapz(nonph2_irfs, ebins, axis=1)/(self._ene_max-self._ene_min)
+        nonph2_irfs_int = trapz(nonph2_irfs, ebins)/(self._ene_max-self._ene_min)
+        
 
         # Build DRM
         drm = ph_irfs_int*np.identity(len(self._ene_min)) + \
@@ -705,16 +703,14 @@ class ResponsePhotopeak(Response):
         ebins[:,0] = self._ene_min
         ebins[:,1] = self._ene_max
 
-        inter = inter = log_interp1d(self._ebounds,
-                                     self._energies_database,
-                                     self._weighted_irf_ph[:, det])
+        inter =  log_interp1d(self._ebounds,
+                              self._energies_database,
+                              self._weighted_irf_ph[:, det])
         
         eff_area[:,0] = inter[:-1]
         eff_area[:,1] = inter[1:]
-        if has_numba:
-            effective_area = trapz_numba(eff_area, ebins)
-        else:
-            effective_area = integrate.trapz(eff_area, ebins, axis=1)
+        
+        effective_area = integrate.trapz(eff_area, ebins)
         
         return effective_area/(self._ene_max-self._ene_min)
 
