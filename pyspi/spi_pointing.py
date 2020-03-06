@@ -4,25 +4,84 @@ import astropy.io.fits as fits
 from pyspi.utils.geometry import cart2polar, polar2cart
 from pyspi.io.package_data import get_path_of_data_file
 
-def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
-    
-    x = polar2cart(scx_ra, scx_dec)
-    z = polar2cart(scz_ra, scz_dec)
-    
-    return cart2polar(np.cross(x,-z))
-    
-def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
-    
-    sc_matrix = np.zeros((3,3))
-    
-    sc_matrix[0,:] = polar2cart(scx_ra, scx_dec)
-    sc_matrix[1,:] = polar2cart(scy_ra, scy_dec)
-    sc_matrix[2,:] = polar2cart(scz_ra, scz_dec)
-    
-    return sc_matrix
+try:
+    from numba import njit
+    has_numba = True
+except:
+    has_numba = False
 
+if has_numba:
+    # If numba is available use it to speed up
+    @njit
+    def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
 
+        x = polar2cart(scx_ra, scx_dec)
+        z = polar2cart(scz_ra, scz_dec)
 
+        return cart2polar(np.cross(x,-z))
+
+    @njit
+    def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
+
+        sc_matrix = np.zeros((3,3))
+
+        sc_matrix[0,:] = polar2cart(scx_ra, scx_dec)
+        sc_matrix[1,:] = polar2cart(scy_ra, scy_dec)
+        sc_matrix[2,:] = polar2cart(scz_ra, scz_dec)
+
+        return sc_matrix
+
+    @njit
+    def _transform_icrs_to_spi(ra_icrs, dec_icrs, sc_matrix):
+        """
+        Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given 
+        sc_matrix (sc_matrix pointing dependent)
+        :param ra_icrs: Ra in ICRS in degree
+        :param dec_icrs: Dec in ICRS in degree
+        :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
+        :return: lon, lat in spi frame
+        """
+        # Source in icrs
+        vec_ircs = polar2cart(ra_icrs, dec_icrs)
+        vec_spi = np.dot(sc_matrix, vec_ircs)
+        lon, lat = cart2polar(vec_spi)
+        if lon<0:
+            lon += 360
+        return lon, lat
+else:
+    def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
+
+        x = polar2cart(scx_ra, scx_dec)
+        z = polar2cart(scz_ra, scz_dec)
+
+        return cart2polar(np.cross(x,-z))
+
+    def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
+
+        sc_matrix = np.zeros((3,3))
+
+        sc_matrix[0,:] = polar2cart(scx_ra, scx_dec)
+        sc_matrix[1,:] = polar2cart(scy_ra, scy_dec)
+        sc_matrix[2,:] = polar2cart(scz_ra, scz_dec)
+
+        return sc_matrix
+
+    def _transform_icrs_to_spi(ra_icrs, dec_icrs, sc_matrix):
+        """
+        Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given 
+        sc_matrix (sc_matrix pointing dependent)
+        :param ra_icrs: Ra in ICRS in degree
+        :param dec_icrs: Dec in ICRS in degree
+        :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
+        :return: lon, lat in spi frame
+        """
+        # Source in icrs
+        vec_ircs = polar2cart(ra_icrs, dec_icrs)
+        vec_spi = np.dot(sc_matrix, vec_ircs)
+        lon, lat = cart2polar(vec_spi)
+        if lon<0:
+            lon += 360
+        return lon, lat
 
 class SPIPointing(object):
 
