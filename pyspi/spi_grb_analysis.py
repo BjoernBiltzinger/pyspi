@@ -1,6 +1,6 @@
 from pyspi.spi_data import *
 from pyspi.spi_response import ResponsePhotopeak, ResponseRMF
-from pyspi.spi_pointing import *
+from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, SPIPointing
 from pyspi.spi_frame import *
 from pyspi.utils.likelihood import Likelihood
 
@@ -430,14 +430,19 @@ class GRBAnalysis(object):
         spacecraft coordinates.
         :return:
         """
-        self._pointing_object = SPIPointing(self._data_object.geometry_file_path)
+        #self._pointing_object = SPIPointing(self._data_object.geometry_file_path)
 
-        self._frame_object = SPIFrame(**self._pointing_object.sc_points[0])
+        #self._frame_object = SPIFrame(**self._pointing_object.sc_points[0])
 
         # get skycoord object of center ra and dec in icrs frame
-        pointing_sat = SkyCoord(lon=0, lat=0, unit='deg', frame=self._frame_object)
+        #pointing_sat = SkyCoord(lon=0, lat=0, unit='deg', frame=self._frame_object)
 
-        self._pointing_icrs = pointing_sat.transform_to('icrs')
+        #self._pointing_icrs = pointing_sat.transform_to('icrs')
+        
+        pointing_object = SPIPointing(self._data_object.geometry_file_path)
+
+        self._sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
+
         
     def _init_data(self):
         """
@@ -577,18 +582,21 @@ class GRBAnalysis(object):
 
         assert name not in self._point_sources.keys(), \
             'Can not create the source {} twice!'.format(name)
-        
         # ra and dec to sat coord
-        icrscoord = SkyCoord(ra=point_source.position.ra.value,
-                             dec=point_source.position.dec.value,
-                             unit='deg',
-                             frame='icrs')
+        #icrscoord = SkyCoord(ra=point_source.position.ra.value,
+        #                     dec=point_source.position.dec.value,
+        #                     unit='deg',
+        #                     frame='icrs')
+
+        #satcoord = icrscoord.transform_to(self._frame_object)
+
+        #ra_sat = satcoord.lon.deg
+        #dec_sat = satcoord.lat.deg
+
+        ra_sat, dec_sat = _transform_icrs_to_spi(point_source.position.ra.value,
+                                                 point_source.position.dec.value,
+                                                 self._sc_matrix)
         
-        satcoord = icrscoord.transform_to(self._frame_object)
-
-        ra_sat = satcoord.lon.deg
-        dec_sat = satcoord.lat.deg 
-
         response_sgl = {}
         response_psd = {}
         response_me2 = {}
@@ -676,16 +684,21 @@ class GRBAnalysis(object):
            point_source.position.dec.value != self._point_sources[name]['dec']:
 
             # ra and dec to sat coord
-            icrscoord = SkyCoord(ra=point_source.position.ra.value,
-                                 dec=point_source.position.dec.value,
-                                 unit='deg',
-                                 frame='icrs')
+            #icrscoord = SkyCoord(ra=point_source.position.ra.value,
+            #                     dec=point_source.position.dec.value,
+            #                     unit='deg',
+            #                     frame='icrs')
 
-            satcoord = icrscoord.transform_to(self._frame_object)
+            #satcoord = icrscoord.transform_to(self._frame_object)
 
-            ra_sat = satcoord.lon.deg
-            dec_sat = satcoord.lat.deg
+            #ra_sat = satcoord.lon.deg
+            #dec_sat = satcoord.lat.deg
 
+            ra_sat, dec_sat = _transform_icrs_to_spi(point_source.position.ra.value,
+                                                     point_source.position.dec.value,
+                                                     self._sc_matrix)
+
+            
             response_sgl = {}
             response_psd = {}
             response_me2 = {}
