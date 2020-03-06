@@ -795,12 +795,18 @@ class ConstantSourceAnalysis(object):
             masked_psd_eff_fit_array = psd_eff_fit_array[mask]
         # mask the sample parameter values
         model_counts = np.empty((n_ppc, self._pointings_list.size, 19, len(self._ebounds)-1))
+        bkg_model_counts = np.empty((n_ppc, self._pointings_list.size, 19, len(self._ebounds)-1))
+        source_model_counts = np.empty((n_ppc, self._pointings_list.size, 19, len(self._ebounds)-1))
         for i in range(n_ppc):
             self._likelihood_model.set_free_parameters(masked_parameter_samples[i])
             if psd_eff_variable:
                 self.set_psd_eff(masked_psd_eff_fit_array[i])
             self.set_bkg_norm(masked_bkg_norm_fit_array[i])
             self._get_model_counts(self._likelihood_model)
+
+            source_model_counts[i] = self._expected_model_counts_sgl_psd_sum
+            bkg_model_counts[i] = self._bkg_model_counts_sgl_psd
+            
             model_counts[i] = self._expected_model_counts_sgl_psd_sum + self._bkg_model_counts_sgl_psd
 
             # poisson noise
@@ -828,8 +834,8 @@ class ConstantSourceAnalysis(object):
                     # Loop over all possible single dets
                     for j in range(19):
                         plot_number = j#(j*4)/19
-                        if (plot_number/float(ncol)).is_integer():
-                                axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+                        #if (plot_number/float(ncol)).is_integer():
+                        #        axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
 
                         # If this single det was used plot the fit vs. data
                         if j in self._sgl_dets_to_use[n]:
@@ -843,7 +849,7 @@ class ConstantSourceAnalysis(object):
 
                             q_levels = [0.68,0.95, 0.99]
                             colors = ['#354458', '#3A9AD9', '#29ABA4']#['#588C73', '#85C4B9', '#8C4646']# TODO change this to more fancy colors
-
+                            
                             # get 68 and 95 % boundaries and plot them
                             for i,level in enumerate(q_levels):
                                 low = np.percentile(model_counts_poisson[:,n,j,:]/ebin_sizes, 50-50*level, axis=0)
@@ -855,31 +861,79 @@ class ConstantSourceAnalysis(object):
                                                                color=colors[i],
                                                                zorder=10-i,
                                                                step='post')
+                            for i,level in enumerate(q_levels):
+                                low = np.percentile(model_counts_poisson[:,n,j,:]/ebin_sizes, 50-50*level, axis=0)
+                                high = np.percentile(model_counts_poisson[:,n,j,:]/ebin_sizes, 50+50*level, axis=0)
+                                axes_array[plot_number].fill_between(self._ebounds[1:],
+                                                                     low,
+                                                                     high,
+                                                                     alpha=0.5,
+                                                                     color=colors[i],
+                                                                     zorder=10-i,
+                                                                     step='post')
 
+                            #level = 0.95
+                            #low = np.percentile(bkg_model_counts[:,n,j,:]/ebin_sizes, 50-50*level, axis=0)
+                            #high = np.percentile(bkg_model_counts[:,n,j,:]/ebin_sizes, 50+50*level, axis=0)
+                            axes_array[plot_number].step(self._ebounds[1:],
+                                                         np.mean(bkg_model_counts[:,n,j,:], axis=0)/ebin_sizes,
+                                                         alpha=1,
+                                                         color='darkred',
+                                                         zorder=3,
+                                                         where='post',
+                                                         label='bkg')
+                            level = 0.95
+                            low = np.percentile(source_model_counts[:,n,j,:]/ebin_sizes, 50-50*level, axis=0)
+                            high = np.percentile(source_model_counts[:,n,j,:]/ebin_sizes, 50+50*level, axis=0)
+                            axes_array[plot_number].step(self._ebounds[1:],
+                                                         np.mean(source_model_counts[:,n,j,:], axis=0)/ebin_sizes,
+                                                         alpha=1,
+                                                         color='darkgreen',
+                                                         zorder=3,
+                                                         where='post',
+                                                         label='source')
+                            
+                                
+                                                                                     
                             axes_array[plot_number].step(self._ebounds[1:],
                                                    active_data/ebin_sizes,
                                                    where='post',
                                                    color='black',
                                                          zorder=19,
-                                                   label='Detector {}'.format(j))
-                            if (plot_number/float(ncol)).is_integer():
-                                axes_array[plot_number].set_ylabel('Count rate [cts $s^{-1}$ $keV^{-1}$]')
+                                                   label='Data')
+                            axes_array[plot_number].text(.5,.9,'Detector {}'.format(j),
+                                                         horizontalalignment='center',
+                                                         transform=axes_array[plot_number].transAxes)
+                            
+                            #if (plot_number/float(ncol)).is_integer():
+                            #    axes_array[plot_number].set_ylabel('Count rate [cts $s^{-1}$ $keV^{-1}$]')
 
                         # If det not used only plot legend entry with remark "not used or defect"
                         else:
-                            red_indices.append(j)
-                            axes_array[plot_number].plot([], [], ' ', label='Detector {} \n Not used'.format(j))
+                            axes_array[plot_number].text(.5,.9,'Detector {}'.format(j),
+                                                         horizontalalignment='center',
+                                                         transform=axes_array[plot_number].transAxes,
+                                                         fontdict={"color":"red"})
 
                     # Make legend and mark the not used dets red
                     for i, ax in enumerate(axes.flatten()):
-                        ax.set_xlabel('Energy [keV]')
-                        l = ax.legend()
-                        if i in red_indices:
-                            l.get_texts()[0].set_color("red")
+                        #ax.set_xlabel('Energy [keV]')
                         ax.set_xscale('log')
                         #ax.set_yscale('log')
+                        
+                    handles, labels = axes.flatten()[0].get_legend_handles_labels()
+                    fig.legend(handles, labels, loc='lower center',bbox_to_anchor=(0.5, 0),
+          fancybox=True, shadow=True, ncol=5)
                     fig.tight_layout()
-                    fig.subplots_adjust(hspace=0, wspace=0) 
+                    #plt.subplots_adjust(bottom=0.15)
+                    
+                    ax_frame = fig.add_subplot(111, frameon=False)
+                    
+                    ax_frame.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+                    ax_frame.set_ylabel('Counts [cnts $keV^{-1}$]')
+                    ax_frame.set_xlabel('Energy [keV]')
+                    ax_frame.set_title('PPCs')
+                    fig.subplots_adjust(hspace=0, wspace=0, bottom=0.12)
                     fig.savefig('./ppcs/data_plot_{}.pdf'.format(self._pointings_list[n]))
 
 class ConstantSourceAnalysisRMF(ConstantSourceAnalysis):
