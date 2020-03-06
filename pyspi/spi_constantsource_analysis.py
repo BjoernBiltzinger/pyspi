@@ -11,7 +11,7 @@ from pyspi.io.package_data import get_path_of_external_data_dir
 
 from pyspi.spi_data import *
 from pyspi.spi_response import ResponsePhotopeak, ResponseRMF
-from pyspi.spi_pointing import *
+from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, SPIPointing
 from pyspi.spi_frame import *
 from pyspi.utils.likelihood import Likelihood
 from pyspi.data_constant_sources import DataConstantSources
@@ -307,17 +307,25 @@ class ConstantSourceAnalysis(object):
         Initalize the spi frame object for every pointing
         :return:
         """
-        self._frame_object_list = []
-        self._pointing_icrs_list = []
-        for path in self._data_object.geometry_file_paths:
+        
+        #self._frame_object_list = []
+        #self._pointing_icrs_list = []
+        #for path in self._data_object.geometry_file_paths:
+        #    pointing_object = SPIPointing(path)
+
+        #    self._frame_object_list.append(SPIFrame(**pointing_object.sc_points[10]))
+
+        #    # get skycoord object of center ra and dec in icrs frame
+        #    pointing_sat = SkyCoord(lon=0, lat=0, unit='deg', frame=self._frame_object_list[-1])
+
+        #    self._pointing_icrs_list.append(pointing_sat.transform_to('icrs'))
+
+        self._sc_matrices_list = np.zeros((self._pointings_list.size, 3, 3))
+        
+        for i, path in enumerate(self._data_object.geometry_file_paths):
             pointing_object = SPIPointing(path)
 
-            self._frame_object_list.append(SPIFrame(**pointing_object.sc_points[10]))
-
-            # get skycoord object of center ra and dec in icrs frame
-            pointing_sat = SkyCoord(lon=0, lat=0, unit='deg', frame=self._frame_object_list[-1])
-
-            self._pointing_icrs_list.append(pointing_sat.transform_to('icrs'))
+            self._sc_matrices_list[i] = _construct_sc_matrix(**pointing_object.sc_points[10])
 
     def set_psd_eff(self, value):
         """
@@ -387,16 +395,20 @@ class ConstantSourceAnalysis(object):
         
         for n in range(self._pointings_list.size):
             # ra and dec to sat coord
-            icrscoord = SkyCoord(ra=point_source.position.ra.value,
-                                 dec=point_source.position.dec.value,
-                                 unit='deg',
-                                 frame='icrs')
+            #icrscoord = SkyCoord(ra=point_source.position.ra.value,
+            #                     dec=point_source.position.dec.value,
+            #                     unit='deg',
+            #                     frame='icrs')
 
-            satcoord = icrscoord.transform_to(self._frame_object_list[n])
+            #satcoord = icrscoord.transform_to(self._frame_object_list[n])
 
-            ra_sat = satcoord.lon.deg
-            dec_sat = satcoord.lat.deg 
+            #ra_sat = satcoord.lon.deg
+            #dec_sat = satcoord.lat.deg 
 
+            ra_sat, dec_sat = _transform_icrs_to_spi(point_source.position.ra.value,
+                                                     point_source.position.dec.value,
+                                                     self._sc_matrices_list[n])
+            
             response_sgl = {}
             response_psd = {}
             response_me2 = {}
@@ -476,24 +488,40 @@ class ConstantSourceAnalysis(object):
         """
 
         assert name in self._point_sources.keys(), \
-            'The source with the name {} does not exists yet. We can not create a new source on the fly!'.format(name)
+            'The source with the name {} does not exists yet. We can not create a new source on the fly during a model update!'.format(name)
         
         # if position has changed recalculate response with new position - response is a callable function of Energy
-        for n in range(self._pointings_list.size):
-            if point_source.position.ra.value != self._point_sources[name][n]['ra'] or \
-               point_source.position.dec.value != self._point_sources[name][n]['dec']:
 
-                # ra and dec to sat coord
-                icrscoord = SkyCoord(ra=point_source.position.ra.value,
-                                     dec=point_source.position.dec.value,
-                                     unit='deg',
-                                     frame='icrs')
+        if point_source.position.ra.value != self._point_sources[name][0]['ra'] or \
+               point_source.position.dec.value != self._point_sources[name][0]['dec']:
+
+            # ra and dec to sat coord
+            #icrscoord = SkyCoord(ra=point_source.position.ra.value,
+            #                     dec=point_source.position.dec.value,
+            #                     unit='deg',
+            #                     frame='icrs')
             
-                satcoord = icrscoord.transform_to(self._frame_object_list[n])
+            #satcoords = icrscoord.transform_to(self._frame_object_list.to_list())
 
-                ra_sat = satcoord.lon.deg
-                dec_sat = satcoord.lat.deg
+            #ra_sats = satcoords.lon.deg
+            #dec_sats = satcoords.lat.deg
 
+            for n in range(self._pointings_list.size):
+                # ra and dec to sat coord
+                #icrscoord = SkyCoord(ra=point_source.position.ra.value,
+                #                     dec=point_source.position.dec.value,
+                #                     unit='deg',
+                #                     frame='icrs')
+
+                #satcoord = icrscoord.transform_to(self._frame_object_list[n])
+
+                #ra_sat = satcoord.lon.deg
+                #dec_sat = satcoord.lat.deg 
+
+                ra_sat, dec_sat = _transform_icrs_to_spi(point_source.position.ra.value,
+                                                         point_source.position.dec.value,
+                                                         self._sc_matrices_list[n])
+            
                 response_sgl = {}
                 response_psd = {}
                 response_me2 = {}
@@ -518,7 +546,8 @@ class ConstantSourceAnalysis(object):
                     for d in self._me3_dets_to_use[n]:
                         response_me3[d] = self._response_object_list[n].get_response_det(d)
                     
-            else:
+        else:
+            for n in range(self._pointings_list.size):
                 response_sgl = self._point_sources[name][n]['response_sgl']
                 response_psd = {}
                 for key in response_sgl:
@@ -526,14 +555,15 @@ class ConstantSourceAnalysis(object):
                 response_me2 = self._point_sources[name][n]['response_me2']
                 response_me3 = self._point_sources[name][n]['response_me3']
 
-            # Get current spectrum of source
-            spectrum_bins = self.calculate_spectrum(point_source)
+        # Get current spectrum of source
+        spectrum_bins = self.calculate_spectrum(point_source)
 
-            predicted_count_rates_sgl = {}
-            predicted_count_rates_psd = {}
-            predicted_count_rates_me2 = {}
-            predicted_count_rates_me3 = {}
-            # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
+        predicted_count_rates_sgl = {}
+        predicted_count_rates_psd = {}
+        predicted_count_rates_me2 = {}
+        predicted_count_rates_me3 = {}
+        # Get the predicted count rates in all dets in all PHA bins (individual for all pointings later)
+        for n in range(self._pointings_list.size):
             if 'single' in self._event_types:
                 for d in self._sgl_dets_to_use[n]:
                     predicted_count_rates_sgl[d] = self._fold(response_sgl[d], spectrum_bins)*self._active_time_seconds[n,d]
@@ -559,16 +589,16 @@ class ConstantSourceAnalysis(object):
 
             # Update the entry of the point source
             self._point_sources[name][n] = {'ra': point_source.position.ra.value,
-                                         'dec': point_source.position.dec.value,
-                                         'response_sgl': response_sgl,
-                                         'response_psd': response_psd,
-                                         'response_me2': response_me2,
-                                         'response_me3': response_me3,
-                                         'predicted_count_rates_sgl': predicted_count_rates_sgl,
-                                         'predicted_count_rates_psd': predicted_count_rates_psd,
-                                         'predicted_count_rates_me2': predicted_count_rates_me2,
-                                         'predicted_count_rates_me3': predicted_count_rates_me3,
-                                         'spectal_parameters': spectal_parameters}
+                                             'dec': point_source.position.dec.value,
+                                             'response_sgl': response_sgl,
+                                             'response_psd': response_psd,
+                                             'response_me2': response_me2,
+                                             'response_me3': response_me3,
+                                             'predicted_count_rates_sgl': predicted_count_rates_sgl,
+                                             'predicted_count_rates_psd': predicted_count_rates_psd,
+                                             'predicted_count_rates_me2': predicted_count_rates_me2,
+                                             'predicted_count_rates_me3': predicted_count_rates_me3,
+                                             'spectal_parameters': spectal_parameters}
             
     def calculate_spectrum(self, spec):
         """
