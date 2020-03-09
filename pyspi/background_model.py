@@ -1,7 +1,26 @@
 import numpy as np
 import h5py
-from scipy.integrate import quad, simps
 from scipy.interpolate import interp1d
+
+try:
+    from numba import njit, float64
+    has_numba = True
+except:
+    has_numba = False
+
+if has_numba:
+    @njit([float64(float64[::1], float64[::1])])
+    def trapz(y,x):
+        """
+        Fast trapz integration with numba
+        :param x: x values
+        :param y: y values
+        :return: Trapz integrated
+        """
+        return np.trapz(y,x)
+else:
+    from scipy.integrate import trapz
+
 def ln_erfc(x):
     """ 
     logarithmic approximation of the errorfunction
@@ -136,10 +155,12 @@ class BackgroundModel(object):
                 if "single" in self._event_types:
                     for i in range(19):
                         spectrum = self._background_spectrum(rev, i)
-                        bkg_rates = spectrum(self._energy_base)
-                        inter = interp1d(self._energy_base, bkg_rates)
+                        #bkg_rates = spectrum(self._energy_base)
+                        #inter = interp1d(self._energy_base, bkg_rates)
                         for k, (emin, emax) in enumerate(zip(self._ene_min, self._ene_max)):
-                            bkg_sgl_psd_sum_base[j, i, k] = quad(lambda x: inter(x), emin, emax)[0]
+                            e_int_values = np.logspace(np.log10(emin), np.log10(emax),100)
+                            bkg_sgl_psd_sum_base[j, i, k] = trapz(spectrum(e_int_values),
+                                                                  e_int_values)
 
         else:
             raise NotImplementedError('Only single event background implemented at the moment!')
