@@ -3,67 +3,84 @@ from threeML.io.file_utils import sanitize_filename
 from astromodels import Parameter
 import collections
 from threeML import *
+from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
 from pyspi.spi_analysis import *
+from pyspi.Config_Builder import Config
+from astromodels import *
 try:
     from pyspi.spi_analysis import *
 except:
     raise ImportError('You need to have pyspi installed to use this plugin!')
 
+"""
+TODO List
+add set_active_time
+add set_background_time
 
+add view_lightcurves()
+"""
 
 __instrument_name = "INTEGRAL SPI (with PySPI)"
 
-class SPILike(PluginPrototype):
+# One plugin for Photopeak, one for full response (with Dispersion)
+class SPILikeGRBPhotopeak(SpectrumLike):
     """
     Plugin for the data of SPI, based on PySPI
     """
-    def __init__(self, name, pyspi_config):
+    def __init__(
+            self,
+            name,
+            observation,
+            background=None,
+            free_position=False,
+            verbose=True,
+            rsp_object=None,
+            **kwargs
+    ):
         """
         :param name: name of instance
-        :param pyspi_config: YAML config file
+        :param pyspi_setup: Pyspi Setup object
         """
+        self._free_position = free_position
+        super(SPILikeGRBPhotopeak, self).__init__(name,
+                                                  observation,
+                                                  background,
+                                                  verbose,
+                                                  **kwargs)
+        # Construct the "response" object. This Plugin only uses the photopeak effective area,
+        # therefore the response gives a vector of effective areas at the ebounds of the bins.
+        # This vector is multiplied with the flux counts in the same bins.
+        # In this apporach input_bins=output_bins.
 
-        if not isinstance(pyspi_config, dict):
-
-            # Assume this is a file name
-            configuration_file = sanitize_filename(pyspi_config)
-
-            assert os.path.exists(pyspi_config), "Configuration file %s does not exist" % configuration_file
-
-            # Read the configuration
-            with open(configuration_file) as f:
-
-                self._configuration = yaml.safe_load(f)
-
-        else:
-
-            # Configuration is a dictionary. Nothing to do
-            self._configuration = pyspi_config
-            
-        # There are no nuisance parameters
-        self._event_types = self._configuration['Event_types']
-
-        nuisance_parameters ={}
-        nuisance_parameters = collections.OrderedDict()
+        self._rsp = rsp_object
         
-        self._analysis = self._configuration['Special_analysis']
-        if self._analysis=="Constant_Source":
-            par = Parameter("bkg_norm_{}".format(name), 0.99, min_value=0, max_value=1, delta=0.01,
-                            free=True, desc="Norm of bkg")
-            par.set_uninformative_prior(Uniform_prior)
+        # We have one special feature in SPI that is the "electronic noise" range from 1400 keV to 1700 keV
+        # In this range the non-psd single events suffer from some unknown problem which makes the single
+        # count rates unreliable in this region. The PSD single events do not have this problem.
+        # Therefore only the psd events are used in this "electronic range" region, whereas in the rest
+        # non-psd and psd events are used together. To account for the droping of the non-psd events in this
+        # energy range the response has to be adjusted to the fraction of single events that do pass the psd.
+        # This is modeled with the psd_eff nuiscance parameter that should be around ~85% in this energy region
+        # but can vary slightly. This effect is only important if this plugin is for a single detector
+        # and the energy range between 1400-1700 keV is in the analysis.
 
-            nuisance_parameters[par.name] = par
+    def _evaluate_model(self, true_fluxes=None):
+        """
+        Evaluate model by multiplying the average effective area of all Ebins with
+        the flux in the corresponding incoming Ebin.
 
-        if "single" in self._event_types:
+        This is photopeak analysis specific! For the general case with energy dispersion, this function needs to
+        be changed.
 
-            par = Parameter("psd_eff_{}".format(name), 0.86, min_value=0, max_value=1, delta=0.01,
-                            free=True, desc="PSD efficiency in electronic noise range")
-            par.set_uninformative_prior(Uniform_prior)
-            
-            nuisance_parameters[par.name] = par
-            
-        super(SPILike, self).__init__(name, nuisance_parameters=nuisance_parameters)
-
+        :param true_fluxes: Flux of incoming spectrum; if None than the flux is computed with the current
+        parameters
+        """
+        if true_fluxes is None:
+            true_fluxes = self._integral_flux(self._observed_spectrum.bin_stack[:,0],
+                                              self._observed_spectrum.bin_stack[:,1])
+        if np.any(self._psd_mask):
+            self._psd_eff_area[self._psd_mask] = self._like_model.psd_eff_spi.value
+        return self._psd_eff_area*self._rsp.effective_area*true_fluxes
 
     def set_model(self, likelihood_model):
         """
@@ -71,96 +88,84 @@ class SPILike(PluginPrototype):
         :param likelihood_model: likelihood model instance
         """
 
-        self._likelihood_model = likelihood_model
-        
-        self._spi_analysis = getspianalysis(self._configuration, self._likelihood_model)
-        #self._gta, self._pts_energies = _get_PySpi_instance(self._configuration, likelihood_model_instance)
-        if "single" in self._event_types:
-            self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
-        if self._analysis=="Constant_Source":
-            self._spi_analysis.set_bkg_norm(self._nuisance_parameters['bkg_norm_{}'.format(self.name)].value)
+        super(SPILikeGRBPhotopeak, self).set_model(likelihood_model)
 
-    def _update_model_in_pyspi(self):
+        if self._free_position:
+            print("Freeing the position of %s and setting priors" % self.name)
+            for key in self._like_model.point_sources.keys():
+                self._like_model.point_sources[key].position.ra.free = True
+                self._like_model.point_sources[key].position.dec.free = True
+
+                self._like_model.point_sources[key].position.ra.prior = Uniform_prior(
+                    lower_bound=0.0, upper_bound=360
+                )
+                self._like_model.point_sources[key].position.dec.prior = Cosine_Prior(
+                    lower_bound=-90.0, upper_bound=90
+                )
+
+                ra = self._like_model.point_sources[key].position.ra.value
+                dec = self._like_model.point_sources[key].position.dec.value
+        else:
+            for key in self._like_model.point_sources.keys():
+
+                self._like_model.point_sources[key].position.ra.prior = Uniform_prior(
+                    lower_bound=0.0, upper_bound=360
+                )
+                self._like_model.point_sources[key].position.dec.prior = Cosine_Prior(
+                    lower_bound=-90.0, upper_bound=90
+                )
+
+                ra = self._like_model.point_sources[key].position.ra.value
+                dec = self._like_model.point_sources[key].position.dec.value
+
+        self._rsp.set_location(ra, dec) # For photopeak not classical "response" matrix but photopeak response vector
+
+        # We have one special feature in SPI that is the "electronic noise" range from 1400 keV to 1700 keV
+        # In this range the non-psd single events suffer from some unknown problem which makes the single
+        # count rates unreliable in this region. The PSD single events do not have this problem.
+        # Therefore only the psd events are used in this "electronic range" region, whereas in the rest
+        # non-psd and psd events are used together. To account for the droping of the non-psd events in this
+        # energy range the response has to be adjusted to the fraction of single events that do pass the psd.
+        # This is modeled with the psd_eff nuiscance parameter that should be around ~85% in this energy region
+        # but can vary slightly. This effect is only important if this plugin is for a single detector
+        # and the energy range between 1400-1700 keV is in the analysis.
+        self._psd_mask = np.zeros(len(self._rsp._ebounds)-1, dtype=bool)
+        self._psd_eff_area = np.ones(len(self._rsp._ebounds)-1)
+        if self._rsp._det in range(19):
+            # If several spi detector plugins are created this will overwrite each time.
+            # We only need this once (at least per sw...)
+            # TODO: When to fit a new psd_eff? Every sw? Every orbit? Every year?
+            self._psd_mask = self._rsp._psd_bins
+            if np.any(self._rsp._psd_bins):
+                assert "psd_eff_spi" in self._like_model.parameters.keys(), "Need the psd_spi_eff parameter in the model!"
+                self._psd_eff_area[self._rsp._psd_bins] = self._like_model.psd_eff_spi.value*np.ones(np.sum(self._rsp._psd_bins))
+
+                #print(self._psd_eff_area)
+
+    def get_model(self, true_fluxes=None):
+
+        if self._free_position:
+
+            # assumes that the is only one point source which is how it should be!
+            ra, dec = self._like_model.get_point_source_position(0)
+
+            self._rsp.set_location(ra, dec) # For photopeak not classical "response" matrix but photopeak response vector
+
+        return super(SPILikeGRBPhotopeak, self).get_model(true_fluxes=true_fluxes)
+
+
+    @classmethod
+    def from_spectrumlike(
+            cls, spectrum_like, rsp_object, free_position=False
+    ):
         """
-        Update model in pyspi
+        Generate SPILikeGRB from an existing SpectrumLike child
         """
-        self._spi_analysis.update_model(self._likelihood_model)
-        
-        if "single" in self._event_types:
-            self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
-        if self._analysis=="Constant_Source":
-            self._spi_analysis.set_bkg_norm(self._nuisance_parameters['bkg_norm_{}'.format(self.name)].value)
-        
-    def get_log_like(self):
-        """
-        Return log likelihood for current parameters stored in the ModelManager instance
-        """
-
-        # Update all sources on the fermipy side
-        #self._update_model_in_pyspi()
-        if "single" in self._event_types:
-            self._spi_analysis.set_psd_eff(self._nuisance_parameters['psd_eff_{}'.format(self.name)].value)
-        if self._analysis=="Constant_Source":
-            self._spi_analysis.set_bkg_norm(self._nuisance_parameters['bkg_norm_{}'.format(self.name)].value)
-        # Get value of the log likelihood
-        return self._spi_analysis.get_log_like(self._likelihood_model)
-
-    def inner_fit(self):
-        """
-        This is used for the profile likelihood. Keeping fixed all parameters in the
-        LikelihoodModel, this method minimize the logLike over the remaining nuisance
-        parameters, i.e., the parameters belonging only to the model for this
-        particular detector. If there are no nuisance parameters, simply return the
-        logLike value.
-        """
-        return self.get_log_like()
-
-    def view_lightcurve(self):
-        """
-        Wrapper to view lightcurve of spi_analysis object
-        :return: figure
-        """
-        return self._spi_analysis.plot_lightcurve()
-    
-def _get_PySpi_instance(configuration, likelihood_model):
-    """
-    Generates a 'model' configuration for pyspi starting from a likelihood_model from astromodels
-
-    :param configuration: Dictionary with configurations
-    :param likelihood_model: input astromodels likelihood_model
-    :return: ????????
-    """
-
-    # Now iterate over all sources contained in the likelihood model
-    sources = []
-
-    # point sources
-    for point_source in likelihood_model.point_sources.values():  # type: astromodels.PointSource
-
-        this_source = {}
-        
-        spectal_parameters = {}
-        for i, component in enumerate(point_source._components.values()):
-
-            spectral_parameters_component = {}
-            for key in component.shape.parameters.keys():
-                spectral_parameters_component[key] = component.shape.parameters[key].value
-
-            spectal_parameters[i] = spectral_parameters_component
-
-        this_source['spectal_parameters'] = spectal_parameters
-        this_source['name'] = point_source.name
-        this_source['ra'] = point_source.position.ra.value
-        this_source['dec'] = point_source.position.dec.value
-        this_source['response'] = None
-        this_source['predicted_count_rates'] = None
-        # The spectrum used here is unconsequential, as it will be substituted by a FileFunction
-        # later on. So I will just use PowerLaw for everything
-
-        sources.append(this_source)
-
-    configuration['point_sources'] = sources 
-    
-    spi_analysis = SPIAnalysis(configuration)
-
-    return spi_analysis
+        return cls(
+            spectrum_like.name,
+            spectrum_like._observed_spectrum,
+            spectrum_like._background_spectrum,
+            free_position,
+            spectrum_like._verbose,
+            rsp_object
+        )

@@ -2,14 +2,19 @@ import numpy as np
 import h5py
 import scipy.interpolate as interpolate
 import scipy.integrate as integrate
-from datetime import datetime
-from astropy.time.core import Time
 from pyspi.utils.rmf_base import *
-
+from pyspi.spi_pointing import _transform_icrs_to_spi
 from IPython.display import HTML
-
+from datetime import datetime
+from pyspi.io.package_data import get_path_of_external_data_dir, get_path_of_data_file
+from pyspi.io.get_files import get_files_afs, get_files_isdcarc
+from pyspi.Config_Builder import Config
+from threeML.io.file_utils import sanitize_filename
+from astropy.time.core import Time, TimeDelta
 from pyspi.io.package_data import get_path_of_data_file
+from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, SPIPointing
 
+import os
 try:
     from numba import njit, float64
     has_numba = True
@@ -27,7 +32,7 @@ if has_numba:
         """
         return np.trapz(y,x)
 
-    @njit(float64[:](float64[:],float64[:],float64[:]))
+    @njit(float64[:](float64[:], float64[:], float64[:]))
     def log_interp1d(x_new, x_old, y_old):
         """
         Linear interpolation in log space for base value pairs (x_old, y_old)
@@ -41,9 +46,9 @@ if has_numba:
         logx = np.log10(x_old)
         logxnew = np.log10(x_new)
         # Avoid nan entries for yy=0 entries
-        logy = np.log10(np.where(y_old<=0, 1e-99, y_old))
+        logy = np.log10(np.where(y_old <= 0, 1e-99, y_old))
         
-        lin_interp = np.interp(logxnew,logx, logy)
+        lin_interp = np.interp(logxnew, logx, logy)
 
         return 10**lin_interp
     
@@ -51,7 +56,7 @@ else:
     
     from numpy import trapz
     
-    @njit(float64[:](float64[:],float64[:],float64[:]))
+    #@njit(float64[:](float64[:],float64[:],float64[:]))
     def log_interp1d(x_new, x_old, y_old):
         """
         Linear interpolation in log space for base value pairs (x_old, y_old)
@@ -70,21 +75,208 @@ else:
         lin_interp = np.interp(logxnew,logx, logy)
 
         return 10**lin_interp
-    
 
+
+def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
+    """
+    TODO: This is very ugly. Come up with a better way.
+    Function to initalize the needed responses for the given times.
+    Only initalize every needed response version once! Because of memory.
+    One response object needs about 1 GB of RAM...
+    :param times: Times of the different sw used
+    :return: list with correct response version object of the times
+    """
+    response_versions = []
+    for time in times:
+        if time==None:
+            # Default latest response version
+            response_versions.append(4)
+
+        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+            response_versions.append(0)
+
+        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+            response_versions.append(1)
+
+        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+            response_versions.append(2)
+
+        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+            response_versions.append(3)
+
+        else:
+            response_versions.append(4)
+
+    responses = [None, None, None, None, None]
+
+    response_irf_read_times = []
+    for i, version in enumerate(response_versions):
+        if responses[version] is None:
+            #Create this response object
+            if drm=="Photopeak":
+                responses[version] = ResponseIRFReadPhotopeak(detector=detector,
+                                                              version=version)
+            else:
+                responses[version] = ResponseIRFReadRMF(version=version)
+                
+        response_irf_read_times.append(responses[version])
+    return response_irf_read_times
+
+class ResponseIRFReadRMF(object):
+    def __init__(self, version=None):
+        """
+        Object that holds the IRF's. This will be shared among all sw that use the same IRF version.
+        This is done to save memory as one ResponseIRFRead object needs about 1 GB of RAM...
+        :param version: Version of the IRF (from 0 to 4 or None)
+        :return:
+        """
+        if version==0:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
+            print('Using the irfs that are valid between Start'\
+                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+            
+        elif version==1:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
+            print('Using the irfs that are valid between 03/07/06 06:00:00'\
+                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+
+        elif version==2:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
+            print('Using the irfs that are valid between 04/07/17 08:20:06'\
+                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+
+        elif version==3:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
+            print('Using the irfs that are valid between 09/02/19 09:59:57'\
+                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+
+        else:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            print('Using the irfs that are valid between 10/05/27 12:45:00'\
+                  ' and present (YY/MM/DD HH:MM:SS)')
+
+        irf_database = h5py.File(irf_file, 'r')
+
+        self._energies_database = irf_database['energies'].value
+
+        self._ebounds = self._energies_database
+        self._ene_min = self._energies_database[:-1]
+        self._ene_max = self._energies_database[1:]
+        
+        irf_data = irf_database['irfs']
+
+        self._irfs = irf_data[()]
+
+        self._irfs_photopeak = self._irfs[...,0]
+        self._irfs_nonphoto_1 = self._irfs[...,1]
+        self._irfs_nonphoto_2 = self._irfs[...,2]
+
+        del self._irfs
+
+        self._irf_xmin = irf_data.attrs['irf_xmin']
+        self._irf_ymin = irf_data.attrs['irf_ymin']
+        self._irf_xbin = irf_data.attrs['irf_xbin']
+        self._irf_ybin = irf_data.attrs['irf_ybin']
+        self._irf_nx = irf_data.attrs['nx']
+        self._irf_ny = irf_data.attrs['ny']
+        
+        irf_database.close()
+
+        self._n_dets = self._irfs_photopeak.shape[1]
+
+        self._ebounds_rmf_2_base, self._rmf_2_base = load_rmf_non_ph_1()
+        self._ebounds_rmf_3_base, self._rmf_3_base = load_rmf_non_ph_2()
+    
+class ResponseIRFReadPhotopeak(object):
+    def __init__(self, detector, version=None):
+        """
+        Object that holds the IRF's. This will be shared among all sw that use the same IRF version.
+        This is done to save memory as one ResponseIRFRead object needs about 1 GB of RAM...
+        :param version: Version of the IRF (from 0 to 4 or None)
+        :return:
+        """
+        if version == 0:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
+            print('Using the irfs that are valid between Start'\
+                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+            
+        elif version == 1:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
+            print('Using the irfs that are valid between 03/07/06 06:00:00'\
+                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+
+        elif version == 2:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
+            print('Using the irfs that are valid between 04/07/17 08:20:06'\
+                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+
+        elif version == 3:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
+            print('Using the irfs that are valid between 09/02/19 09:59:57'\
+                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+
+        else:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            print('Using the irfs that are valid between 10/05/27 12:45:00'\
+                  ' and present (YY/MM/DD HH:MM:SS)')
+
+        irf_database = h5py.File(irf_file, 'r')
+
+        self._energies_database = irf_database['energies'].value
+
+        self._ebounds = self._energies_database
+        self._ene_min = self._energies_database[:-1]
+        self._ene_max = self._energies_database[1:]
+        
+        irf_data = irf_database['irfs']
+
+        #self._irfs = irf_data[()]
+
+        self._irfs_photopeak = irf_data[:, detector, :, :, 0]
+
+        #del self._irfs
+        
+        self._irf_xmin = irf_data.attrs['irf_xmin']
+        self._irf_ymin = irf_data.attrs['irf_ymin']
+        self._irf_xbin = irf_data.attrs['irf_xbin']
+        self._irf_ybin = irf_data.attrs['irf_ybin']
+        self._irf_nx = irf_data.attrs['nx']
+        self._irf_ny = irf_data.attrs['ny']
+        
+        irf_database.close()
+
+        self._n_dets = self._irfs_photopeak.shape[1]
+        
+
+        
 class Response(object):
-    def __init__(self, ebounds=None, time=None):
+    def __init__(self, ebounds=None, response_irf_read_object=None, sc_matrix=None, det=None):
         """FIXME! briefly describe function
-        :param time: Time object, with the time for which the valid response should be used
         :param ebounds: User defined ebins for binned effective area
+        :param response_irf_read_object: Object that holds the read in irf values
         :returns: 
         :rtype: 
         """
         
-        self._load_irfs(time)
+        self._irf_ob = response_irf_read_object
+        self._ebounds = self._irf_ob._ebounds
         if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
-                
+        self._sc_matrix = sc_matrix
+        self._psd_bins = self._get_psd_bins(ebounds)
+        self._det = det
+    def _get_psd_bins(self, ebounds):
+        psd_low_end = 1400
+        psd_high_end = 1700
+        psd_bins = np.zeros(len(ebounds)-1, dtype=bool)
+        for i, (e_min, e_max) in enumerate(zip(ebounds[:-1],ebounds[1:])):
+            if e_min<=psd_low_end:
+                if e_max>=psd_low_end:
+                    psd_bins[i] = True
+            elif e_min<=psd_high_end:
+                psd_bins[i] = True
+        return psd_bins
+
     def get_xy_pos(self, azimuth, zenith):
         """
         FIXME! briefly describe function
@@ -104,8 +296,8 @@ class Response(object):
         zenith_pointing = np.arccos(x)
         azimuth_pointing = np.arctan2(z,y)
         
-        x_pos = (zenith_pointing * np.cos(azimuth_pointing) - self._irf_xmin) / self._irf_xbin
-        y_pos = (zenith_pointing * np.sin(azimuth_pointing) - self._irf_ymin) / self._irf_ybin
+        x_pos = (zenith_pointing * np.cos(azimuth_pointing) - self._irf_ob._irf_xmin) / self._irf_ob._irf_xbin
+        y_pos = (zenith_pointing * np.sin(azimuth_pointing) - self._irf_ob._irf_ymin) / self._irf_ob._irf_ybin
 
         return x_pos, y_pos
         
@@ -119,13 +311,13 @@ class Response(object):
         zenith = np.deg2rad(zenith)
         self._weighted_irfs(azimuth, zenith)
         
-    def get_response_det(self, det):
+    def get_response_det(self):
         """
         Get the response for the current position for one detector
         :param det: Detector
         """
 
-        return self._get_response_det(det)
+        return self._get_response_det()
 
     def _get_irf_weights(self, x_pos, y_pos):
         """FIXME! briefly describe function
@@ -169,9 +361,9 @@ class Response(object):
                 wgt_left = 0.5
                 wgt_right = 0.5
 
-        elif ix_right >= self._irf_nx:
+        elif ix_right >= self._irf_ob._irf_nx:
 
-            if ix_left >= self._irf_nx:
+            if ix_left >= self._irf_ob._irf_nx:
 
                 out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
@@ -198,9 +390,9 @@ class Response(object):
                 wgt_up = 0.5
                 wgt_low = 0.5
 
-        elif iy_up >= self._irf_ny:
+        elif iy_up >= self._irf_ob._irf_ny:
 
-            if iy_low >= self._irf_ny:
+            if iy_low >= self._irf_ob._irf_ny:
 
                 out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
@@ -331,84 +523,15 @@ class Response(object):
 
 class ResponseRMF(Response):
 
-    def __init__(self, ebounds=None, time=None):
+    def __init__(self, ebounds=None, response_irf_read_object=None, sc_matrix=None):
         """
         Init Response object with total RMF used
         :param ebound: Ebounds of Ebins
-        :param time: Time for which the response should be valid
+        :param response_irf_read_object: Object that holds the read in irf values
         :return:
         """
-        super(ResponseRMF, self).__init__(ebounds, time)
+        super(ResponseRMF, self).__init__(ebounds, response_irf_read_object, sc_matrix)
         
-    def _load_irfs(self, time=None):
-        """FIXME! briefly describe function
-        :param time: Time object, with the time for which the valid response should be used
-        :returns: 
-        :rtype: 
-        """
-        
-        if time==None:
-            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
-            print('Using the default irfs. The ones that are valid between 10/05/27 12:45:00'\
-                  ' and present (YY/MM/DD HH:MM:SS)')
-            
-        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
-            print('Using the irfs that are valid between Start'\
-                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
-            
-        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
-            print('Using the irfs that are valid between 03/07/06 06:00:00'\
-                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
-
-        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
-            print('Using the irfs that are valid between 04/07/17 08:20:06'\
-                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
-
-        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
-            print('Using the irfs that are valid between 09/02/19 09:59:57'\
-                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
-
-        else:
-            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
-            print('Using the irfs that are valid between 10/05/27 12:45:00'\
-                  ' and present (YY/MM/DD HH:MM:SS)')
-
-        irf_database = h5py.File(irf_file, 'r')
-
-        self._energies_database = irf_database['energies'].value
-
-        self._ebounds = self._energies_database
-        self._ene_min = self._energies_database[:-1]
-        self._ene_max = self._energies_database[1:]
-        
-        irf_data = irf_database['irfs']
-
-        self._irfs = irf_data[()]
-
-        self._irfs_photopeak = self._irfs[...,0]
-        self._irfs_nonphoto_1 = self._irfs[...,1]
-        self._irfs_nonphoto_2 = self._irfs[...,2]
-
-        del self._irfs
-
-        self._irf_xmin = irf_data.attrs['irf_xmin']
-        self._irf_ymin = irf_data.attrs['irf_ymin']
-        self._irf_xbin = irf_data.attrs['irf_xbin']
-        self._irf_ybin = irf_data.attrs['irf_ybin']
-        self._irf_nx = irf_data.attrs['nx']
-        self._irf_ny = irf_data.attrs['ny']
-        
-        irf_database.close()
-
-        self._n_dets = self._irfs_photopeak.shape[1]
-
-        self._ebounds_rmf_2_base, self._rmf_2_base = load_rmf_non_ph_1()
-        self._ebounds_rmf_3_base, self._rmf_3_base = load_rmf_non_ph_2()
-
     def set_binned_data_energy_bounds(self, ebounds):
         """
         Change the energy bins for the binned effective_area
@@ -423,8 +546,8 @@ class ResponseRMF(Response):
             self._ene_max = ebounds[1:]
             self._ebounds = ebounds
 
-            self._rmf2 = self._rebin_rmfs(self._ebounds, self._ebounds_rmf_2_base, self._rmf_2_base)
-            self._rmf3 = self._rebin_rmfs(self._ebounds, self._ebounds_rmf_3_base, self._rmf_3_base)
+            self._rmf2 = self._rebin_rmfs(self._ebounds, self._irf_ob._ebounds_rmf_2_base, self._irf_ob._rmf_2_base)
+            self._rmf3 = self._rebin_rmfs(self._ebounds, self._irf_ob._ebounds_rmf_3_base, self._irf_ob._rmf_3_base)
 
     def _rebin_rmfs(self, new_ebins, old_ebins, old_rmf):
         """
@@ -503,7 +626,7 @@ class ResponseRMF(Response):
         ph_irfs = np.empty_like(ebins)
 
         # Get interpolated irfs
-        inter = log_interp1d(self._ebounds, self._energies_database, self._weighted_irf_ph[:, det])
+        inter = log_interp1d(self._ebounds, self._irf_ob._energies_database, self._weighted_irf_ph[:, det])
         
         ph_irfs[:,0] = inter[:-1]
         ph_irfs[:,1] = inter[1:]
@@ -512,7 +635,7 @@ class ResponseRMF(Response):
 
         # RMF1 and RMF2 matrix
         nonph1_irfs = np.empty_like(ebins)
-        inter = log_interp1d(self._ebounds, self._energies_database, self._weighted_irf_nonph_1[:, det]) 
+        inter = log_interp1d(self._ebounds, self._irf_ob._energies_database, self._weighted_irf_nonph_1[:, det]) 
         
         nonph1_irfs[:,0] = inter[:-1]
         nonph1_irfs[:,1] = inter[1:]
@@ -520,7 +643,7 @@ class ResponseRMF(Response):
         nonph1_irfs_int = trapz(nonph1_irfs, ebins)/(self._ene_max-self._ene_min)
 
         nonph2_irfs = np.empty_like(ebins)
-        inter = log_interp1d(self._ebounds, self._energies_database, self._weighted_irf_nonph_2[:, det]) 
+        inter = log_interp1d(self._ebounds, self._irf_ob._energies_database, self._weighted_irf_nonph_2[:, det]) 
         
         nonph2_irfs[:,0] = inter[:-1]
         nonph2_irfs[:,1] = inter[1:]
@@ -552,13 +675,13 @@ class ResponseRMF(Response):
         # If outside of the response pattern set response to zero
         try:
             # select these points on the grid and weight them together
-            self._weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
-            self._weighted_irf_nonph_1 = self._irfs_nonphoto_1[...,xx,yy].dot(wgt)
-            self._weighted_irf_nonph_2 = self._irfs_nonphoto_2[...,xx,yy].dot(wgt)
+            self._weighted_irf_ph = self._irf_ob._irfs_photopeak[..., xx, yy].dot(wgt)
+            self._weighted_irf_nonph_1 = self._irf_ob._irfs_nonphoto_1[...,xx,yy].dot(wgt)
+            self._weighted_irf_nonph_2 = self._irf_ob._irfs_nonphoto_2[...,xx,yy].dot(wgt)
         except IndexError:
-            self._weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
-            self._weighted_irf_nonph_1 = np.zeros_like(self._irfs_nonphoto_1[...,20,20])
-            self._weighted_irf_nonph_2 = np.zeros_like(self._irfs_nonphoto_2[...,20,20])
+            self._weighted_irf_ph = np.zeros_like(self._irf_ob._irfs_photopeak[...,20,20])
+            self._weighted_irf_nonph_1 = np.zeros_like(self._irf_ob._irfs_nonphoto_1[...,20,20])
+            self._weighted_irf_nonph_2 = np.zeros_like(self._irf_ob._irfs_nonphoto_2[...,20,20])
             
         #return weighted_irf_ph, weighted_irf_nonph_1, weighted_irf_nonph_2
 
@@ -599,80 +722,311 @@ class ResponseRMF(Response):
     #    self._current_interpolated_irfs_nonph1 = interpolated_irfs_nonph1
     #    self._current_interpolated_irfs_nonph2 = interpolated_irfs_nonph2
 
+
+def _construct_energy_bins(ebounds):
+        """
+        Function to construct the final energy bins that will be used in the analysis.
+        Basically only does one thing: If the single events are included in the analysis
+        it ensures that no energybin is covering simultaneously energy outside and inside
+        of [psd_low_energy, psd_high_energy]. In this area the single detection photons
+        that were not tested by the PSD suffer the "electronical noise" and are very unrealiable.
+        The events that have passed the PSD test do not suffer from this "electronical noise".
+        Thus we want to only use the PSD events in this energy range. Therefore we construct the
+        ebins in such a way that there are ebins outside of this energy range, for which we will
+        use normal single + psd events and ebins inside of this energy range for which we only
+        want to use the psd events.
+        :return:
+        """
+
+        psd_low_energy = 1400
+        psd_high_energy = 1700
+
+        change = False
+        # Case 1400-1700 is completly in the ebound range
+        if ebounds[0]<psd_low_energy and ebounds[-1]>psd_high_energy:
+            psd_bin = True
+            start_found = False
+            stop_found = False
+            for i, e in enumerate(ebounds):
+                if e>=psd_low_energy and not start_found:
+                    start_index = i
+                    start_found=True
+                if e>=1700 and not stop_found:
+                    stop_index = i
+                    stop_found=True
+            ebounds = np.insert(ebounds, start_index, psd_low_energy)
+            ebounds = np.insert(ebounds, stop_index+1, psd_high_energy)
+
+            if stop_index-start_index>1:
+                sgl_mask = np.logical_and(np.logical_or(ebounds[:-1]<=psd_low_energy,
+                                                        ebounds[:-1]>=psd_high_energy),
+                                          np.logical_or(ebounds[1:]<=psd_low_energy,
+                                                        ebounds[1:]>=psd_high_energy))
+            elif stop_index-start_index==1:
+                sgl_mask = np.ones(len(ebounds)-1, dtype=bool)
+                sgl_mask[start_index] = False
+                sgl_mask[stop_index] = False
+            elif stop_index-start_index==0:
+                sgl_mask = np.ones(len(ebounds)-1, dtype=bool)
+                sgl_mask[start_index] = False
+            change = True
+        # Upper bound of erange in psd bin
+        elif ebounds[0]<psd_low_energy and ebounds[-1]>psd_low_energy:
+            psd_bin = True
+            start_found = False
+            for i, e in enumerate(a):
+                if e>=psd_low_energy and not start_found:
+                    start_index = i
+                    start_found=True
+            self._ebounds = np.insert(ebounds, start_index, psd_low_energy)
+            sgl_mask = (ebounds<psd_low_energy)[:-1]
+            change = True
+        # Lower bound of erange in psd bin
+        elif ebounds[0]<psd_high_energy and ebounds[-1]>psd_high_energy:
+            psd_bin = True
+            stop_found = False
+            for i, e in enumerate(a):
+                if e>=psd_high_energy and not stop_found:
+                    stop_index = i
+                    stop_found=True
+            ebounds = np.insert(ebounds, stop_index, psd_high_energy)
+            change=True
+        # else erange completly outside of psd bin => all just single
+
+        return ebounds
+
+def _leapseconds(time_object):
+        """
+        Hard coded leap seconds from start of INTEGRAL to time of time_object
+        :param time_object: Time object to which the number of leapseconds should be detemined
+        :return: TimeDelta object of the needed leap seconds
+        """
+        if time_object<Time(datetime.strptime('060101 000000', '%y%m%d %H%M%S')):
+            lsec = 0
+        elif time_object<Time(datetime.strptime('090101 000000', '%y%m%d %H%M%S')):
+            lsec = 1
+        elif time_object<Time(datetime.strptime('120701 000000', '%y%m%d %H%M%S')):
+            lsec = 2
+        elif time_object<Time(datetime.strptime('150701 000000', '%y%m%d %H%M%S')):
+            lsec = 3
+        elif time_object<Time(datetime.strptime('170101 000000', '%y%m%d %H%M%S')):
+            lsec = 4
+        else:
+            lsec=5
+        return TimeDelta(lsec, format='sec')
+
+def _find_needed_ids(time):
+    """
+    Get the pointing id of the needed data to cover the GRB time
+    :return: Needed pointing id
+    """
+
+    # Path to file, which contains id information and start and stop
+    # time
+    id_file_path = get_path_of_data_file('id_data_time.hdf5')
+
+    # Get GRB time in ISDC_MJD
+    time_of_GRB_ISDC_MJD = (time+_leapseconds(time)).tt.mjd-51544
+
+    # Get which id contain the needed time. When the wanted time is
+    # too close to the boundarie also add the pervious or following
+    # observation id
+    id_file = h5py.File(id_file_path, 'r')
+    start_id = id_file['Start'].value
+    stop_id = id_file['Stop'].value
+    ids = id_file['ID'].value
+
+    mask_larger = start_id < time_of_GRB_ISDC_MJD
+    mask_smaller = stop_id > time_of_GRB_ISDC_MJD
+
+    try:
+        id_number = list(mask_smaller*mask_larger).index(True)
+        print('Needed data is stored in pointing_id: {}'.format(ids[id_number]))
+    except:
+        raise Exception('No pointing id contains this time...')
+
+    return ids[id_number].decode("utf-8")
+
 class ResponsePhotopeak(Response):
 
-    def __init__(self, ebounds=None, time=None):
+    def __init__(self, ebounds=None, response_irf_read_object=None, sc_matrix=None, det=None):
         """
         Init Response object with only Photopeak effective area used
         :param ebound: Ebounds of Ebins
-        :param time: Time for which the response should be valid
+        :param response_irf_read_object: Object that holds the read in irf values
         :return:
         """
-        super(ResponsePhotopeak, self).__init__(ebounds, time)
-        
-    def _load_irfs(self, time=None):
-        """FIXME! briefly describe function
-        :param time: Time object, with the time for which the valid response should be used
-        :returns: 
-        :rtype: 
+        super(ResponsePhotopeak, self).__init__(ebounds, response_irf_read_object, sc_matrix, det)
+
+    @classmethod
+    def from_config(cls, config, det):
         """
-        
-        if time==None:
-            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
-            print('Using the default irfs. The ones that are valid between 10/05/27 12:45:00'\
-                  ' and present (YY/MM/DD HH:MM:SS)')
-            
-        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
-            print('Using the irfs that are valid between Start'\
-                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
-            
-        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
-            print('Using the irfs that are valid between 03/07/06 06:00:00'\
-                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+        Construct the Response object from an given config file.
+        """
+        if not isinstance(config, dict):
 
-        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
-            print('Using the irfs that are valid between 04/07/17 08:20:06'\
-                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+            if isinstance(config, Config):
+                configuration = config
+            else:
+                # Assume this is a file name
+                configuration_file = sanitize_filename(config)
 
-        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
-            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
-            print('Using the irfs that are valid between 09/02/19 09:59:57'\
-                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+                assert os.path.exists(config), "Configuration file %s does not exist" % configuration_file
+
+                # Read the configuration
+                with open(configuration_file) as f:
+
+                    configuration = yaml.safe_load(f)
 
         else:
-            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
-            print('Using the irfs that are valid between 10/05/27 12:45:00'\
-                  ' and present (YY/MM/DD HH:MM:SS)')
 
-        irf_database = h5py.File(irf_file, 'r')
+            # Configuration is a dictionary. Nothing to do
+            configuration = config
 
-        self._energies_database = irf_database['energies'].value
+        # Construct ebounds
+        # Which energy range?
+        emin = float(configuration['emin'])
+        emax = float(configuration['emax'])
 
-        self._ebounds = self._energies_database
-        self._ene_min = self._energies_database[:-1]
-        self._ene_max = self._energies_database[1:]
-        
-        irf_data = irf_database['irfs']
+        # Binned or unbinned analysis?
+        binned = configuration['Energy_binned']
+        if binned:
+            # Set ebounds of energy bins
+            ebounds = np.array(configuration['Ebounds'])
+            # If no ebounds are given use the default ones
+            if ebounds is None:
+                ebounds = np.logspace(np.log10(emin), np.log10(emax), 30)
+            # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
+            ebounds = _construct_energy_bins(ebounds)
+        else:
+            raise NotImplementedError('Unbinned analysis not implemented!')
+        # Get time of GRB
+        time_of_grb = configuration['Time_of_GRB_UTC']
+        time = datetime.strptime(time_of_grb, '%y%m%d %H%M%S')
+        time = Time(time)
+        if time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+            version = 0
 
-        self._irfs = irf_data[()]
+        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+            version = 1
 
-        self._irfs_photopeak = self._irfs[...,0]
+        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+            version = 2
 
-        del self._irfs
-        
-        self._irf_xmin = irf_data.attrs['irf_xmin']
-        self._irf_ymin = irf_data.attrs['irf_ymin']
-        self._irf_xbin = irf_data.attrs['irf_xbin']
-        self._irf_ybin = irf_data.attrs['irf_ybin']
-        self._irf_nx = irf_data.attrs['nx']
-        self._irf_ny = irf_data.attrs['ny']
-        
-        irf_database.close()
+        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+            version = 3
 
-        self._n_dets = self._irfs_photopeak.shape[1]
+        else:
+            version = 4
+        # Load correct base irf response read object
+        rsp_read_obj = ResponseIRFReadPhotopeak(det, version)
+
+        # Construct sc_matrix of this sw
+        pointing_id = _find_needed_ids(time)
+
+        try:
+            # Get the data from the afs server
+            get_files_afs(pointing_id)
+        except:
+            # Get the files from the iSDC data archive
+            print('AFS data access did not work. I will try the ISDC data archive.')
+            get_files_isdcarc(pointing_id)
+            
+        geometry_file_path = os.path.join(get_path_of_external_data_dir(),
+                                          'pointing_data',
+                                          pointing_id,
+                                          'sc_orbit_param.fits.gz')
+
+        pointing_object = SPIPointing(geometry_file_path)
+        sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
+        # Init Response class
+        return cls(
+            ebounds=ebounds,
+            response_irf_read_object=rsp_read_obj,
+            sc_matrix=sc_matrix,
+            det=det
+        )
+    def _construct_energy_bins(self):
+        """
+        Function to construct the final energy bins that will be used in the analysis.
+        Basically only does one thing: If the single events are included in the analysis
+        it ensures that no energybin is covering simultaneously energy outside and inside
+        of [psd_low_energy, psd_high_energy]. In this area the single detection photons
+        that were not tested by the PSD suffer the "electronical noise" and are very unrealiable.
+        The events that have passed the PSD test do not suffer from this "electronical noise".
+        Thus we want to only use the PSD events in this energy range. Therefore we construct the
+        ebins in such a way that there are ebins outside of this energy range, for which we will
+        use normal single + psd events and ebins inside of this energy range for which we only
+        want to use the psd events.
+        :return:
+        """
+
+        psd_low_energy = 1400
+        psd_high_energy = 1700
+
+        change = False
+        # Case 1400-1700 is completly in the ebound range
+        if self._ebounds[0]<psd_low_energy and self._ebounds[-1]>psd_high_energy:
+            psd_bin = True
+            start_found = False
+            stop_found = False
+            for i, e in enumerate(self._ebounds):
+                if e>=psd_low_energy and not start_found:
+                    start_index = i
+                    start_found=True
+                if e>=1700 and not stop_found:
+                    stop_index = i
+                    stop_found=True
+            self._ebounds = np.insert(self._ebounds, start_index, psd_low_energy)
+            self._ebounds = np.insert(self._ebounds, stop_index+1, psd_high_energy)
+
+            if stop_index-start_index>1:
+                sgl_mask = np.logical_and(np.logical_or(self._ebounds[:-1]<=psd_low_energy,
+                                                        self._ebounds[:-1]>=psd_high_energy),
+                                          np.logical_or(self._ebounds[1:]<=psd_low_energy,
+                                                        self._ebounds[1:]>=psd_high_energy))
+            elif stop_index-start_index==1:
+                sgl_mask = np.ones(len(self._ebounds)-1, dtype=bool)
+                sgl_mask[start_index] = False
+                sgl_mask[stop_index] = False
+            elif stop_index-start_index==0:
+                sgl_mask = np.ones(len(self._ebounds)-1, dtype=bool)
+                sgl_mask[start_index] = False
+            change = True
+        # Upper bound of erange in psd bin
+        elif self._ebounds[0]<psd_low_energy and self._ebounds[-1]>psd_low_energy:
+            psd_bin = True
+            start_found = False
+            for i, e in enumerate(a):
+                if e>=psd_low_energy and not start_found:
+                    start_index = i
+                    start_found=True
+            self._ebounds = np.insert(self._ebounds, start_index, psd_low_energy)
+            sgl_mask = (self._ebounds<psd_low_energy)[:-1]
+            change = True
+        # Lower bound of erange in psd bin
+        elif self._ebounds[0]<psd_high_energy and self._ebounds[-1]>psd_high_energy:
+            psd_bin = True
+            stop_found = False
+            for i, e in enumerate(a):
+                if e>=psd_high_energy and not stop_found:
+                    stop_index = i
+                    stop_found=True
+            a = np.insert(self._ebounds, stop_index, psd_high_energy)
+            sgl_mask = (self._ebounds>=psd_high_energy)[:-1]
+            change=True
+        # else erange completly outside of psd bin => all just single
+        else:
+            sgl_mask = np.ones_like(self._ebounds[:-1], dtype=bool)
+
+        self._sgl_mask = sgl_mask
+
+        if change:
+            self._use_ele_noise = True
+            print('I had to readjust the ebins to avoid having ebins inside of the single event electronic noise energy range. The new boundaries of the ebins are: {}.'.format(self._ebounds))
+        else:
+            self._use_ele_noise = False
+
 
     def set_binned_data_energy_bounds(self, ebounds):
         """
@@ -688,31 +1042,50 @@ class ResponsePhotopeak(Response):
             self._ene_max = ebounds[1:]
             self._ebounds = ebounds
 
-    def _get_response_det(self, det):
+    def _recalculate_response(self):
         """
         Get response for a given det
         :param det: Detector ID
         :returns: Full DRM
         """
-        
-        n_energy_bins = len(self._ebounds) - 1
+        #n_energy_bins = len(self._ebounds) - 1
         
         ebins = np.empty((len(self._ene_min), 2))
         eff_area = np.empty_like(ebins)
 
-        ebins[:,0] = self._ene_min
-        ebins[:,1] = self._ene_max
+        ebins[:, 0] = self._ene_min
+        ebins[:, 1] = self._ene_max
+        
+        inter = log_interp1d(self._ebounds,
+                             self._irf_ob._energies_database,
+                             self._weighted_irf_ph)
+        
+        eff_area[:, 0] = inter[:-1]
+        eff_area[:, 1] = inter[1:]
+        
+        self._effective_area = integrate.trapz(eff_area, ebins)/(self._ene_max-self._ene_min)
 
-        inter =  log_interp1d(self._ebounds,
-                              self._energies_database,
-                              self._weighted_irf_ph[:, det])
-        
-        eff_area[:,0] = inter[:-1]
-        eff_area[:,1] = inter[1:]
-        
-        effective_area = integrate.trapz(eff_area, ebins)
-        
-        return effective_area/(self._ene_max-self._ene_min)
+
+        return self._effective_area
+
+    def set_location(self, ra, dec):
+        """
+        Calculate the weighted irfs for the three event types for a given position
+        :param azimuth: Azimuth position in sat frame
+        :param zenith: Zenith position in sat frame
+        :returns:
+        """
+
+        # Transform ra, dec from icrs to spi frame
+        azimuth, zenith = _transform_icrs_to_spi(ra,
+                                                 dec,
+                                                 self._sc_matrix)
+
+
+        self._weighted_irfs(np.deg2rad(azimuth),
+                            np.deg2rad(zenith))
+
+        self._recalculate_response()
 
     def _weighted_irfs(self, azimuth, zenith):
         """
@@ -732,12 +1105,16 @@ class ResponsePhotopeak(Response):
         # If outside of the response pattern set response to zero
         try:
             # select these points on the grid and weight them together
-            self._weighted_irf_ph = self._irfs_photopeak[..., xx, yy].dot(wgt)
+            self._weighted_irf_ph = self._irf_ob._irfs_photopeak[..., xx, yy].dot(wgt)
 
         except IndexError:
-            self._weighted_irf_ph = np.zeros_like(self._irfs_photopeak[...,20,20])
+            self._weighted_irf_ph = np.zeros_like(self._irf_ob._irfs_photopeak[...,20,20])
 
-            
+    @property
+    def effective_area(self):
+        return self._effective_area
+
+
         #return weighted_irf_ph
 
     

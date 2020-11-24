@@ -1,5 +1,5 @@
 from pyspi.spi_data import *
-from pyspi.spi_response import ResponsePhotopeak, ResponseRMF
+from pyspi.spi_response import ResponsePhotopeak, ResponseRMF, multi_response_irf_read_objects
 from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, SPIPointing
 from pyspi.spi_frame import *
 from pyspi.utils.likelihood import Likelihood
@@ -23,7 +23,7 @@ sns.set_palette('pastel')
 
 class GRBAnalysis(object):
 
-    def __init__(self, configuration, likelihood_model):
+    def __init__(self, configuration, det):
         """
         Init a Spi Analysis object for an analysis of a GRB.
         :param configuration: Configuration dictionary
@@ -31,8 +31,6 @@ class GRBAnalysis(object):
         """
 
         # TODO: Add a test if the configuration file is valid for a GRB analysis
-        # Which event types should be used?
-        self._event_types = configuration['Event_types']
 
         # Which energy range?
         self._emin = float(configuration['emin'])
@@ -46,18 +44,11 @@ class GRBAnalysis(object):
             # If no ebounds are given use the default ones
             if self._ebounds is None:
                 self._ebounds = np.logspace(np.log10(self._emin), np.log10(self._emax), 30)
-            # Construct final energy bins if single events are used
-            if 'single' in self._event_types:
-                self._construct_energy_bins()
+            # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
+            self._construct_energy_bins()
         else:
             raise NotImplementedError('Unbinned analysis not implemented!')
 
-        # We need one nuisance parametert if we use the single dets for the efficiency
-        # of the PSD detections in the electronic noise range. Init it to 0.85. Will be changed
-        # by SPILike class if the single events are used
-        if "single" in self._event_types:
-            self._eff_psd = 0.85
-        
         # Time of GRB. Needed to get the correct pointing.
         time_of_grb = configuration['Time_of_GRB_UTC']
         time = datetime.strptime(time_of_grb, '%y%m%d %H%M%S')
@@ -74,7 +65,8 @@ class GRBAnalysis(object):
             self._bkg_time_2 = configuration['Background_time_interval_2']
         else:
             raise NotImplementedError('Background model is not yet implemented.')
-            
+
+        """TODO Remove this from the analysis class
         # Simmulate a GRB at the given time? Only used for testing!
         self._simulate = configuration['Simulate']
 
@@ -151,6 +143,7 @@ class GRBAnalysis(object):
 
                     self._simulate_dict[n_source] = shape
                     n_source += 1
+        """
                 
         # Translate the input time ranges in start and stop times
         self._get_start_and_stop_times()
@@ -175,34 +168,33 @@ class GRBAnalysis(object):
                                                  current_time.strftime("%m-%d_%H-%M"))
             
             print('You have set a unique name for this analysis that was already used before. \
-                   I will add the present time to the name {}'.format(self._analysis_name))
+                   I will add the present time to the name: {}'.format(self._analysis_name))
             
-        # Init the response
-        self._init_response()
-        
-        # Init the data
-        self._init_data()
-
-        
         # Which dets should be used? Can also be 'All' to use all possible
         # dets of the specified event_types
-        self._dets = np.array(configuration['Detectors_to_use'])
+        self._det = det
+        assert self._det in np.arange(85), f"{self._det} is not a valid detector. Please only use detector ids between 0 and 84."
+        # TODO check at the data setup if the sum of counts >0. If not this means that the detector
+        # is turned off
 
-        # Construct final det selection
-        self._det_selection()
-        
+        # Init the data
+        self._init_data(
+
         # Get the background estimation
         self.get_background_estimation()
 
         # Init the SPI frame (to transform J2000 to SPI coordinates)
         self._init_frame()
 
+         # Init the response
+        self._init_response()
+
         # Set the model 
         self.set_model(likelihood_model)
 
         # Set Likelihood class
         self._init_likelihood()
-        
+
     def set_psd_eff(self, value):
         """
         Set the psd efficency
@@ -230,7 +222,7 @@ class GRBAnalysis(object):
         psd_high_energy = 1700
 
         change = False
-        # Case 1400-17000 is completly in the ebound range
+        # Case 1400-1700 is completly in the ebound range
         if self._ebounds[0]<psd_low_energy and self._ebounds[-1]>psd_high_energy:
             psd_bin = True
             start_found = False
@@ -287,93 +279,11 @@ class GRBAnalysis(object):
         self._sgl_mask = sgl_mask
 
         if change:
+            self._use_ele_noise = True
             print('I had to readjust the ebins to avoid having ebins inside of the single event electronic noise energy range. The new boundaries of the ebins are: {}.'.format(self._ebounds))
-        
-    def _det_selection(self):
-        """
-        Function to figure out which dets should be used in the analysis. Takes user input and 
-        not working detectors into account.
-        :return:
-        """
-        if self._dets=="All":
-
-            # If all dets should be used we will just ignore the ones that are turned off
-            if "single" in self._event_types:
-                # Get a mask of the dets that are turned off. (Dets with 0 counts)
-                bad_sgl_dets = self._data_object.bad_sgl_dets
-                
-                self._sgl_dets_to_use = np.arange(0,19,1,dtype=int)[~bad_sgl_dets]
-
-            # If all dets should be used we will just ignore the ones that are turned off
-            #if "psd" in self._event_types:
-                # Get a mask of the dets that are turned off. (Dets with 0 counts)
-                #bad_psd_dets = self._data_object.bad_psd_dets
-                
-                #self._psd_dets_to_use = np.arange(0,19,1,dtype=int)[~bad_sgl_dets]
-                
-            if "double" in self._event_types:
-                # Get a mask of the dets that are turned off. (Dets with 0 counts)
-                bad_me2_dets = self._data_object.bad_me2_dets
-                
-                self._me2_dets_to_use = np.arange(19,61,1,dtype=int)[~bad_me2_dets]
-                
-            if "triple" in self._event_types:
-                # Get a mask of the dets that are turned off. (Dets with 0 counts)
-                bad_me3_dets = self._data_object.bad_me3_dets
-
-                self._me3_dets_to_use = np.arange(61,85,1,dtype=int)[~bad_me3_dets]
-            
         else:
+            self._use_ele_noise = False
 
-            # Check if all input dets are valid detector ids
-            for d in self._dets:
-                assert d in np.arange(85), "{} is not a valid detector. Please only use detector ids between 0 and 84.".format(d)
-
-            # Sort the input detector ids in single, double and triple
-            single_dets = self._dets[self._dets<19]
-            double_dets = self._dets[np.logical_and(self._dets>=19, self._dets<61)]
-            triple_dets = self._dets[self._dets>=61]
-
-            # If single event type is wanted build the array which contains the dets
-            if "single" in self._event_types:
-                bad_sgl_dets = self._data_object.bad_sgl_dets
-                self._sgl_dets_to_use = np.array([], dtype=int)
-                for s in single_dets:
-                    if not bad_sgl_dets[s]:
-                        self._sgl_dets_to_use = np.append(self._sgl_dets_to_use, s)
-                    else:
-                        warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
-                assert self._sgl_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
-            else:
-                if single_dets.size>0:
-                    warnings.warn("You wanted to use some single dets but did not select the single detection event type. I will ignore all single_dets for the rest of the calculation. If you want to use them please restart the calculation with single in the event_types list of the configuration file.")
-
-            if "double" in self._event_types:
-                bad_me2_dets = self._data_object.bad_me2_dets
-                self._me2_dets_to_use = np.array([], dtype=int)
-                for s in double_dets:
-                    if not bad_me2_dets[s]:
-                        self._me2_dets_to_use = np.append(self._me2_dets_to_use, s)
-                    else:
-                        warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
-                assert self._me2_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
-            else:
-                if double_dets.size>0:
-                    warnings.warn("You wanted to use some double dets but did not select the double detection event type. I will ignore all double_dets for the rest of the calculation. If you want to use them please restart the calculation with double in the event_types list of the configuration file.")
-                
-            if "triple" in self._event_types or triple_dets.size>0:
-                bad_me3_dets = self._data_object.bad_me3_dets
-                self._me3_dets_to_use = np.array([], dtype=int)
-                for s in triple_dets:
-                    if not bad_me3_dets[s]:
-                        self._me3_dets_to_use = np.append(self._me3_dets_to_use, s)
-                    else:
-                        warnings.warn("You wanted to use detector {}, but it is turned off. I will ignore this detector for the rest of the analysis.".format(s))
-                assert self._me3_dets_to_use.size>0, 'All the detectors you want to use are turned off for this pointing...' 
-            else:
-                if triple_dets.size>0:
-                    warnings.warn("You wanted to use some triple dets but did not select the triple detection event type. I will ignore all triple_dets for the rest of the calculation. If you want to use them please restart the calculation with triple in the event_types list of the configuration file.")
-                
     def _get_start_and_stop_times(self):
         """
         Get the input start and stop times of active time and bkg times
@@ -417,12 +327,12 @@ class GRBAnalysis(object):
                 self._bkg2_stop = float(split[1])
 
 
-    def _init_likelihood(self):
-        """
-        Initalize Likelihood object. Will be used later to calculate the sum of all log-likelihoods
-        :return:
-        """
-        self._likelihood = Likelihood(numba_cpu=True, parallel=True)
+    #def _init_likelihood(self):
+    #    """
+    #    Initalize Likelihood object. Will be used later to calculate the sum of all log-likelihoods
+    #    :return:
+    #    """
+    #    self._likelihood = Likelihood(numba_cpu=True, parallel=True)
         
     def _init_frame(self):
         """
@@ -430,15 +340,7 @@ class GRBAnalysis(object):
         spacecraft coordinates.
         :return:
         """
-        #self._pointing_object = SPIPointing(self._data_object.geometry_file_path)
 
-        #self._frame_object = SPIFrame(**self._pointing_object.sc_points[0])
-
-        # get skycoord object of center ra and dec in icrs frame
-        #pointing_sat = SkyCoord(lon=0, lat=0, unit='deg', frame=self._frame_object)
-
-        #self._pointing_icrs = pointing_sat.transform_to('icrs')
-        
         pointing_object = SPIPointing(self._data_object.geometry_file_path)
 
         self._sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
@@ -451,17 +353,21 @@ class GRBAnalysis(object):
         """
         
         if self._simulate is None:
-            self._data_object = DataGRB(self._time_of_grb, afs=True, ebounds=self._ebounds, event_types=self._event_types)
+            self._data_object = DataGRB(self._time_of_grb,
+                                        detector=self._det
+                                        afs=True,
+                                        ebounds=self._ebounds)
 
             if self._binned:
                 # Bin the data in energy and time - dummy values for time bin step
                 # size and ebounds
                 self._data_object.time_and_energy_bin(time_bin_step=1.,
-                                                          start=self._bkg1_start-10,
-                                                          stop=self._bkg2_stop+10)
+                                                      start=self._bkg1_start-10,
+                                                      stop=self._bkg2_stop+10)
             else:
                 raise NotImplementedError('Only binned analysis implemented at the moment!')
-            
+        """
+        TODO: Move this shit simulation stuff to a extra class - Should not be in the analysis class
         else:
             #simulate_pos_icrs = SkyCoord(ra=self._simulate_ra, dec=self._simulate_dec,
             #                             unit='deg', frame='icrs')
@@ -490,6 +396,8 @@ class GRBAnalysis(object):
                 self._data_object.add_sources_simulated()
             else:
                 raise NotImplementedError('Only binned analysis implemented at the moment!')
+        """
+
         # Build a mask to cover the time bins of the active time
         time_bins = self._data_object.time_bins
         
@@ -503,37 +411,7 @@ class GRBAnalysis(object):
         self._real_stop_active = self._active_time_bins[-1,-1]
         self._active_time_seconds = self._real_stop_active - self._real_start_active
             
-        if 'single' in self._event_types:
-            sgl_dets = self._data_object.energy_sgl_dict.keys()
 
-            self._active_time_counts_energy_sgl_dict = {}
-            for d in sgl_dets:
-                self._active_time_counts_energy_sgl_dict[d] = np.sum(self._data_object.energy_and_time_bin_sgl_dict[d][self._active_time_mask], axis=0)
-
-        #if 'psd' in self._event_types:
-            psd_dets = self._data_object.energy_psd_dict.keys()
-
-            self._active_time_counts_energy_psd_dict = {}
-            for d in psd_dets:
-                self._active_time_counts_energy_psd_dict[d] = np.sum(self._data_object.energy_and_time_bin_psd_dict[d][self._active_time_mask], axis=0)
-
-            self._active_time_counts_energy_sgl_psd_sum_dict = {}
-            for d in sgl_dets:
-                self._active_time_counts_energy_sgl_psd_sum_dict[d] = self._active_time_counts_energy_psd_dict[d] + self._active_time_counts_energy_sgl_dict[d]
-
-        if 'double' in self._event_types:
-            me2_dets = self._data_object.energy_me2_dict.keys()
-
-            self._active_time_counts_energy_me2_dict = {}
-            for d in me2_dets:
-                self._active_time_counts_energy_me2_dict[d] = np.sum(self._data_object.energy_and_time_bin_me2_dict[d][self._active_time_mask], axis=0)
-                
-        if 'triple' in self._event_types:
-            me3_dets = self._data_object.energy_me3_dict.keys()
-
-            self._active_time_counts_energy_me3_dict = {}
-            for d in me3_dets:
-                self._active_time_counts_energy_me3_dict[d] = np.sum(self._data_object.energy_and_time_bin_me3_dict[d][self._active_time_mask], axis=0)
 
     def update_model(self, likelihood_model):
         """
@@ -920,7 +798,8 @@ class GRBAnalysis(object):
 
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
-                #bkg_error_active = np.where(bkg_error_active==0, 1e-10, bkg_error_active) 
+                bkg_error_active = np.where(np.logical_or(bkg_error_active==0, np.isnan(bkg_error_active)), 1e-10, bkg_error_active)
+                
                 self._bkg_psd[d] = {'error': bkg_error, 'counts': bkg_counts} 
                 self._bkg_active_psd[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
@@ -983,7 +862,10 @@ class GRBAnalysis(object):
 
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
-                #bkg_error_active = np.where(bkg_error_active==0, 1e-10, bkg_error_active) 
+
+                bkg_error_active = np.where(np.logical_or(bkg_error_active==0, np.isnan(bkg_error_active)), 1e-10, bkg_error_active)
+
+                
                 self._bkg_me2[d] = {'error': bkg_error, 'counts': bkg_counts} 
                 self._bkg_active_me2[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
@@ -1046,7 +928,8 @@ class GRBAnalysis(object):
 
                     bkg_error_active[i] = p.integral_error(self._real_start_active,
                                                       self._real_stop_active) # Correct?
-                #bkg_error_active = np.where(bkg_error_active==0, 1e-10, bkg_error_active) 
+                bkg_error_active = np.where(np.logical_or(bkg_error_active==0, np.isnan(bkg_error_active)), 1e-10, bkg_error_active)
+
                 self._bkg_me3[d] = {'error': bkg_error, 'counts': bkg_counts} 
                 self._bkg_active_me3[d] = {'error_active': bkg_error_active, 'counts_active': bkg_counts_active}  
 
@@ -1168,7 +1051,6 @@ class GRBAnalysis(object):
                 #    self._bkg_active_me3[d]['counts_active'],
                 #    self._bkg_active_me3[d]['error_active'],
                 #    self._expected_model_counts_me3[v])[0])
-
         return loglike
 
     def plot_ebin_lightcurve_one_det(self, det):
@@ -1606,8 +1488,8 @@ class GRBAnalysis(object):
             # Loop over all possible single dets
             for j in range(19):
                 plot_number = j#(j*4)/19
-                if (plot_number/float(ncol)).is_integer():
-                        axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
+                #if (plot_number/float(ncol)).is_integer():
+                #        axes_array[plot_number].set_ylabel('Count rate [cts s$^-1$]')
 
                 # If this single det was used plot the fit vs. data
                 if j in self._sgl_dets_to_use:
@@ -1618,7 +1500,7 @@ class GRBAnalysis(object):
                     # PPC fit count spectrum
                     # get counts for all sample parameters and the likelihood_model
                     # Add poisson noise
-                    model_bkg_rates_det = np.random.poisson((model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time) 
+                    model_bkg_rates_det = np.random.poisson(model_counts[:,index,:]+bkg_counts[:,index,:])/total_active_time 
 
                     q_levels = [0.68,0.95, 0.99]
                     colors = ['#354458', '#3A9AD9', '#29ABA4']#['#588C73', '#85C4B9', '#8C4646']# TODO change this to more fancy colors
@@ -1634,32 +1516,64 @@ class GRBAnalysis(object):
                                                        color=colors[i],
                                                        zorder=10-i,
                                                        step='post')
+                        
+                    axes_array[plot_number].step(self._ebounds[1:],
+                                                 np.mean(bkg_counts[:,index,:],axis=0)/total_active_time/ebin_sizes,
+                                                 alpha=1,
+                                                 color='darkred',
+                                                 zorder=3,
+                                                 where='post',
+                                                 label='bkg')
+                    
+                    axes_array[plot_number].step(self._ebounds[1:],
+                                                 np.mean(model_counts[:,index,:], axis=0)/total_active_time/ebin_sizes,
+                                                 alpha=1,
+                                                 color='darkgreen',
+                                                 zorder=3,
+                                                 where='post',
+                                                 label='source')
 
                     axes_array[plot_number].step(self._ebounds[1:],
-                                           active_data/ebin_sizes,
-                                           where='post',
-                                           color='black',
+                                                 active_data/ebin_sizes,
+                                                 where='post',
+                                                 color='black',
                                                  zorder=19,
-                                           label='Detector {}'.format(j))
-                    if (plot_number/float(ncol)).is_integer():
-                        axes_array[plot_number].set_ylabel('Count rate [cts $s^{-1}$ $keV^{-1}$]')
+                                                 label='Data')
+
+                    axes_array[plot_number].text(.5,.9,'Detector {}'.format(j),
+                                                 horizontalalignment='center',
+                                                 transform=axes_array[plot_number].transAxes)
+
+                    
+                    #if (plot_number/float(ncol)).is_integer():
+                    #    axes_array[plot_number].set_ylabel('Count rate [cts $s^{-1}$ $keV^{-1}$]')
 
                     index+=1
                 # If det not used only plot legend entry with remark "not used or defect"
                 else:
-                    red_indices.append(j)
-                    axes_array[plot_number].plot([], [], ' ', label='Detector {} \n Not used'.format(j))
-
+                    axes_array[plot_number].text(.5,.9,'Detector {}'.format(j),
+                                                 horizontalalignment='center',
+                                                 transform=axes_array[plot_number].transAxes,
+                                                 fontdict={"color":"red"})
+                    
             # Make legend and mark the not used dets red
             for i, ax in enumerate(axes.flatten()):
-                ax.set_xlabel('Energy [keV]')
-                l = ax.legend()
-                if i in red_indices:
-                    l.get_texts()[0].set_color("red")
                 ax.set_xscale('log')
                 #ax.set_yscale('log')
+            handles, labels = axes.flatten()[0].get_legend_handles_labels()
+            fig.legend(handles, labels, loc='lower center',bbox_to_anchor=(0.5, 0),
+                       fancybox=True, shadow=True, ncol=5)
             fig.tight_layout()
-            fig.subplots_adjust(hspace=0, wspace=0) 
+            #plt.subplots_adjust(bottom=0.15)
+
+            ax_frame = fig.add_subplot(111, frameon=False)
+
+            ax_frame.tick_params(labelcolor='none', top='off', bottom='off', left='off', right='off')
+            ax_frame.set_ylabel('Counts [cnts $keV^{-1}$]')
+            ax_frame.set_xlabel('Energy [keV]')
+            ax_frame.set_title('PPCs')
+            fig.subplots_adjust(hspace=0, wspace=0, bottom=0.12)
+
             fig.savefig('data_plot.pdf')
 
     def plot_fit_data_psd(self, post_equal_weights_file, likelihood_model):
@@ -2022,7 +1936,7 @@ class GRBAnalysisRMF(GRBAnalysis):
         :param likelihood_model: Astromodel instance describing the used model
         :return:
         """
-        
+
         super(GRBAnalysisRMF, self).__init__(configuration, likelihood_model)
 
     def _fold(self, response, spectrum_bins):
@@ -2040,13 +1954,16 @@ class GRBAnalysisRMF(GRBAnalysis):
         Initalize the response object with RMF
         :return:
         """
-
-        self._response_object = ResponseRMF(ebounds=self._ebounds, time=self._time_of_grb)
+        response_irf_read_object = multi_response_irf_read_objects([self._time_of_grb],
+                                                                   drm='RMF')[0]
+        self._response_object = ResponseRMF(ebounds=self._ebounds,
+                                            response_irf_read_object=response_irf_read_object,
+                                            sc_matrix=self._sc_matrix)
 
     
 class GRBAnalysisPhotopeak(GRBAnalysis):
 
-    def __init__(self, configuration, likelihood_model):
+    def __init__(self, configuration):
         """
         Init GRB analysis if only the photopeak eff area shoud be used in the 
         fit (faster but not really  correct).
@@ -2055,8 +1972,8 @@ class GRBAnalysisPhotopeak(GRBAnalysis):
         :param likelihood_model: Astromodel instance describing the used model
         :return:
         """
-        
-        super(GRBAnalysisPhotopeak, self).__init__(configuration, likelihood_model)
+
+        super(GRBAnalysisPhotopeak, self).__init__(configuration)
 
     def _fold(self, response, spectrum_bins):
         """
@@ -2073,5 +1990,8 @@ class GRBAnalysisPhotopeak(GRBAnalysis):
         Initalize the response object without RMF
         :return:
         """
-
-        self._response_object = ResponsePhotopeak(ebounds=self._ebounds, time=self._time_of_grb)
+        response_irf_read_object = multi_response_irf_read_objects([self._time_of_grb],
+                                                                   detector=self._det
+                                                                   drm='Photopeak')[0]
+        self._response_object = ResponsePhotopeak(ebounds=self._ebounds,
+                                                  response_irf_read_object=response_irf_read_object)
