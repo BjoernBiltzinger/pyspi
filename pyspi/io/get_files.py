@@ -4,7 +4,7 @@ from pyspi.io.package_data import get_path_of_external_data_dir
 from astropy.utils.data import download_file
 import requests
 import shutil
-import urllib2
+import urllib
 
 from pyspi.io.file_utils import file_existing_and_readable
 
@@ -81,9 +81,9 @@ def get_files_isdcarc(pointing_id):
     if not file_existing_and_readable(geom_save_path):
 
         # Check if link to geom file exists
-        request = urllib2.Request(geom_link)
+        #request = urllib2.Request(geom_link)
         try:
-            response = urllib2.urlopen(request)
+            response = urllib.request.urlopen(geom_link)
         except:
             raise AssertionError('Link {} does not exists!'.format(geom_link))
         
@@ -93,9 +93,9 @@ def get_files_isdcarc(pointing_id):
     if not file_existing_and_readable(data_save_path):
 
         #Check if link to data file exists
-        request = urllib2.Request(data_link)
+        #request = urllib2.Request(data_link)
         try:
-            response = urllib2.urlopen(request)
+            response = urllib.request.urlopen(data_link)
         except:
             raise AssertionError('Link {} does not exists!'.format(data_link))
 
