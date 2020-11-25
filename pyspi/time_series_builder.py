@@ -1,5 +1,5 @@
 from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
-from pyspi.spi_response_new import ResponsePhotopeak, ResponseRMF, multi_response_irf_read_objects
+from pyspi.spi_response import ResponsePhotopeak, ResponseRMF, multi_response_irf_read_objects
 from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, SPIPointing
 from astropy.time.core import Time, TimeDelta
 from threeML.utils.spectrum.binned_spectrum import BinnedSpectrumWithDispersion, BinnedSpectrum
@@ -186,9 +186,9 @@ class SPISWFile(object):
         # too close to the boundarie also add the pervious or following
         # observation id
         id_file = h5py.File(id_file_path, 'r')
-        start_id = id_file['Start'].value
-        stop_id = id_file['Stop'].value
-        ids = id_file['ID'].value
+        start_id = id_file['Start'][()]
+        stop_id = id_file['Stop'][()]
+        ids = id_file['ID'][()]
 
         mask_larger = start_id < self._time_of_GRB_ISDC_MJD
         mask_smaller = stop_id > self._time_of_GRB_ISDC_MJD
@@ -271,7 +271,7 @@ class SPISWFile(object):
 
             if self._det in range(19, 61):
                 dets_me2 = np.sort(hdu_oper[4].data['DETE'], axis=1)
-                i, k = double_names[self._det-19]
+                i, k = double_names[self._det]
                 mask = np.logical_and(dets_me2[:, 0] == i,
                                       dets_me2[:, 1] == k)
 
@@ -280,7 +280,7 @@ class SPISWFile(object):
 
             if self._det in range(61,85):
                 dets_me3 = np.sort(hdu_oper[5].data['DETE'], axis=1)
-                i, j, k = tripple_names[self._det-61]
+                i, j, k = tripple_names[self._det]
                 mask = np.logical_and(np.logical_and(dets_me3[:, 0] == i,
                                                      dets_me3[:, 1] == j),
                                       dets_me3[:, 2] == k)

@@ -4,13 +4,8 @@ from astromodels import Parameter
 import collections
 from threeML import *
 from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
-from pyspi.spi_analysis import *
-from pyspi.Config_Builder import Config
 from astromodels import *
-try:
-    from pyspi.spi_analysis import *
-except:
-    raise ImportError('You need to have pyspi installed to use this plugin!')
+from threeML.plugins.SpectrumLike import SpectrumLike
 
 """
 TODO List

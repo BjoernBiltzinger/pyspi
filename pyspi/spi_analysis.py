@@ -9,25 +9,25 @@ def SpiAnalysisList(pyspi_config):#, likelihood_model):
     :param likelihood_model: The inital astromodels likelihood_model
     """
 
-     if not isinstance(pyspi_config, dict):
+    if not isinstance(pyspi_config, dict):
 
-            if isinstance(pyspi_config, Config):
-                configuration = pyspi_config
-            else:
-                # Assume this is a file name
-                configuration_file = sanitize_filename(pyspi_config)
-
-                assert os.path.exists(pyspi_config), "Configuration file %s does not exist" % configuration_file
-
-                # Read the configuration
-                with open(configuration_file) as f:
-
-                    configuration = yaml.safe_load(f)
-
-        else:
-
-            # Configuration is a dictionary. Nothing to do
+        if isinstance(pyspi_config, Config):
             configuration = pyspi_config
+        else:
+            # Assume this is a file name
+            configuration_file = sanitize_filename(pyspi_config)
+
+            assert os.path.exists(pyspi_config), "Configuration file %s does not exist" % configuration_file
+
+            # Read the configuration
+            with open(configuration_file) as f:
+
+                configuration = yaml.safe_load(f)
+
+    else:
+
+        # Configuration is a dictionary. Nothing to do
+        configuration = pyspi_config
 
     # Which kind of analysis?
     analysis = configuration['Special_analysis']

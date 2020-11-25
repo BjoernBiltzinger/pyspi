@@ -157,7 +157,7 @@ class ResponseIRFReadRMF(object):
 
         irf_database = h5py.File(irf_file, 'r')
 
-        self._energies_database = irf_database['energies'].value
+        self._energies_database = irf_database['energies'][()]
 
         self._ebounds = self._energies_database
         self._ene_min = self._energies_database[:-1]
@@ -222,7 +222,7 @@ class ResponseIRFReadPhotopeak(object):
 
         irf_database = h5py.File(irf_file, 'r')
 
-        self._energies_database = irf_database['energies'].value
+        self._energies_database = irf_database['energies'][()]
 
         self._ebounds = self._energies_database
         self._ene_min = self._energies_database[:-1]
@@ -231,7 +231,7 @@ class ResponseIRFReadPhotopeak(object):
         irf_data = irf_database['irfs']
 
         #self._irfs = irf_data[()]
-
+        print(detector)
         self._irfs_photopeak = irf_data[:, detector, :, :, 0]
 
         #del self._irfs
@@ -832,9 +832,9 @@ def _find_needed_ids(time):
     # too close to the boundarie also add the pervious or following
     # observation id
     id_file = h5py.File(id_file_path, 'r')
-    start_id = id_file['Start'].value
-    stop_id = id_file['Stop'].value
-    ids = id_file['ID'].value
+    start_id = id_file['Start'][()]
+    stop_id = id_file['Stop'][()]
+    ids = id_file['ID'][()]
 
     mask_larger = start_id < time_of_GRB_ISDC_MJD
     mask_smaller = stop_id > time_of_GRB_ISDC_MJD
