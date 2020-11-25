@@ -48,16 +48,7 @@ class SPILikeGRBPhotopeak(SpectrumLike):
         # In this apporach input_bins=output_bins.
 
         self._rsp = rsp_object
-        
-        # We have one special feature in SPI that is the "electronic noise" range from 1400 keV to 1700 keV
-        # In this range the non-psd single events suffer from some unknown problem which makes the single
-        # count rates unreliable in this region. The PSD single events do not have this problem.
-        # Therefore only the psd events are used in this "electronic range" region, whereas in the rest
-        # non-psd and psd events are used together. To account for the droping of the non-psd events in this
-        # energy range the response has to be adjusted to the fraction of single events that do pass the psd.
-        # This is modeled with the psd_eff nuiscance parameter that should be around ~85% in this energy region
-        # but can vary slightly. This effect is only important if this plugin is for a single detector
-        # and the energy range between 1400-1700 keV is in the analysis.
+
 
     def _evaluate_model(self, true_fluxes=None):
         """
@@ -73,8 +64,10 @@ class SPILikeGRBPhotopeak(SpectrumLike):
         if true_fluxes is None:
             true_fluxes = self._integral_flux(self._observed_spectrum.bin_stack[:,0],
                                               self._observed_spectrum.bin_stack[:,1])
+
         if np.any(self._psd_mask):
             self._psd_eff_area[self._psd_mask] = self._like_model.psd_eff_spi.value
+
         return self._psd_eff_area*self._rsp.effective_area*true_fluxes
 
     def set_model(self, likelihood_model):
@@ -101,14 +94,15 @@ class SPILikeGRBPhotopeak(SpectrumLike):
                 ra = self._like_model.point_sources[key].position.ra.value
                 dec = self._like_model.point_sources[key].position.dec.value
         else:
+        
             for key in self._like_model.point_sources.keys():
 
-                self._like_model.point_sources[key].position.ra.prior = Uniform_prior(
-                    lower_bound=0.0, upper_bound=360
-                )
-                self._like_model.point_sources[key].position.dec.prior = Cosine_Prior(
-                    lower_bound=-90.0, upper_bound=90
-                )
+                #self._like_model.point_sources[key].position.ra.prior = Uniform_prior(
+                #    lower_bound=0.0, upper_bound=360
+                #)
+                #self._like_model.point_sources[key].position.dec.prior = Cosine_Prior(
+                #    lower_bound=-90.0, upper_bound=90
+                #)
 
                 ra = self._like_model.point_sources[key].position.ra.value
                 dec = self._like_model.point_sources[key].position.dec.value
@@ -135,8 +129,6 @@ class SPILikeGRBPhotopeak(SpectrumLike):
                 assert "psd_eff_spi" in self._like_model.parameters.keys(), "Need the psd_spi_eff parameter in the model!"
                 self._psd_eff_area[self._rsp._psd_bins] = self._like_model.psd_eff_spi.value*np.ones(np.sum(self._rsp._psd_bins))
 
-                #print(self._psd_eff_area)
-
     def get_model(self, true_fluxes=None):
 
         if self._free_position:
@@ -155,6 +147,9 @@ class SPILikeGRBPhotopeak(SpectrumLike):
     ):
         """
         Generate SPILikeGRB from an existing SpectrumLike child
+        :param spectrum_like: SpectrumLike child
+        :param rsp_object: Response object
+        :free_position: Free the position? boolean
         """
         return cls(
             spectrum_like.name,
