@@ -15,19 +15,29 @@ from pyspi.io.get_files import get_files_afs, get_files_isdcarc
 from pyspi.io.package_data import get_path_of_external_data_dir, get_path_of_data_file
 from pyspi.utils.detector_ids import double_names, triple_names
 from pyspi.Config_Builder import Config
+from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids, \
+    ISDC_MJD_to_cxcsec, leapseconds
 from threeML.io.file_utils import sanitize_filename
 from threeML.utils.time_series.event_list import EventListWithDeadTime
 
 class SPISWFile(object):
 
     def __init__(self, config, det):
+        """
+        Class to read in all the data needed from a SCW file for a given config file
+        :param config: Config yml filename, Config object or dict
+        :param det: For which detector?
+        """
 
+        # Read in config file
+        # Check if config is a dict
         if not isinstance(config, dict):
 
+            # If not, check if it is a Config object (from Config_builder)
             if isinstance(config, Config):
                 configuration = config
             else:
-                # Assume this is a file name
+                # If not assume this is a file name
                 configuration_file = sanitize_filename(config)
 
                 assert os.path.exists(config), "Configuration file %s does not exist" % configuration_file
@@ -43,6 +53,7 @@ class SPISWFile(object):
             configuration = config
 
 
+        # General nameing
         self._det_name = f"Detector {det}"
         self._mission = "Integral/SPI"
 
@@ -59,25 +70,31 @@ class SPISWFile(object):
             if self._ebounds is None:
                 self._ebounds = np.logspace(np.log10(self._emin), np.log10(self._emax), 30)
             # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
-            self._construct_energy_bins()
+            self._ebounds = construct_energy_bins(self._ebounds)
         else:
             raise NotImplementedError('Unbinned analysis not implemented!')
+
+        # How many echans?
         self._n_channels = len(self._ebounds)-1
+
+        # Time bounds for bkg polynominal and active time
         self._bkg_time_1 = configuration['Background_time_interval_1']
         self._bkg_time_2 = configuration['Background_time_interval_2']
+        self._active_time = configuration['Active_Time']
 
         # Time of GRB. Needed to get the correct pointing.
         time_of_grb = configuration['Time_of_GRB_UTC']
         time = datetime.strptime(time_of_grb, '%y%m%d %H%M%S')
         self._time_of_GRB = Time(time)
 
-        # Active_Time of GRB 'start-stop' format
-        self._active_time = configuration['Active_Time']
+        # Check that det is a valid number
         self._det = det
         assert self._det in np.arange(85), f"{self._det} is not a valid detector. Please only use detector ids between 0 and 84."
 
-        self._pointing_id = self._find_needed_ids()
+        # Find the SW ID of the data file we need for this time
+        self._pointing_id = find_needed_ids(self._time_of_GRB)
 
+        # Get the data, either from afs or from ISDC archive
         try:
             # Get the data from the afs server
             get_files_afs(self._pointing_id)
@@ -86,157 +103,8 @@ class SPISWFile(object):
             print('AFS data access did not work. I will try the ISDC data archive.')
             get_files_isdcarc(self._pointing_id)
 
+        # Read in all we need
         self._read_in_pointing_data(self._pointing_id)
-
-    def _construct_energy_bins(self):
-        """
-        Function to construct the final energy bins that will be used in the analysis.
-        Basically only does one thing: If the single events are included in the analysis
-        it ensures that no energybin is covering simultaneously energy outside and inside
-        of [psd_low_energy, psd_high_energy]. In this area the single detection photons
-        that were not tested by the PSD suffer the "electronical noise" and are very unrealiable.
-        The events that have passed the PSD test do not suffer from this "electronical noise".
-        Thus we want to only use the PSD events in this energy range. Therefore we construct the
-        ebins in such a way that there are ebins outside of this energy range, for which we will
-        use normal single + psd events and ebins inside of this energy range for which we only
-        want to use the psd events.
-        :return:
-        """
-
-        psd_low_energy = 1400
-        psd_high_energy = 1700
-
-        change = False
-        # Case 1400-1700 is completly in the ebound range
-        if self._ebounds[0]<psd_low_energy and self._ebounds[-1]>psd_high_energy:
-            psd_bin = True
-            start_found = False
-            stop_found = False
-            for i, e in enumerate(self._ebounds):
-                if e>=psd_low_energy and not start_found:
-                    start_index = i
-                    start_found=True
-                if e>=1700 and not stop_found:
-                    stop_index = i
-                    stop_found=True
-            self._ebounds = np.insert(self._ebounds, start_index, psd_low_energy)
-            self._ebounds = np.insert(self._ebounds, stop_index+1, psd_high_energy)
-
-            if stop_index-start_index>1:
-                sgl_mask = np.logical_and(np.logical_or(self._ebounds[:-1]<=psd_low_energy,
-                                                        self._ebounds[:-1]>=psd_high_energy),
-                                          np.logical_or(self._ebounds[1:]<=psd_low_energy,
-                                                        self._ebounds[1:]>=psd_high_energy))
-            elif stop_index-start_index==1:
-                sgl_mask = np.ones(len(self._ebounds)-1, dtype=bool)
-                sgl_mask[start_index] = False
-                sgl_mask[stop_index] = False
-            elif stop_index-start_index==0:
-                sgl_mask = np.ones(len(self._ebounds)-1, dtype=bool)
-                sgl_mask[start_index] = False
-            change = True
-        # Upper bound of erange in psd bin
-        elif self._ebounds[0]<psd_low_energy and self._ebounds[-1]>psd_low_energy:
-            psd_bin = True
-            start_found = False
-            for i, e in enumerate(a):
-                if e>=psd_low_energy and not start_found:
-                    start_index = i
-                    start_found=True
-            self._ebounds = np.insert(self._ebounds, start_index, psd_low_energy)
-            sgl_mask = (self._ebounds<psd_low_energy)[:-1]
-            change = True
-        # Lower bound of erange in psd bin
-        elif self._ebounds[0]<psd_high_energy and self._ebounds[-1]>psd_high_energy:
-            psd_bin = True
-            stop_found = False
-            for i, e in enumerate(a):
-                if e>=psd_high_energy and not stop_found:
-                    stop_index = i
-                    stop_found=True
-            self._ebounds = np.insert(self._ebounds, stop_index, psd_high_energy)
-            sgl_mask = (self._ebounds>=psd_high_energy)[:-1]
-            change=True
-        # else erange completly outside of psd bin => all just single
-        else:
-            sgl_mask = np.ones_like(self._ebounds[:-1], dtype=bool)
-
-        self._sgl_mask = sgl_mask
-
-        if change:
-            self._use_ele_noise = True
-            print('I had to readjust the ebins to avoid having ebins inside of the single event electronic noise energy range. The new boundaries of the ebins are: {}.'.format(self._ebounds))
-        else:
-            self._use_ele_noise = False
-
-    def _find_needed_ids(self):
-        """
-        Get the pointing id of the needed data to cover the GRB time
-        :return: Needed pointing id
-        """
-
-        # Path to file, which contains id information and start and stop
-        # time
-        id_file_path = get_path_of_data_file('id_data_time.hdf5')
-
-        # Get GRB time in ISDC_MJD
-        self._time_of_GRB_ISDC_MJD = self._ISDC_MJD(self._time_of_GRB)
-
-        # Get which id contain the needed time. When the wanted time is
-        # too close to the boundarie also add the pervious or following
-        # observation id
-        id_file = h5py.File(id_file_path, 'r')
-        start_id = id_file['Start'][()]
-        stop_id = id_file['Stop'][()]
-        ids = id_file['ID'][()]
-
-        mask_larger = start_id < self._time_of_GRB_ISDC_MJD
-        mask_smaller = stop_id > self._time_of_GRB_ISDC_MJD
-
-        try:
-            id_number = list(mask_smaller*mask_larger).index(True)
-            print('Needed data is stored in pointing_id: {}'.format(ids[id_number]))
-        except:
-            raise Exception('No pointing id contains this time...')
-
-        return ids[id_number].decode("utf-8")
-
-    def _ISDC_MJD(self, time_object):
-        """
-        :param time_object: Astropy time object of grb time
-        :return: Time in Integral MJD time
-        """
-
-        #TODO Check time. In integral file ISDC_MJD time != DateStart. Which is correct?
-        return (time_object+self._leapseconds(time_object)).tt.mjd-51544
-
-    def _leapseconds(self, time_object):
-        """
-        Hard coded leap seconds from start of INTEGRAL to time of time_object
-        :param time_object: Time object to which the number of leapseconds should be detemined
-        :return: TimeDelta object of the needed leap seconds
-        """
-        if time_object<Time(datetime.strptime('060101 000000', '%y%m%d %H%M%S')):
-            lsec = 0
-        elif time_object<Time(datetime.strptime('090101 000000', '%y%m%d %H%M%S')):
-            lsec = 1
-        elif time_object<Time(datetime.strptime('120701 000000', '%y%m%d %H%M%S')):
-            lsec = 2
-        elif time_object<Time(datetime.strptime('150701 000000', '%y%m%d %H%M%S')):
-            lsec = 3
-        elif time_object<Time(datetime.strptime('170101 000000', '%y%m%d %H%M%S')):
-            lsec = 4
-        else:
-            lsec=5
-        return TimeDelta(lsec, format='sec')
-
-    def _ISDC_MJD_to_cxcsec(self, ISDC_MJD_time):
-        """
-        Convert ISDC_MJD to UTC
-        :param ISDC_MJD_time: time in ISDC_MJD time format
-        :return: time in cxcsec format (seconds since 1998-01-01 00:00:00)
-        """
-        return Time(ISDC_MJD_time+51544, format='mjd', scale='utc').cxcsec
 
     def _read_in_pointing_data(self, pointing_id):
         """
@@ -245,19 +113,22 @@ class SPISWFile(object):
         :return:
         """
         # Reference time of GRB
-        GRB_ref_time_cxcsec = self._ISDC_MJD_to_cxcsec(self._time_of_GRB_ISDC_MJD)
+        GRB_ref_time_cxcsec = ISDC_MJD_to_cxcsec((self._time_of_GRB+leapseconds(self._time_of_GRB)).tt.mjd-51544)
 
         with fits.open(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'spi_oper.fits.gz')) as hdu_oper:
 
             # Get time of first and last event (t0 at grb time)
-            time_sgl = self._ISDC_MJD_to_cxcsec(hdu_oper[1].data['time']) - GRB_ref_time_cxcsec
-            time_psd = self._ISDC_MJD_to_cxcsec(hdu_oper[2].data['time']) - GRB_ref_time_cxcsec
-            time_me2 = self._ISDC_MJD_to_cxcsec(hdu_oper[4].data['time']) - GRB_ref_time_cxcsec
-            time_me3 = self._ISDC_MJD_to_cxcsec(hdu_oper[5].data['time']) - GRB_ref_time_cxcsec
+            time_sgl = ISDC_MJD_to_cxcsec(hdu_oper[1].data['time']) - GRB_ref_time_cxcsec
+            time_psd = ISDC_MJD_to_cxcsec(hdu_oper[2].data['time']) - GRB_ref_time_cxcsec
+            time_me2 = ISDC_MJD_to_cxcsec(hdu_oper[4].data['time']) - GRB_ref_time_cxcsec
+            time_me3 = ISDC_MJD_to_cxcsec(hdu_oper[5].data['time']) - GRB_ref_time_cxcsec
 
             self._time_start = np.min(np.concatenate([time_sgl, time_psd, time_me2, time_me3]))
             self._time_stop = np.max(np.concatenate([time_sgl, time_psd, time_me2, time_me3]))
 
+            # Read in the data for the wanted detector
+            # For single events we have to take both the non_psd (often called sgl here...)
+            # and the psd events. Both added together give the real single events.
             if self._det in range(19):
                 dets_sgl = hdu_oper[1].data['DETE']
                 time_sgl = time_sgl[dets_sgl == self._det]
@@ -293,12 +164,13 @@ class SPISWFile(object):
             self._times = time_psd
             self._energies = energy_psd
 
-            #if self._use_ele_noise:
             # Don't add the non-psd single events in the electronic noise range
-            self._times = np.append(self._times, time_sgl[~np.logical_and(energy_sgl>1400,
-                                                                          energy_sgl<1700)])
-            self._energies = np.append(self._energies, energy_sgl[~np.logical_and(energy_sgl>1400,
-                                                                                  energy_sgl<1700)])
+            # We will account for this later by a extra parameter determining
+            # the fraction of psd events in this energy range
+            self._times = np.append(self._times, time_sgl[~np.logical_and(energy_sgl > 1400,
+                                                                          energy_sgl < 1700)])
+            self._energies = np.append(self._energies, energy_sgl[~np.logical_and(energy_sgl > 1400,
+                                                                                  energy_sgl < 1700)])
 
             # sort in time
             sort_array = np.argsort(self._times)
@@ -310,35 +182,37 @@ class SPISWFile(object):
             self._times = time_me2
             self._energies = energy_me2
 
-        if self._det in range(61,85):
+        if self._det in range(61, 85):
 
             self._times = time_me3
             self._energies = energy_me3
 
-        if np.sum(self._energies)==0:
+        # Check if there are any counts
+        if np.sum(self._energies) == 0:
 
             raise AssertionError(f"The detector {self._det} has zero counts and is therefore not active."\
                                  "Please exclude this detector!")
 
         # Bin this in the energy bins we have
         self._energy_bins = np.ones_like(self._energies, dtype=int)*-1
+        # Loop over ebins
         for i, (emin, emax) in enumerate(zip(self._ebounds[:-1], self._ebounds[1:])):
             mask = np.logical_and(self._energies>emin, self._energies<emax)
             self._energy_bins[mask] = np.ones_like(self._energy_bins[mask])*i
 
-        #Throw away all events that had energies outside of the ebounds that should be used
-        mask = self._energy_bins ==-1
+        # Throw away all events that have energies outside of the ebounds that
+        # should be used
+        mask = self._energy_bins == -1
         self._energy_bins = self._energy_bins[~mask]
         self._times = self._times[~mask]
         self._energies = self._energies[~mask]
 
     @property
     def geometry_file_path(self):
+        """
+        Path to the spacecraft geometry file
+        """
         return os.path.join(get_path_of_external_data_dir(), 'pointing_data', self._pointing_id, 'sc_orbit_param.fits.gz')
-
-    @property
-    def rsp(self):
-        return self._response_object
 
     @property
     def times(self):
@@ -374,6 +248,10 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         container_type=BinnedSpectrumWithDispersion,
         **kwargs
     ):
+        """
+        Class to build the time_series for SPI. Inherited from the 3ML TimeSeriesBuilder with added
+        class methods to build the object for given pyspi config files.
+        """
 
         super(TimeSeriesBuilderSPI, self).__init__(
             name,
@@ -396,6 +274,15 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         unbinned=True,
         verbose=True,
     ):
+        """
+        Class method to build the time_series_builder from a pyspi grb conifg file
+        :param config: Config yml filename, Config object or dict
+        :param det: Which det?
+        :param restore_background: File to restore bkg
+        :param poly_order: Which poly_order? -1 gives automatic determination
+        :param unbinned: 
+        :param verbose:
+        """
 
         spi_grb_setup = SPISWFile(config, det)
 
