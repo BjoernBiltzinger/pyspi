@@ -6,13 +6,16 @@ from pyspi.utils.rmf_base import *
 from pyspi.spi_pointing import _transform_icrs_to_spi
 from IPython.display import HTML
 from datetime import datetime
-from pyspi.io.package_data import get_path_of_external_data_dir, get_path_of_data_file
+from pyspi.io.package_data import get_path_of_external_data_dir, \
+    get_path_of_data_file
 from pyspi.io.get_files import get_files_afs, get_files_isdcarc
 from pyspi.Config_Builder import Config
 from threeML.io.file_utils import sanitize_filename
 from astropy.time.core import Time, TimeDelta
 from pyspi.io.package_data import get_path_of_data_file
-from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, SPIPointing
+from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, \
+    SPIPointing
+from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids
 
 import os
 try:
@@ -265,7 +268,13 @@ class Response(object):
         self._sc_matrix = sc_matrix
         self._psd_bins = self._get_psd_bins(ebounds)
         self._det = det
+
     def _get_psd_bins(self, ebounds):
+        """
+        Get which ebins are in the electronic noise range
+        :param ebounds: Ebounds of Ebins
+        :return: mask with the psd bins set to true
+        """
         psd_low_end = 1400
         psd_high_end = 1700
         psd_bins = np.zeros(len(ebounds)-1, dtype=bool)
@@ -279,13 +288,10 @@ class Response(object):
 
     def get_xy_pos(self, azimuth, zenith):
         """
-        FIXME! briefly describe function
-
-        :param azimuth: 
-        x = np.cos(ra_sat)*np.cos(dec_sat):param zenith: 
+        Get xy position (in SPI simulation) for given azimuth and zenith
+        :param azimuth:
+        :param zenith:
         :returns: 
-        :rtype: 
-
         """
         # np.pi/2 - zenith. TODO: Check if this is corect. Only a guess at the moment!
         # zenith = np.pi/2-zenith
@@ -723,130 +729,6 @@ class ResponseRMF(Response):
     #    self._current_interpolated_irfs_nonph2 = interpolated_irfs_nonph2
 
 
-def _construct_energy_bins(ebounds):
-        """
-        Function to construct the final energy bins that will be used in the analysis.
-        Basically only does one thing: If the single events are included in the analysis
-        it ensures that no energybin is covering simultaneously energy outside and inside
-        of [psd_low_energy, psd_high_energy]. In this area the single detection photons
-        that were not tested by the PSD suffer the "electronical noise" and are very unrealiable.
-        The events that have passed the PSD test do not suffer from this "electronical noise".
-        Thus we want to only use the PSD events in this energy range. Therefore we construct the
-        ebins in such a way that there are ebins outside of this energy range, for which we will
-        use normal single + psd events and ebins inside of this energy range for which we only
-        want to use the psd events.
-        :return:
-        """
-
-        psd_low_energy = 1400
-        psd_high_energy = 1700
-
-        change = False
-        # Case 1400-1700 is completly in the ebound range
-        if ebounds[0]<psd_low_energy and ebounds[-1]>psd_high_energy:
-            psd_bin = True
-            start_found = False
-            stop_found = False
-            for i, e in enumerate(ebounds):
-                if e>=psd_low_energy and not start_found:
-                    start_index = i
-                    start_found=True
-                if e>=1700 and not stop_found:
-                    stop_index = i
-                    stop_found=True
-            ebounds = np.insert(ebounds, start_index, psd_low_energy)
-            ebounds = np.insert(ebounds, stop_index+1, psd_high_energy)
-
-            if stop_index-start_index>1:
-                sgl_mask = np.logical_and(np.logical_or(ebounds[:-1]<=psd_low_energy,
-                                                        ebounds[:-1]>=psd_high_energy),
-                                          np.logical_or(ebounds[1:]<=psd_low_energy,
-                                                        ebounds[1:]>=psd_high_energy))
-            elif stop_index-start_index==1:
-                sgl_mask = np.ones(len(ebounds)-1, dtype=bool)
-                sgl_mask[start_index] = False
-                sgl_mask[stop_index] = False
-            elif stop_index-start_index==0:
-                sgl_mask = np.ones(len(ebounds)-1, dtype=bool)
-                sgl_mask[start_index] = False
-            change = True
-        # Upper bound of erange in psd bin
-        elif ebounds[0]<psd_low_energy and ebounds[-1]>psd_low_energy:
-            psd_bin = True
-            start_found = False
-            for i, e in enumerate(a):
-                if e>=psd_low_energy and not start_found:
-                    start_index = i
-                    start_found=True
-            self._ebounds = np.insert(ebounds, start_index, psd_low_energy)
-            sgl_mask = (ebounds<psd_low_energy)[:-1]
-            change = True
-        # Lower bound of erange in psd bin
-        elif ebounds[0]<psd_high_energy and ebounds[-1]>psd_high_energy:
-            psd_bin = True
-            stop_found = False
-            for i, e in enumerate(a):
-                if e>=psd_high_energy and not stop_found:
-                    stop_index = i
-                    stop_found=True
-            ebounds = np.insert(ebounds, stop_index, psd_high_energy)
-            change=True
-        # else erange completly outside of psd bin => all just single
-
-        return ebounds
-
-def _leapseconds(time_object):
-        """
-        Hard coded leap seconds from start of INTEGRAL to time of time_object
-        :param time_object: Time object to which the number of leapseconds should be detemined
-        :return: TimeDelta object of the needed leap seconds
-        """
-        if time_object<Time(datetime.strptime('060101 000000', '%y%m%d %H%M%S')):
-            lsec = 0
-        elif time_object<Time(datetime.strptime('090101 000000', '%y%m%d %H%M%S')):
-            lsec = 1
-        elif time_object<Time(datetime.strptime('120701 000000', '%y%m%d %H%M%S')):
-            lsec = 2
-        elif time_object<Time(datetime.strptime('150701 000000', '%y%m%d %H%M%S')):
-            lsec = 3
-        elif time_object<Time(datetime.strptime('170101 000000', '%y%m%d %H%M%S')):
-            lsec = 4
-        else:
-            lsec=5
-        return TimeDelta(lsec, format='sec')
-
-def _find_needed_ids(time):
-    """
-    Get the pointing id of the needed data to cover the GRB time
-    :return: Needed pointing id
-    """
-
-    # Path to file, which contains id information and start and stop
-    # time
-    id_file_path = get_path_of_data_file('id_data_time.hdf5')
-
-    # Get GRB time in ISDC_MJD
-    time_of_GRB_ISDC_MJD = (time+_leapseconds(time)).tt.mjd-51544
-
-    # Get which id contain the needed time. When the wanted time is
-    # too close to the boundarie also add the pervious or following
-    # observation id
-    id_file = h5py.File(id_file_path, 'r')
-    start_id = id_file['Start'][()]
-    stop_id = id_file['Stop'][()]
-    ids = id_file['ID'][()]
-
-    mask_larger = start_id < time_of_GRB_ISDC_MJD
-    mask_smaller = stop_id > time_of_GRB_ISDC_MJD
-
-    try:
-        id_number = list(mask_smaller*mask_larger).index(True)
-        print('Needed data is stored in pointing_id: {}'.format(ids[id_number]))
-    except:
-        raise Exception('No pointing id contains this time...')
-
-    return ids[id_number].decode("utf-8")
-
 class ResponsePhotopeak(Response):
 
     def __init__(self, ebounds=None, response_irf_read_object=None, sc_matrix=None, det=None):
@@ -897,32 +779,33 @@ class ResponsePhotopeak(Response):
             if ebounds is None:
                 ebounds = np.logspace(np.log10(emin), np.log10(emax), 30)
             # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
-            ebounds = _construct_energy_bins(ebounds)
+            ebounds = construct_energy_bins(ebounds)
         else:
             raise NotImplementedError('Unbinned analysis not implemented!')
         # Get time of GRB
         time_of_grb = configuration['Time_of_GRB_UTC']
         time = datetime.strptime(time_of_grb, '%y%m%d %H%M%S')
         time = Time(time)
-        if time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+        if time < Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
             version = 0
 
-        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+        elif time < Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
             version = 1
 
-        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+        elif time < Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
             version = 2
 
-        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+        elif time < Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
             version = 3
 
         else:
             version = 4
+
         # Load correct base irf response read object
         rsp_read_obj = ResponseIRFReadPhotopeak(det, version)
 
         # Construct sc_matrix of this sw
-        pointing_id = _find_needed_ids(time)
+        pointing_id = find_needed_ids(time)
 
         try:
             # Get the data from the afs server
@@ -939,6 +822,7 @@ class ResponsePhotopeak(Response):
 
         pointing_object = SPIPointing(geometry_file_path)
         sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
+
         # Init Response class
         return cls(
             ebounds=ebounds,
