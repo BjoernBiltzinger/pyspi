@@ -332,7 +332,7 @@ class SPI(object):
             index=0
             for j in range(19):
                 sgl_counts[j] = h5file['Detector {}'.format(j)]['Detected counts']
-                if j
+
                 sgl_bkg_counts[j] = h5file['Detector {}'.format(j)]['Background counts ppc']
                 sgl_model_counts[j] = h5file['Detector {}'.format(j)]['Model counts ppc']
                 

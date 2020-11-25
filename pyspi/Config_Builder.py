@@ -1,4 +1,8 @@
+from configya import YAMLConfig
+from datetime import datetime
 import yaml
+import time
+
 import numpy as np
 
 default_GRB = {'Unique_analysis_name': None,
@@ -33,7 +37,7 @@ default_CS = {'Unique_analysis_name': None,
 
            
 
-class basic_config_builder_GRB(object):
+class GRBConfig(object):
     """
     Class to build the config yaml file used in to specify which analysis should be done.
     """
@@ -42,14 +46,10 @@ class basic_config_builder_GRB(object):
         """
         Init the config file for a GRB analysis
         """
-        self._config = default_GRB
-        for key, value in kwargs.iteritems():
-            assert key in self._config.keys(),'Please use valid key. Only {} are available.'.format(self._config.keys())
-            self._config[key] = value
+        self._config = Config(default_GRB)
 
-        self._config_savepath = './config.yaml'
-        with open(self._config_savepath, 'w') as file:
-            yaml.dump(self._config, file)
+        for key, value in kwargs.items():
+            self._config[key] = value
             
     def change_config(self, **kwargs):
         """
@@ -57,13 +57,10 @@ class basic_config_builder_GRB(object):
         :param kwargs: dict with the keywords and new values
         :return:
         """
-        for key, value in kwargs.iteritems():
-            assert key in self._config.keys(), 'Please use valid key. Only {} are available.'.format(self._config.keys())
+        for key, value in kwargs.items():
             if key=='Ebounds':
                 value=value.tolist()
             self._config[key] = value
-        with open(self._config_savepath, 'w') as file:
-            yaml.dump(self._config, file)
             
     def display(self):
         """
@@ -76,15 +73,7 @@ class basic_config_builder_GRB(object):
     def config(self):
         return self._config
 
-    @property
-    def save_path(self):
-        return self._config_savepath
-#default_Point_Source  = {'Special analysis': 'Point Source',
-#                         'name': ['Crab'],
-#                         'ra': 10}
-#class Config_Builder_Point_Sources(object):
-        
-class basic_config_builder_Constant_Source(object):
+class ConstantSourceConfig(object):
     """
     Class to build the config yaml file used in to specify which analysis should be done.
     """
@@ -93,14 +82,9 @@ class basic_config_builder_Constant_Source(object):
         """
         Init the config file for a GRB analysis
         """
-        self._config = default_CS
-        for key, value in kwargs.iteritems():
-            assert key in self._config.keys(),'Please use valid key. Only {} are available.'.format(self._config.keys())
+        self._config = Config(default_CS)
+        for key, value in kwargs.items():
             self._config[key] = value
-
-        self._config_savepath = './config.yaml'
-        with open(self._config_savepath, 'w') as file:
-            yaml.dump(self._config, file)
             
     def change_config(self, **kwargs):
         """
@@ -108,13 +92,10 @@ class basic_config_builder_Constant_Source(object):
         :param kwargs: dict with the keywords and new values
         :return:
         """
-        for key, value in kwargs.iteritems():
-            assert key in self._config.keys(), 'Please use valid key. Only {} are available.'.format(self._config.keys())
+        for key, value in kwargs.items():
             if key=='Ebounds' or key=='Pointings':
                 value=value.tolist()
             self._config[key] = value
-        with open(self._config_savepath, 'w') as file:
-            yaml.dump(self._config, file)
             
     def display(self):
         """
@@ -127,7 +108,12 @@ class basic_config_builder_Constant_Source(object):
     def config(self):
         return self._config
 
-    @property
-    def save_path(self):
-        return self._config_savepath
-
+class Config(YAMLConfig):
+    
+    def __init__(self, default_config):
+        
+        time_stamp = datetime.now().strftime("%d%m%y_%H%M%S%f")
+        time.sleep(0.1)
+        super(Config, self).__init__(default_config,
+                                       '~/.pyspi',
+                                       f'config_{time_stamp}.yml')
