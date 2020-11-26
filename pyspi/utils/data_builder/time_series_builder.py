@@ -1,9 +1,8 @@
 from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
-from pyspi.spi_response import ResponsePhotopeak, ResponseRMF, multi_response_irf_read_objects
-from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, SPIPointing
+
 from astropy.time.core import Time, TimeDelta
 from threeML.utils.spectrum.binned_spectrum import BinnedSpectrumWithDispersion, BinnedSpectrum
-from threeML.utils.time_series.binned_spectrum_series import BinnedSpectrumSeries
+
 import os
 import numpy as np
 from datetime import datetime
@@ -12,9 +11,10 @@ from astropy.io import fits
 
 
 from pyspi.io.get_files import get_files_afs, get_files_isdcarc
-from pyspi.io.package_data import get_path_of_external_data_dir, get_path_of_data_file
+from pyspi.io.package_data import get_path_of_external_data_dir, \
+    get_path_of_data_file
 from pyspi.utils.detector_ids import double_names, triple_names
-from pyspi.Config_Builder import Config
+from pyspi.config.config_builder import Config
 from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids, \
     ISDC_MJD_to_cxcsec, leapseconds
 from threeML.io.file_utils import sanitize_filename
@@ -56,10 +56,6 @@ class SPISWFile(object):
         # General nameing
         self._det_name = f"Detector {det}"
         self._mission = "Integral/SPI"
-
-        # Which energy range?
-        self._emin = float(configuration['emin'])
-        self._emax = float(configuration['emax'])
 
         # Binned or unbinned analysis?
         self._binned = configuration['Energy_binned']

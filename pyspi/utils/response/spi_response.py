@@ -3,21 +3,21 @@ import h5py
 import scipy.interpolate as interpolate
 import scipy.integrate as integrate
 from pyspi.utils.rmf_base import *
-from pyspi.spi_pointing import _transform_icrs_to_spi
 from IPython.display import HTML
 from datetime import datetime
 from pyspi.io.package_data import get_path_of_external_data_dir, \
     get_path_of_data_file
 from pyspi.io.get_files import get_files_afs, get_files_isdcarc
-from pyspi.Config_Builder import Config
+from pyspi.config.config_builder import Config
 from threeML.io.file_utils import sanitize_filename
 from astropy.time.core import Time, TimeDelta
 from pyspi.io.package_data import get_path_of_data_file
-from pyspi.spi_pointing import _construct_sc_matrix, _transform_icrs_to_spi, \
-    SPIPointing
+from pyspi.utils.response.spi_pointing import _construct_sc_matrix, \
+    _transform_icrs_to_spi, SPIPointing
 from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids
 
 import os
+
 try:
     from numba import njit, float64
     has_numba = True
