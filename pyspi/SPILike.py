@@ -2,10 +2,10 @@ from threeML import PluginPrototype
 from threeML.io.file_utils import sanitize_filename
 from astromodels import Parameter
 import collections
-from threeML import *
 from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
-from astromodels import *
+from astromodels.functions.priors import Uniform_prior, Cosine_Prior
 from threeML.plugins.SpectrumLike import SpectrumLike
+import numpy as np
 
 """
 TODO List
