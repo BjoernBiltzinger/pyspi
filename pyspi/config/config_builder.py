@@ -8,15 +8,10 @@ import numpy as np
 default_GRB = {'Unique_analysis_name': None,
                'Special_analysis': 'GRB',
                'Time_of_GRB_UTC' : '101010 010101',
-               'Event_types': ['single'],
-               'Detectors_to_use': 'All',
-               'emin': '20',
-               'emax': '8000',
                'Active_Time': '0-100',
                'Background_time_interval_1': '-100--10',
                'Background_time_interval_2': '110-200',
                'Simulate': None,
-               'Bkg_estimation': 'Polynominal',
                'Energy_binned': True,
                'Ebounds': np.logspace(np.log10(20), np.log10(8000), 30).tolist(),
                'Use_only_photopeak': False}
@@ -58,8 +53,8 @@ class GRBConfig(object):
         :return:
         """
         for key, value in kwargs.items():
-            if key=='Ebounds':
-                value=value.tolist()
+            if key == 'Ebounds':
+                value = value.tolist()
             self._config[key] = value
             
     def display(self):
@@ -115,5 +110,5 @@ class Config(YAMLConfig):
         time_stamp = datetime.now().strftime("%d%m%y_%H%M%S%f")
         time.sleep(0.1)
         super(Config, self).__init__(default_config,
-                                       '~/.pyspi',
-                                       f'config_{time_stamp}.yml')
+                                     '~/.pyspi',
+                                     f'config_{time_stamp}.yml')
