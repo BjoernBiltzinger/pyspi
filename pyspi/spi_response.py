@@ -766,18 +766,17 @@ class ResponsePhotopeak(Response):
             configuration = config
 
         # Construct ebounds
-        # Which energy range?
-        emin = float(configuration['emin'])
-        emax = float(configuration['emax'])
 
         # Binned or unbinned analysis?
         binned = configuration['Energy_binned']
         if binned:
+
             # Set ebounds of energy bins
             ebounds = np.array(configuration['Ebounds'])
-            # If no ebounds are given use the default ones
-            if ebounds is None:
-                ebounds = np.logspace(np.log10(emin), np.log10(emax), 30)
+
+            # If no ebounds are given raise Assertion
+            assert ebounds is not None, "Please give bounds for the energy bins"
+
             # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
             ebounds = construct_energy_bins(ebounds)
         else:

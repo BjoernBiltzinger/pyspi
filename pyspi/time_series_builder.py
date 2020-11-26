@@ -66,9 +66,10 @@ class SPISWFile(object):
         if self._binned:
             # Set ebounds of energy bins
             self._ebounds = np.array(configuration['Ebounds'])
+
             # If no ebounds are given use the default ones
-            if self._ebounds is None:
-                self._ebounds = np.logspace(np.log10(self._emin), np.log10(self._emax), 30)
+            assert self._ebounds is not None, "Please give the bounds for the Ebins."
+
             # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
             self._ebounds = construct_energy_bins(self._ebounds)
         else:
@@ -301,7 +302,6 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
             verbose=verbose,
             edges=spi_grb_setup.ebounds,
         )
-
 
         # This build a time_series_object for a photopeak only response with no Dispersion
         # For a real response with dispersion one need to use the BinnedSpectrumWithDispersion
