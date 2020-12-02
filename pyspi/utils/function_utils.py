@@ -25,6 +25,7 @@ def construct_energy_bins(ebounds):
         psd_high_energy = 1700
 
         change = False
+        sgl_mask = np.ones(len(ebounds)-1, dtype=bool)
         # Case 1400-1700 is completly in the ebound range
         if ebounds[0] < psd_low_energy \
            and ebounds[-1] > psd_high_energy:
@@ -74,10 +75,15 @@ def construct_energy_bins(ebounds):
                     stop_index = i
                     stop_found = True
             ebounds = np.insert(ebounds, stop_index, psd_high_energy)
+            sgl_mask = (ebounds > psd_high_energy)[:-1]
             change = True
-        # else erange completly outside of psd bin => all just single
 
-        return ebounds
+        # Or completly in electronic noise range
+        elif ebounds[0] > psd_low_energy and ebounds[-1] < psd_high_energy:
+            sgl_mask = np.zeros(len(ebounds)-1,dtype=bool)
+        # else erange completly outside of psd bin
+
+        return ebounds, sgl_mask
 
 def leapseconds(time_object):
         """
@@ -125,7 +131,6 @@ def find_needed_ids(time):
 
     try:
         id_number = list(mask_smaller*mask_larger).index(True)
-        print('Needed data is stored in pointing_id: {}'.format(ids[id_number]))
     except:
         raise Exception('No pointing id contains this time...')
 
