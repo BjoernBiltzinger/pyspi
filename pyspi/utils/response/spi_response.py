@@ -116,7 +116,7 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
     for i, version in enumerate(response_versions):
         if responses[version] is None:
             #Create this response object
-            if drm=="Photopeak":
+            if drm == "Photopeak":
                 responses[version] = ResponseIRFReadPhotopeak(detector=detector,
                                                               version=version)
             else:
@@ -200,28 +200,28 @@ class ResponseIRFReadPhotopeak(object):
         """
         if version == 0:
             irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
-            print('Using the irfs that are valid between Start'\
-                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+            #print('Using the irfs that are valid between Start'\
+            #      ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
             
         elif version == 1:
             irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
-            print('Using the irfs that are valid between 03/07/06 06:00:00'\
-                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+            #print('Using the irfs that are valid between 03/07/06 06:00:00'\
+            #      ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
 
         elif version == 2:
             irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
-            print('Using the irfs that are valid between 04/07/17 08:20:06'\
-                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+            #print('Using the irfs that are valid between 04/07/17 08:20:06'\
+            #      ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
 
         elif version == 3:
             irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
-            print('Using the irfs that are valid between 09/02/19 09:59:57'\
-                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+            #print('Using the irfs that are valid between 09/02/19 09:59:57'\
+            #      ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
 
         else:
             irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
-            print('Using the irfs that are valid between 10/05/27 12:45:00'\
-                  ' and present (YY/MM/DD HH:MM:SS)')
+            #print('Using the irfs that are valid between 10/05/27 12:45:00'\
+            #      ' and present (YY/MM/DD HH:MM:SS)')
 
         irf_database = h5py.File(irf_file, 'r')
 
@@ -234,7 +234,7 @@ class ResponseIRFReadPhotopeak(object):
         irf_data = irf_database['irfs']
 
         #self._irfs = irf_data[()]
-        print(detector)
+        #print(detector)
         self._irfs_photopeak = irf_data[:, detector, :, :, 0]
 
         #del self._irfs
@@ -778,7 +778,7 @@ class ResponsePhotopeak(Response):
             assert ebounds is not None, "Please give bounds for the energy bins"
 
             # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
-            ebounds = construct_energy_bins(ebounds)
+            ebounds, _ = construct_energy_bins(ebounds)
         else:
             raise NotImplementedError('Unbinned analysis not implemented!')
         # Get time of GRB
@@ -920,7 +920,7 @@ class ResponsePhotopeak(Response):
 
         if not np.array_equal(ebounds, self._ebounds):
             
-            print('You have changed the energy boundaries for the binned effective_area calculation in the further calculations!')
+            #print('You have changed the energy boundaries for the binned effective_area calculation in the further calculations!')
             self._ene_min = ebounds[:-1]
             self._ene_max = ebounds[1:]
             self._ebounds = ebounds

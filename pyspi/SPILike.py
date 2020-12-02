@@ -9,9 +9,6 @@ import numpy as np
 
 """
 TODO List
-add set_active_time
-add set_background_time
-
 add view_lightcurves()
 """
 

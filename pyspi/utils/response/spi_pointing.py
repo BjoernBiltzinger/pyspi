@@ -48,6 +48,26 @@ if has_numba:
         if lon<0:
             lon += 360
         return lon, lat
+
+    @njit
+    def _transform_spi_to_icrs(az_spi, zen_spi, sc_matrix):
+        """
+        Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
+        sc_matrix (sc_matrix pointing dependent)
+        :param ra_icrs: Ra in ICRS in degree
+        :param dec_icrs: Dec in ICRS in degree
+        :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
+        :return: lon, lat in spi frame
+        """
+        # Source in icrs
+        vec_spi = polar2cart(az_spi, zen_spi)
+        vec_icrs = np.dot(np.linalg.inv(sc_matrix), vec_spi)
+        ra, dec = cart2polar(vec_icrs)
+        if ra < 0:
+            ra += 360
+        return ra, dec
+
+
 else:
     def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
 
@@ -82,6 +102,23 @@ else:
         if lon<0:
             lon += 360
         return lon, lat
+
+    def _transform_spi_to_icrs(az_spi, zen_spi, sc_matrix):
+        """
+        Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
+        sc_matrix (sc_matrix pointing dependent)
+        :param ra_icrs: Ra in ICRS in degree
+        :param dec_icrs: Dec in ICRS in degree
+        :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
+        :return: lon, lat in spi frame
+        """
+        # Source in icrs
+        vec_spi = polar2cart(az_spi, zen_spi)
+        vec_icrs = np.dot(np.linalg.inv(sc_matrix), vec_spi)
+        ra, dec = cart2polar(vec_icrs)
+        if ra < 0:
+            ra += 360
+        return ra, dec
 
 class SPIPointing(object):
 
@@ -128,7 +165,7 @@ class SPIPointing(object):
             spi_idx = f['GNRL-IROT-MOD'].data['INSTRUMENT'] == 'SPI'
 
             # extract the raw matrix
-            matrix_raw =  f['GNRL-IROT-MOD'].data['MATRIX'][spi_idx]
+            matrix_raw = f['GNRL-IROT-MOD'].data['MATRIX'][spi_idx]
 
             # now reshape it
 
@@ -175,14 +212,17 @@ class SPIPointing(object):
 
             # now convert the ra and dec to the proper frame
 
-            scx_ra, scx_dec = np.array([360, 0]) + cart2polar(spi_matrix[0])
-            scy_ra, scy_dec= cart2polar(spi_matrix[1])
+            #scx_ra, scx_dec = np.array([360, 0]) + cart2polar(spi_matrix[0])
+            scx_ra, scx_dec = cart2polar(spi_matrix[0])
+            scy_ra, scy_dec = cart2polar(spi_matrix[1])
             scz_ra, scz_dec = cart2polar(spi_matrix[2])
 
 
             
             self._sc_matrix[i, ...] = spi_matrix
-            self._sc_points.append(dict(scx_ra=scx_ra, scx_dec=scx_dec, scy_ra=scy_ra, scy_dec=scy_dec, scz_ra=scz_ra, scz_dec=scz_dec))
+            self._sc_points.append(dict(scx_ra=scx_ra, scx_dec=scx_dec,
+                                        scy_ra=scy_ra, scy_dec=scy_dec,
+                                        scz_ra=scz_ra, scz_dec=scz_dec))
                        
     @property
     def sc_matrix(self):

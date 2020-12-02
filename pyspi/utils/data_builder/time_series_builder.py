@@ -19,7 +19,7 @@ from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids, \
     ISDC_MJD_to_cxcsec, leapseconds
 from threeML.io.file_utils import sanitize_filename
 from threeML.utils.time_series.event_list import EventListWithDeadTime
-
+from threeML.utils.time_series.binned_spectrum_series import BinnedSpectrumSeries
 class SPISWFile(object):
 
     def __init__(self, config, det):
@@ -67,7 +67,7 @@ class SPISWFile(object):
             assert self._ebounds is not None, "Please give the bounds for the Ebins."
 
             # Construct final energy bins (make sure to make extra echans for the electronic noise energy range)
-            self._ebounds = construct_energy_bins(self._ebounds)
+            self._ebounds, _  = construct_energy_bins(self._ebounds)
         else:
             raise NotImplementedError('Unbinned analysis not implemented!')
 
@@ -148,7 +148,7 @@ class SPISWFile(object):
 
             if self._det in range(61,85):
                 dets_me3 = np.sort(hdu_oper[5].data['DETE'], axis=1)
-                i, j, k = tripple_names[self._det]
+                i, j, k = triple_names[self._det]
                 mask = np.logical_and(np.logical_and(dets_me3[:, 0] == i,
                                                      dets_me3[:, 1] == j),
                                       dets_me3[:, 2] == k)
@@ -305,6 +305,34 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
 
         return cls(
             f"IntegralSPIDet{spi_grb_setup.det}",
+            event_list,
+            response=None,
+            poly_order=poly_order,
+            unbinned=unbinned,
+            verbose=verbose,
+            restore_poly_fit=restore_background,
+            container_type=BinnedSpectrum
+        )
+
+    @classmethod
+    def from_spi_grb_sim(cls,
+                         sim_object,
+                         det,
+                         restore_background=None,
+                         poly_order=0,
+                         unbinned=False,
+                         verbose=True):
+
+        event_list = BinnedSpectrumSeries(
+            sim_object.get_binned_spectrum_set(det),
+            first_channel=0,
+            mission="Integral",
+            instrument=f"SPIDET{det}",
+            verbose=verbose,
+        )
+
+        return cls(
+            f"IntegralSPIDet{det}",
             event_list,
             response=None,
             poly_order=poly_order,
