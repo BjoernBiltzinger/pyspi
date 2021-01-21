@@ -47,7 +47,7 @@ class SPILikeGRBPhotopeak(SpectrumLike):
         self._rsp = rsp_object
 
 
-    def _evaluate_model(self, true_fluxes=None):
+    def _evaluate_model(self, precalc_fluxes=None):
         """
         Evaluate model by multiplying the average effective area of all Ebins with
         the flux in the corresponding incoming Ebin.
@@ -58,14 +58,14 @@ class SPILikeGRBPhotopeak(SpectrumLike):
         :param true_fluxes: Flux of incoming spectrum; if None than the flux is computed with the current
         parameters
         """
-        if true_fluxes is None:
-            true_fluxes = self._integral_flux(self._observed_spectrum.bin_stack[:,0],
+        if precalc_fluxes is None:
+            precalc_fluxes = self._integral_flux(self._observed_spectrum.bin_stack[:,0],
                                               self._observed_spectrum.bin_stack[:,1])
 
         if np.any(self._psd_mask):
             self._psd_eff_area[self._psd_mask] = self._like_model.psd_eff_spi.value
 
-        return self._psd_eff_area*self._rsp.effective_area*true_fluxes
+        return self._psd_eff_area*self._rsp.effective_area*precalc_fluxes
 
     def set_model(self, likelihood_model):
         """
@@ -126,7 +126,7 @@ class SPILikeGRBPhotopeak(SpectrumLike):
                 assert "psd_eff_spi" in self._like_model.parameters.keys(), "Need the psd_spi_eff parameter in the model!"
                 self._psd_eff_area[self._rsp._psd_bins] = self._like_model.psd_eff_spi.value*np.ones(np.sum(self._rsp._psd_bins))
 
-    def get_model(self, true_fluxes=None):
+    def get_model(self, precalc_fluxes=None):
 
         if self._free_position:
 
@@ -135,7 +135,7 @@ class SPILikeGRBPhotopeak(SpectrumLike):
 
             self._rsp.set_location(ra, dec) # For photopeak not classical "response" matrix but photopeak response vector
 
-        return super(SPILikeGRBPhotopeak, self).get_model(true_fluxes=true_fluxes)
+        return super(SPILikeGRBPhotopeak, self).get_model(precalc_fluxes=precalc_fluxes)
 
 
     @classmethod
