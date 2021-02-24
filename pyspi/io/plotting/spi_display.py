@@ -297,6 +297,7 @@ class SPI(object):
 
         ax.set_yticks([])
         ax.set_xticks([])
+        return fig
 
     def _loadtxt2d(self, intext):
         try:
