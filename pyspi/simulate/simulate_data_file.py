@@ -2,7 +2,7 @@ from pyspi.utils.livedets import get_live_dets
 from pyspi.utils.response.spi_pointing import _construct_sc_matrix, \
     _transform_spi_to_icrs, SPIPointing
 from pyspi.utils.response.spi_response import ResponsePhotopeak, \
-    multi_response_irf_read_objects
+    multi_response_irf_read_objects, ResponseIRFReadRMFNew, ResponseRMFNew
 from pyspi.utils.detector_ids import double_names, triple_names
 from pyspi.utils.function_utils import ISDC_MJD_to_cxcsec, \
     construct_energy_bins, find_needed_ids
@@ -20,7 +20,8 @@ from threeML.utils.time_interval import TimeIntervalSet
 class SimulateGRBDataFile(object):
 
     def __init__(self, model, time_of_GRB, ebounds,
-                 norm_function=None, az=0, zen=0, psd_eff=0.86):
+                 norm_function=None, az=0, zen=0, psd_eff=0.86,
+                 rmf=True, seed=None):
         """
         Init simulation object
         :param model: Astromodel with spectral form at maximum
@@ -28,7 +29,10 @@ class SimulateGRBDataFile(object):
         :param time_of_GRB: start time of GRB - Needed for correct response version
         :param az: Azimuth pos of GRB in sat. frame in deg
         :param zen: Zenith pos of GRB in sat. frame in deg
+        :param responses: List with response object per det
         """
+        if seed is not None:
+            np.random.seed(seed)
         if norm_function is None:
             def norm_function_default(t):
                 tpeak = 10
@@ -94,14 +98,35 @@ class SimulateGRBDataFile(object):
         max_flux = model.get_point_source_fluxes(0, self._ebounds)
         e1, e2 = self._ebounds[:-1], self._ebounds[1:]
         t1, t2 = self._time_bin_bounds[:-1], self._time_bin_bounds[1:]
-        for d in self._live_dets:
-            response_irf_read_object = multi_response_irf_read_objects([self._time_of_GRB],
-                                                                       d,
-                                                                       drm="Photopeak")
 
-            rsp = ResponsePhotopeak(self._ebounds, response_irf_read_object[0],
-                                    self._sc_matrix, det=d)
-            
+        time = Time(self._time_of_GRB)
+        if time < Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+            version = 0
+
+        elif time < Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+            version = 1
+
+        elif time < Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+            version = 2
+
+        elif time < Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+            version = 3
+
+        else:
+            version = 4
+
+        rsp_base_object = ResponseIRFReadRMFNew(version)
+        for d in self._live_dets:
+            #response_irf_read_object = multi_response_irf_read_objects([self._time_of_GRB],
+                                                                       #d,
+                                                                       #drm="Photopeak")
+            if rmf:
+                rsp = ResponseRMFNew(self._ebounds, rsp_base_object,
+                                        self._sc_matrix, det=d)
+            else:
+                rsp = ResponsePhotopeak(self._ebounds, rsp_base_object,
+                                        self._sc_matrix, det=d)
+
             rsp.set_location(self._ra, self._dec)
 
             diffcountrates = norm_function(self._time_bin_bounds)*\
@@ -115,7 +140,10 @@ class SimulateGRBDataFile(object):
             for i in range(len(self._time_bin_bounds)-1):
                 res2[:,i] = np.trapz(res[:,i:i+2], self._time_bin_bounds[i:i+2])
 
-            counts = np.random.poisson(self._eff_area_corr*rsp.effective_area*res2.T)
+            if rmf:
+                counts = np.random.poisson(self._eff_area_corr*np.dot(res2.T, rsp._transpose_matrix))
+            else:
+                counts = np.random.poisson(self._eff_area_corr*rsp.effective_area*res2.T)
             if d<20:
                 # Make check for this electronic noise range... Only
                 # Use psd background counts in this range...
