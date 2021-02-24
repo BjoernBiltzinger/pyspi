@@ -263,6 +263,60 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         )
 
     @classmethod
+    def from_spi_grb_config_rmf(cls,
+        config,
+        det,
+        restore_background=None,
+        poly_order=0,
+        unbinned=True,
+        verbose=True,
+        response=None
+    ):
+        """
+        Class method to build the time_series_builder from a pyspi grb conifg file
+        :param config: Config yml filename, Config object or dict
+        :param det: Which det?
+        :param restore_background: File to restore bkg
+        :param poly_order: Which poly_order? -1 gives automatic determination
+        :param unbinned:
+        :param verbose:
+        """
+
+        spi_grb_setup = SPISWFile(config, det)
+
+
+        # TODO later with deadtime - at the moment dummy array with 0 dead time for all events
+        event_list = EventListWithDeadTime(
+            arrival_times=spi_grb_setup.times,
+            measurement=spi_grb_setup.energy_bins,
+            n_channels=spi_grb_setup._n_channels,
+            start_time=spi_grb_setup._time_start,
+            stop_time=spi_grb_setup._time_stop,
+            dead_time=np.zeros_like(spi_grb_setup.times),
+            first_channel=0,
+            instrument=spi_grb_setup._det_name,
+            mission=spi_grb_setup._mission,
+            verbose=verbose,
+            edges=spi_grb_setup.ebounds,
+        )
+
+        # This build a time_series_object for a photopeak only response with no Dispersion
+        # For a real response with dispersion one need to use the BinnedSpectrumWithDispersion
+        # Container and input a threeML response object.
+
+        return cls(
+            f"IntegralSPIDet{spi_grb_setup.det}",
+            event_list,
+            poly_order=poly_order,
+            unbinned=unbinned,
+            verbose=verbose,
+            restore_poly_fit=restore_background,
+            response=response,
+            container_type=BinnedSpectrumWithDispersion
+        )
+
+        
+    @classmethod
     def from_spi_grb_config(cls,
         config,
         det,
@@ -340,4 +394,33 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
             verbose=verbose,
             restore_poly_fit=restore_background,
             container_type=BinnedSpectrum
+        )
+
+    @classmethod
+    def from_spi_grb_sim_rmf(cls,
+                         sim_object,
+                         det,
+                         restore_background=None,
+                         poly_order=0,
+                         unbinned=False,
+                             verbose=True,
+                             response=None):
+
+        event_list = BinnedSpectrumSeries(
+            sim_object.get_binned_spectrum_set(det),
+            first_channel=0,
+            mission="Integral",
+            instrument=f"SPIDET{det}",
+            verbose=verbose,
+        )
+
+        return cls(
+            f"IntegralSPIDet{det}",
+            event_list,
+            poly_order=poly_order,
+            unbinned=unbinned,
+            verbose=verbose,
+            restore_poly_fit=restore_background,
+            response=response,
+            container_type=BinnedSpectrumWithDispersion
         )
