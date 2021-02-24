@@ -126,6 +126,72 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
         response_irf_read_times.append(responses[version])
     return response_irf_read_times
 
+class ResponseIRFReadRMFNew(object):
+    def __init__(self, version=None):
+        """
+        Object that holds the IRF's. This will be shared among all sw that use the same IRF version.
+        This is done to save memory as one ResponseIRFRead object needs about 1 GB of RAM...
+        :param version: Version of the IRF (from 0 to 4 or None)
+        :return:
+        """
+        if version==0:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
+            print('Using the irfs that are valid between Start'\
+                  ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+
+        elif version==1:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
+            print('Using the irfs that are valid between 03/07/06 06:00:00'\
+                  ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+
+        elif version==2:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
+            print('Using the irfs that are valid between 04/07/17 08:20:06'\
+                  ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+
+        elif version==3:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
+            print('Using the irfs that are valid between 09/02/19 09:59:57'\
+                  ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+
+        else:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            print('Using the irfs that are valid between 10/05/27 12:45:00'\
+                  ' and present (YY/MM/DD HH:MM:SS)')
+
+        irf_database = h5py.File(irf_file, 'r')
+
+        self._energies_database = irf_database['energies'][()]
+
+        self._ebounds = self._energies_database
+        self._ene_min = self._energies_database[:-1]
+        self._ene_max = self._energies_database[1:]
+
+        irf_data = irf_database['irfs']
+
+        self._irfs = irf_data[()]
+
+        self._irfs_photopeak = self._irfs[:,:,:,:,0]
+        self._irfs_nonphoto_1 = self._irfs[:,:,:,:,1]
+        self._irfs_nonphoto_2 = self._irfs[:,:,:,:,2]
+
+        del self._irfs
+
+        self._irf_xmin = irf_data.attrs['irf_xmin']
+        self._irf_ymin = irf_data.attrs['irf_ymin']
+        self._irf_xbin = irf_data.attrs['irf_xbin']
+        self._irf_ybin = irf_data.attrs['irf_ybin']
+        self._irf_nx = irf_data.attrs['nx']
+        self._irf_ny = irf_data.attrs['ny']
+
+        irf_database.close()
+
+        self._n_dets = self._irfs_photopeak.shape[1]
+
+        self._ebounds_rmf_2_base, self._rmf_2_base = load_rmf_non_ph_1()
+        self._ebounds_rmf_3_base, self._rmf_3_base = load_rmf_non_ph_2()
+
+
 class ResponseIRFReadRMF(object):
     def __init__(self, detector, version=None):
         """
@@ -250,7 +316,67 @@ class ResponseIRFReadPhotopeak(object):
         irf_database.close()
 
         self._n_dets = self._irfs_photopeak.shape[1]
-        
+
+class ResponseIRFReadPhotopeakNew(object):
+    def __init__(self, version=None):
+        """
+        Object that holds the IRF's. This will be shared among all sw that use the same IRF version.
+        This is done to save memory as one ResponseIRFRead object needs about 1 GB of RAM...
+        :param version: Version of the IRF (from 0 to 4 or None)
+        :return:
+        """
+        if version == 0:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_0.hdf5')
+            #print('Using the irfs that are valid between Start'\
+            #      ' and 03/07/06 06:00:00 (YY/MM/DD HH:MM:SS)')
+
+        elif version == 1:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_1.hdf5')
+            #print('Using the irfs that are valid between 03/07/06 06:00:00'\
+            #      ' and 04/07/17 08:20:06 (YY/MM/DD HH:MM:SS)')
+
+        elif version == 2:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_2.hdf5')
+            #print('Using the irfs that are valid between 04/07/17 08:20:06'\
+            #      ' and 09/02/19 09:59:57 (YY/MM/DD HH:MM:SS)')
+
+        elif version == 3:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_3.hdf5')
+            #print('Using the irfs that are valid between 09/02/19 09:59:57'\
+            #      ' and 10/05/27 12:45:00 (YY/MM/DD HH:MM:SS)')
+
+        else:
+            irf_file = get_path_of_data_file('spi_three_irfs_database_4.hdf5')
+            #print('Using the irfs that are valid between 10/05/27 12:45:00'\
+            #      ' and present (YY/MM/DD HH:MM:SS)')
+
+        irf_database = h5py.File(irf_file, 'r')
+
+        self._energies_database = irf_database['energies'][()]
+
+        self._ebounds = self._energies_database
+        self._ene_min = self._energies_database[:-1]
+        self._ene_max = self._energies_database[1:]
+
+        irf_data = irf_database['irfs']
+
+        #self._irfs = irf_data[()]
+        #print(detector)
+        self._irfs_photopeak = irf_data[:, :, :, :, 0]
+
+        #del self._irfs
+
+        self._irf_xmin = irf_data.attrs['irf_xmin']
+        self._irf_ymin = irf_data.attrs['irf_ymin']
+        self._irf_xbin = irf_data.attrs['irf_xbin']
+        self._irf_ybin = irf_data.attrs['irf_ybin']
+        self._irf_nx = irf_data.attrs['nx']
+        self._irf_ny = irf_data.attrs['ny']
+
+        irf_database.close()
+
+        self._n_dets = self._irfs_photopeak.shape[1]
+
 
         
 class Response(object):
@@ -559,7 +685,7 @@ class ResponseRMFNew(Response):
         :param response_irf_read_object: Object that holds the read in irf values
         :return:
         """
-        assert isinstance(response_irf_read_object, ResponseIRFReadRMF)
+        assert isinstance(response_irf_read_object, ResponseIRFReadRMFNew)
 
         idx = np.array([], dtype=int)
         for el, eh in zip(ebounds[:-1], ebounds[1:]):
@@ -591,7 +717,7 @@ class ResponseRMFNew(Response):
 
 
     @classmethod
-    def from_config(cls, config, det):
+    def from_config(cls, config, det, rsp_read_obj):
         """
         Construct the Response object from an given config file.
         """
@@ -651,7 +777,7 @@ class ResponseRMFNew(Response):
             version = 4
 
         # Load correct base irf response read object
-        rsp_read_obj = ResponseIRFReadRMF(det, version)
+        #rsp_read_obj = ResponseIRFReadRMFNew(version)
 
         # Construct sc_matrix of this sw
         pointing_id = find_needed_ids(time)
@@ -708,12 +834,12 @@ class ResponseRMFNew(Response):
 
         ph[:, 0] = interph[:-1]
         ph[:, 1] = interph[1:]
-        nonph1[:, 0] = inter1[:-1]
-        nonph1[:, 1] = inter1[1:]
-        nonph2[:, 0] = inter2[:-1]
-        nonph2[:, 1] = inter2[1:]
+        #nonph1[:, 0] = inter1[:-1]
+        #nonph1[:, 1] = inter1[1:]
+        #nonph2[:, 0] = inter2[:-1]
+        #nonph2[:, 1] = inter2[1:]
 
-        self._integrate_ph = trapz(ph, ebins)/(self._ene_max-self._ene_min)
+        integrate_ph = trapz(ph, ebins)/(self._ene_max-self._ene_min)
         #self._integrate_nonph1 = trapz(nonph1, ebins)#/(self._ene_max-self._ene_min) cancels with factor below
         #self._integrate_nonph2 = trapz(nonph2, ebins)#/(self._ene_max-self._ene_min)
 
@@ -725,7 +851,7 @@ class ResponseRMFNew(Response):
 
         # Add photopeak
         for i in range(len(self._transpose_matrix)):
-            self._transpose_matrix[i,i] += self._integrate_ph[i]
+            self._transpose_matrix[i,i] += integrate_ph[i]
 
         self._matrix = self._transpose_matrix.T
 
@@ -747,13 +873,13 @@ class ResponseRMFNew(Response):
         # If outside of the response pattern set response to zero
         try:
             # select these points on the grid and weight them together
-            self._weighted_irf_ph = self._irf_ob._irfs_photopeak[..., xx, yy].dot(wgt)
-            self._weighted_irf_nonph_1 = self._irf_ob._irfs_nonphoto_1[...,xx,yy].dot(wgt)
-            self._weighted_irf_nonph_2 = self._irf_ob._irfs_nonphoto_2[...,xx,yy].dot(wgt)
+            self._weighted_irf_ph = self._irf_ob._irfs_photopeak[:,self._det, xx, yy].dot(wgt)
+            self._weighted_irf_nonph_1 = self._irf_ob._irfs_nonphoto_1[:,self._det,xx,yy].dot(wgt)
+            self._weighted_irf_nonph_2 = self._irf_ob._irfs_nonphoto_2[:,self._det,xx,yy].dot(wgt)
         except IndexError:
-            self._weighted_irf_ph = np.zeros_like(self._irf_ob._irfs_photopeak[...,20,20])
-            self._weighted_irf_nonph_1 = np.zeros_like(self._irf_ob._irfs_nonphoto_1[...,20,20])
-            self._weighted_irf_nonph_2 = np.zeros_like(self._irf_ob._irfs_nonphoto_2[...,20,20])
+            self._weighted_irf_ph = np.zeros_like(self._irf_ob._irfs_photopeak[:,self._det,20,20])
+            self._weighted_irf_nonph_1 = np.zeros_like(self._irf_ob._irfs_nonphoto_1[:,self._det,20,20])
+            self._weighted_irf_nonph_2 = np.zeros_like(self._irf_ob._irfs_nonphoto_2[:,self._det,20,20])
 
     @property
     def matrix(self):
@@ -1018,7 +1144,7 @@ class ResponsePhotopeak(Response):
         super(ResponsePhotopeak, self).__init__(ebounds, response_irf_read_object, sc_matrix, det)
 
     @classmethod
-    def from_config(cls, config, det):
+    def from_config(cls, config, det, rsp_read_obj):
         """
         Construct the Response object from an given config file.
         """
@@ -1078,7 +1204,7 @@ class ResponsePhotopeak(Response):
             version = 4
 
         # Load correct base irf response read object
-        rsp_read_obj = ResponseIRFReadPhotopeak(det, version)
+        #rsp_read_obj = ResponseIRFReadPhotopeak(det, version)
 
         # Construct sc_matrix of this sw
         pointing_id = find_needed_ids(time)
@@ -1148,10 +1274,10 @@ class ResponsePhotopeak(Response):
         # If outside of the response pattern set response to zero
         try:
             # select these points on the grid and weight them together
-            self._weighted_irf_ph = self._irf_ob._irfs_photopeak[..., xx, yy].dot(wgt)
+            self._weighted_irf_ph = self._irf_ob._irfs_photopeak[:,self._det, xx, yy].dot(wgt)
 
         except IndexError:
-            self._weighted_irf_ph = np.zeros_like(self._irf_ob._irfs_photopeak[...,20,20])
+            self._weighted_irf_ph = np.zeros_like(self._irf_ob._irfs_photopeak[:,self._det,20,20])
 
     @property
     def effective_area(self):
