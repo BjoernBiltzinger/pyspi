@@ -624,7 +624,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
                                   edges=spi_grb_setup1.ebounds,
         )
 
-        tsb = cls(f"{pointing_id}_{det}",
+        tsb = cls(f"spi_{pointing_id}_{det}",
                   e,
                   verbose=True,
                   response=response,
