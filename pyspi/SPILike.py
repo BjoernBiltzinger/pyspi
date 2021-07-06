@@ -1,11 +1,12 @@
+import collections
+
+import numpy as np
+from astromodels import Parameter
+from astromodels.functions.priors import Cosine_Prior, Uniform_prior
 from threeML import PluginPrototype
 from threeML.io.file_utils import sanitize_filename
-from astromodels import Parameter
-import collections
 from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
-from astromodels.functions.priors import Uniform_prior, Cosine_Prior
 from threeML.plugins.SpectrumLike import SpectrumLike
-import numpy as np
 
 from pyspi.utils.response.spi_response import SPIDRM
 
