@@ -48,8 +48,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pySPI'
-copyright = u'2018, Thomas Siegert, J. Michael Burgess'
-author = u'Thomas Siegert, J. Michael Burgess'
+copyright = u'2021, Bjoern Biltzinger, Thomas Siegert, J. Michael Burgess'
+author = u'Bjoern Biltzinger, Thomas Siegert, J. Michael Burgess'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

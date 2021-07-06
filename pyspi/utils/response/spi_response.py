@@ -678,46 +678,54 @@ class Response(object):
 
 class ResponseRMFNew(Response):
 
-    def __init__(self, ebounds=None, response_irf_read_object=None, sc_matrix=None, det=None):
+    def __init__(self,
+                 ebounds=None,
+                 response_irf_read_object=None,
+                 sc_matrix=None, det=None,
+                 fixed_rsp_matrix=None):
         """
         Init Response object with total RMF used
         :param ebound: Ebounds of Ebins
         :param response_irf_read_object: Object that holds the read in irf values
         :return:
         """
-        assert isinstance(response_irf_read_object, ResponseIRFReadRMFNew)
-
-        idx = np.array([], dtype=int)
-        for el, eh in zip(ebounds[:-1], ebounds[1:]):
-
-            assert (el,eh) in zip(response_irf_read_object._ebounds_rmf_2_base[:-1],
-                                  response_irf_read_object._ebounds_rmf_2_base[1:]), \
-                                  "Only works for the base ebounds like in the"\
-                                  f" original rmf files. {el}-{eh} is not part of this."
-
-            idx = np.append(idx, np.argwhere(el==response_irf_read_object._ebounds_rmf_2_base)[0,0])
-        #idx = np.append(idx, idx[-1]+1)
-
         super(ResponseRMFNew, self).__init__(ebounds=ebounds,
-                                          response_irf_read_object=response_irf_read_object,
-                                          sc_matrix=sc_matrix,
-                                          det=det)
+                                             response_irf_read_object=response_irf_read_object,
+                                             sc_matrix=sc_matrix,
+                                             det=det)
+        if fixed_rsp_matrix is None:
+            assert isinstance(response_irf_read_object, ResponseIRFReadRMFNew)
 
-        self._mat1inter = interpolate.interp1d(self._irf_ob._energies_database,
-                                               self._irf_ob._rmf_2_base,
-                                               fill_value="extrapolate",
-                                               axis=0)(ebounds)[:,idx].T
+            idx = np.array([], dtype=int)
+            for el, eh in zip(ebounds[:-1], ebounds[1:]):
 
-        self._mat2inter = interpolate.interp1d(self._irf_ob._energies_database,
-                                               self._irf_ob._rmf_3_base,
-                                               fill_value="extrapolate",
-                                               axis=0)(ebounds)[:,idx].T
+                assert (el,eh) in zip(response_irf_read_object._ebounds_rmf_2_base[:-1],
+                                      response_irf_read_object._ebounds_rmf_2_base[1:]), \
+                                      "Only works for the base ebounds like in the"\
+                                      f" original rmf files. {el}-{eh} is not part of this."
+
+                idx = np.append(idx, np.argwhere(el==response_irf_read_object._ebounds_rmf_2_base)[0,0])
+            #idx = np.append(idx, idx[-1]+1)
+
+            self._mat1inter = interpolate.interp1d(self._irf_ob._energies_database,
+                                                   self._irf_ob._rmf_2_base,
+                                                   fill_value="extrapolate",
+                                                   axis=0)(ebounds)[:,idx].T
+
+            self._mat2inter = interpolate.interp1d(self._irf_ob._energies_database,
+                                                   self._irf_ob._rmf_3_base,
+                                                   fill_value="extrapolate",
+                                                   axis=0)(ebounds)[:,idx].T
+            self._given_rsp_mat = False
+        else:
+            self._given_rsp_mat = True
+            self._rsp_matrix = fixed_rsp_matrix
 
         self._monte_carlo_energies = self._ebounds
 
 
     @classmethod
-    def from_config(cls, config, det, rsp_read_obj):
+    def from_config(cls, config, det, rsp_read_obj, fixed_rsp_matrix=None):
         """
         Construct the Response object from an given config file.
         """
@@ -757,6 +765,7 @@ class ResponseRMFNew(Response):
             ebounds, _ = construct_energy_bins(ebounds)
         else:
             raise NotImplementedError('Unbinned analysis not implemented!')
+
         # Get time of GRB
         time_of_grb = configuration['Time_of_GRB_UTC']
         time = datetime.strptime(time_of_grb, '%y%m%d %H%M%S')
@@ -803,7 +812,43 @@ class ResponseRMFNew(Response):
             ebounds=ebounds,
             response_irf_read_object=rsp_read_obj,
             sc_matrix=sc_matrix,
-            det=det
+            det=det,
+            fixed_rsp_matrix=fixed_rsp_matrix
+        )
+
+    @classmethod
+    def from_pointing(cls,
+                      pointing_id,
+                      det,
+                      ebounds,
+                      rsp_read_obj,
+                      fixed_rsp_matrix=None):
+        """
+        Construct the Response object from an given config file.
+        """
+        try:
+            # Get the data from the afs server
+            get_files_afs(pointing_id)
+        except:
+            # Get the files from the iSDC data archive
+            print('AFS data access did not work. I will try the ISDC data archive.')
+            get_files_isdcarc(pointing_id)
+
+        geometry_file_path = os.path.join(get_path_of_external_data_dir(),
+                                          'pointing_data',
+                                          pointing_id,
+                                          'sc_orbit_param.fits.gz')
+
+        pointing_object = SPIPointing(geometry_file_path)
+        sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
+
+        # Init Response class
+        return cls(
+            ebounds=ebounds,
+            response_irf_read_object=rsp_read_obj,
+            sc_matrix=sc_matrix,
+            det=det,
+            fixed_rsp_matrix=fixed_rsp_matrix
         )
 
     def _recalculate_response(self):
@@ -813,47 +858,49 @@ class ResponseRMFNew(Response):
         :returns: Full DRM
         """
         #n_energy_bins = len(self._ebounds) - 1
+        if self._given_rsp_mat:
+            self._matrix = self._rsp_matrix
+        else:
+            ebins = np.empty((len(self._ene_min), 2))
+            ph = np.empty_like(ebins)
+            nonph1 = np.empty_like(ebins)
+            nonph2 = np.empty_like(ebins)
 
-        ebins = np.empty((len(self._ene_min), 2))
-        ph = np.empty_like(ebins)
-        nonph1 = np.empty_like(ebins)
-        nonph2 = np.empty_like(ebins)
+            ebins[:, 0] = self._ene_min
+            ebins[:, 1] = self._ene_max
 
-        ebins[:, 0] = self._ene_min
-        ebins[:, 1] = self._ene_max
+            interph = log_interp1d(self._ebounds,
+                                   self._irf_ob._energies_database,
+                                   self._weighted_irf_ph)
+            inter1 = log_interp1d(self._ebounds,
+                                  self._irf_ob._energies_database,
+                                  self._weighted_irf_nonph_1)
+            inter2 = log_interp1d(self._ebounds,
+                                  self._irf_ob._energies_database,
+                                  self._weighted_irf_nonph_2)
 
-        interph = log_interp1d(self._ebounds,
-                             self._irf_ob._energies_database,
-                             self._weighted_irf_ph)
-        inter1 = log_interp1d(self._ebounds,
-                             self._irf_ob._energies_database,
-                             self._weighted_irf_nonph_1)
-        inter2 = log_interp1d(self._ebounds,
-                             self._irf_ob._energies_database,
-                             self._weighted_irf_nonph_2)
+            ph[:, 0] = interph[:-1]
+            ph[:, 1] = interph[1:]
+            #nonph1[:, 0] = inter1[:-1]
+            #nonph1[:, 1] = inter1[1:]
+            #nonph2[:, 0] = inter2[:-1]
+            #nonph2[:, 1] = inter2[1:]
 
-        ph[:, 0] = interph[:-1]
-        ph[:, 1] = interph[1:]
-        #nonph1[:, 0] = inter1[:-1]
-        #nonph1[:, 1] = inter1[1:]
-        #nonph2[:, 0] = inter2[:-1]
-        #nonph2[:, 1] = inter2[1:]
+            integrate_ph = trapz(ph, ebins)/(self._ene_max-self._ene_min)
+            #self._integrate_nonph1 = trapz(nonph1, ebins)#/(self._ene_max-self._ene_min) cancels with factor below
+            #self._integrate_nonph2 = trapz(nonph2, ebins)#/(self._ene_max-self._ene_min)
 
-        integrate_ph = trapz(ph, ebins)/(self._ene_max-self._ene_min)
-        #self._integrate_nonph1 = trapz(nonph1, ebins)#/(self._ene_max-self._ene_min) cancels with factor below
-        #self._integrate_nonph2 = trapz(nonph2, ebins)#/(self._ene_max-self._ene_min)
+            mat1 = (inter1*self._mat1inter).T
+            mat2 = (inter2*self._mat2inter).T
 
-        mat1 = (inter1*self._mat1inter).T
-        mat2 = (inter2*self._mat2inter).T
+            # Trapz integrate the non-psd matrix
+            self._transpose_matrix = (mat1[1:]+mat2[1:]+mat1[:-1]+mat2[:-1])/2.
 
-        # Trapz integrate the non-psd matrix
-        self._transpose_matrix = (mat1[1:]+mat2[1:]+mat1[:-1]+mat2[:-1])/2.
+            # Add photopeak
+            for i in range(len(self._transpose_matrix)):
+                self._transpose_matrix[i,i] += integrate_ph[i]
 
-        # Add photopeak
-        for i in range(len(self._transpose_matrix)):
-            self._transpose_matrix[i,i] += integrate_ph[i]
-
-        self._matrix = self._transpose_matrix.T
+            self._matrix = self._transpose_matrix.T
 
     def _weighted_irfs(self, azimuth, zenith):
         """
@@ -1233,6 +1280,39 @@ class ResponsePhotopeak(Response):
             det=det
         )
 
+    @classmethod
+    def from_pointing(cls,
+                      pointing_id,
+                      det,
+                      ebounds,
+                      rsp_read_obj):
+        """
+        Construct the Response object from an given config file.
+        """
+        try:
+            # Get the data from the afs server
+            get_files_afs(pointing_id)
+        except:
+            # Get the files from the iSDC data archive
+            print('AFS data access did not work. I will try the ISDC data archive.')
+            get_files_isdcarc(pointing_id)
+
+        geometry_file_path = os.path.join(get_path_of_external_data_dir(),
+                                          'pointing_data',
+                                          pointing_id,
+                                          'sc_orbit_param.fits.gz')
+
+        pointing_object = SPIPointing(geometry_file_path)
+        sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
+
+        # Init Response class
+        return cls(
+            ebounds=ebounds,
+            response_irf_read_object=rsp_read_obj,
+            sc_matrix=sc_matrix,
+            det=det,
+        )
+
     def _recalculate_response(self):
         """
         Get response for a given det
@@ -1269,13 +1349,14 @@ class ResponsePhotopeak(Response):
 
         # compute the weights between the grids
         wgt, xx, yy = self._get_irf_weights(x, y)
-
+        print(xx)
+        print(yy)
 
         # If outside of the response pattern set response to zero
         try:
             # select these points on the grid and weight them together
             self._weighted_irf_ph = self._irf_ob._irfs_photopeak[:,self._det, xx, yy].dot(wgt)
-
+            print(self._weighted_irf_ph)
         except IndexError:
             self._weighted_irf_ph = np.zeros_like(self._irf_ob._irfs_photopeak[:,self._det,20,20])
 

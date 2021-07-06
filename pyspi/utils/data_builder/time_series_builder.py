@@ -21,6 +21,177 @@ from threeML.io.file_utils import sanitize_filename
 from threeML.utils.time_series.event_list import EventListWithDeadTime
 from threeML.utils.time_series.binned_spectrum_series import BinnedSpectrumSeries
 class SPISWFile(object):
+    def __init__(self, det, pointing_id, ebounds):
+        """
+        Class to read in all the data needed from a SCW file for a given config file
+        :param config: Config yml filename, Config object or dict
+        :param det: For which detector?
+        """
+        # General nameing
+        self._det_name = f"Detector {det}"
+        self._mission = "Integral/SPI"
+        self._ebounds = ebounds
+        # How many echans?
+        self._n_channels = len(self._ebounds)-1
+
+        # Check that det is a valid number
+        self._det = det
+        if self._det != "singles":
+            assert self._det in np.arange(85), f"{self._det} is not a valid detector. Please only use detector ids between 0 and 84."
+
+        # Find the SW ID of the data file we need for this time
+        self._pointing_id = pointing_id
+
+        # Get the data, either from afs or from ISDC archive
+        try:
+            # Get the data from the afs server
+            get_files_afs(self._pointing_id)
+        except:
+            # Get the files from the iSDC data archive
+            print('AFS data access did not work. I will try the ISDC data archive.')
+            get_files_isdcarc(self._pointing_id)
+
+        # Read in all we need
+        self._read_in_pointing_data(self._pointing_id)
+
+    def _read_in_pointing_data(self, pointing_id):
+        """
+        Gets all needed information from the data file for the given pointing_id
+        :param pointing_id: pointing_id for which we want the data
+        :return:
+        """
+
+        with fits.open(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'spi_oper.fits.gz')) as hdu_oper:
+
+            # Get time of first and last event (t0 at grb time)
+            time_sgl = ISDC_MJD_to_cxcsec(hdu_oper[1].data['time'])
+            time_psd = ISDC_MJD_to_cxcsec(hdu_oper[2].data['time'])
+            time_me2 = ISDC_MJD_to_cxcsec(hdu_oper[4].data['time'])
+            time_me3 = ISDC_MJD_to_cxcsec(hdu_oper[5].data['time'])
+
+            self._time_start = np.min(np.concatenate([time_sgl, time_psd, time_me2, time_me3]))
+            self._time_stop = np.max(np.concatenate([time_sgl, time_psd, time_me2, time_me3]))
+
+            # Read in the data for the wanted detector
+            # For single events we have to take both the non_psd (often called sgl here...)
+            # and the psd events. Both added together give the real single events.
+            if self._det in range(19) or self._det=="singles":
+                dets_sgl = hdu_oper[1].data['DETE']
+                if self._det != "singles":
+                    time_sgl = time_sgl[dets_sgl == self._det]
+                    energy_sgl = hdu_oper[1].data['energy'][dets_sgl == self._det]
+                else:
+                    energy_sgl = hdu_oper[1].data['energy']
+                #if "psd" in self._event_types:
+                #if self._use_psd:
+                dets_psd = hdu_oper[2].data['DETE']
+                if self._det != "singles":
+                    time_psd = time_psd[dets_psd == self._det]
+                    energy_psd = hdu_oper[2].data['energy'][dets_psd == self._det]
+                else:
+                    energy_psd = hdu_oper[2].data['energy']
+
+            if self._det in range(19, 61):
+                dets_me2 = np.sort(hdu_oper[4].data['DETE'], axis=1)
+                i, k = double_names[self._det]
+                mask = np.logical_and(dets_me2[:, 0] == i,
+                                      dets_me2[:, 1] == k)
+
+                time_me2 = time_me2[mask]
+                energy_me2 = np.sum(hdu_oper[4].data['energy'][mask], axis=1)
+
+            if self._det in range(61,85):
+                dets_me3 = np.sort(hdu_oper[5].data['DETE'], axis=1)
+                i, j, k = triple_names[self._det]
+                mask = np.logical_and(np.logical_and(dets_me3[:, 0] == i,
+                                                     dets_me3[:, 1] == j),
+                                      dets_me3[:, 2] == k)
+
+                time_me3 = time_me3[mask]
+                energy_me3 = np.sum(hdu_oper[5].data['energy'][mask], axis=1)
+
+        if self._det in range(19) or self._det=="singles":
+
+            self._times = time_psd
+            self._energies = energy_psd
+
+            # Don't add the non-psd single events in the electronic noise range
+            # We will account for this later by a extra parameter determining
+            # the fraction of psd events in this energy range
+
+
+            ## turn this of for the moment########
+
+            #self._times = np.append(self._times, time_sgl[~np.logical_and(energy_sgl > 1400,
+            #                                                              energy_sgl < 1700)])
+            #self._energies = np.append(self._energies, energy_sgl[~np.logical_and(energy_sgl > 1400,
+            #                                                                      energy_sgl < 1700)])
+            ################
+            self._times = np.append(self._times, time_sgl)
+            self._energies = np.append(self._energies, energy_sgl)
+            # sort in time
+            sort_array = np.argsort(self._times)
+            self._times = self._times[sort_array]
+            self._energies = self._energies[sort_array]
+
+        if self._det in range(19, 61):
+
+            self._times = time_me2
+            self._energies = energy_me2
+
+        if self._det in range(61, 85):
+
+            self._times = time_me3
+            self._energies = energy_me3
+
+        # Check if there are any counts
+        if np.sum(self._energies) == 0:
+
+            raise AssertionError(f"The detector {self._det} has zero counts and is therefore not active."\
+                                 "Please exclude this detector!")
+
+        # Bin this in the energy bins we have
+        self._energy_bins = np.ones_like(self._energies, dtype=int)*-1
+        # Loop over ebins
+        for i, (emin, emax) in enumerate(zip(self._ebounds[:-1], self._ebounds[1:])):
+            mask = np.logical_and(self._energies>emin, self._energies<emax)
+            self._energy_bins[mask] = np.ones_like(self._energy_bins[mask])*i
+
+        # Throw away all events that have energies outside of the ebounds that
+        # should be used
+        mask = self._energy_bins == -1
+        self._energy_bins = self._energy_bins[~mask]
+        self._times = self._times[~mask]
+        self._energies = self._energies[~mask]
+
+    @property
+    def geometry_file_path(self):
+        """
+        Path to the spacecraft geometry file
+        """
+        return os.path.join(get_path_of_external_data_dir(), 'pointing_data', self._pointing_id, 'sc_orbit_param.fits.gz')
+
+    @property
+    def times(self):
+        return self._times
+
+    @property
+    def energies(self):
+        return self._energies
+
+    @property
+    def energy_bins(self):
+        return self._energy_bins
+
+    @property
+    def ebounds(self):
+        return self._ebounds
+
+    @property
+    def det(self):
+        return self._det
+
+class SPISWFileGRB(object):
 
     def __init__(self, config, det):
         """
@@ -164,11 +335,17 @@ class SPISWFile(object):
             # Don't add the non-psd single events in the electronic noise range
             # We will account for this later by a extra parameter determining
             # the fraction of psd events in this energy range
+
+
+            ## turn this of for the moment########
+
             self._times = np.append(self._times, time_sgl[~np.logical_and(energy_sgl > 1400,
                                                                           energy_sgl < 1700)])
             self._energies = np.append(self._energies, energy_sgl[~np.logical_and(energy_sgl > 1400,
                                                                                   energy_sgl < 1700)])
-
+            ################
+            self._times = np.append(self._times, time_sgl)
+            self._energies = np.append(self._energies, energy_sgl)
             # sort in time
             sort_array = np.argsort(self._times)
             self._times = self._times[sort_array]
@@ -282,7 +459,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :param verbose:
         """
 
-        spi_grb_setup = SPISWFile(config, det)
+        spi_grb_setup = SPISWFileGRB(config, det)
 
 
         # TODO later with deadtime - at the moment dummy array with 0 dead time for all events
@@ -335,7 +512,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :param verbose:
         """
 
-        spi_grb_setup = SPISWFile(config, det)
+        spi_grb_setup = SPISWFileGRB(config, det)
 
 
         # TODO later with deadtime - at the moment dummy array with 0 dead time for all events
@@ -424,3 +601,35 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
             response=response,
             container_type=BinnedSpectrumWithDispersion
         )
+
+    @classmethod
+    def from_spi_constant_pointing(cls,
+                                   det,
+                                   ebounds,
+                                   pointing_id,
+                                   response
+    ):
+        spi_grb_setup1 = SPISWFile(det, pointing_id, ebounds)
+
+        e = EventListWithDeadTime(arrival_times=spi_grb_setup1.times,
+                                  measurement=spi_grb_setup1.energy_bins,
+                                  n_channels=spi_grb_setup1._n_channels,
+                                  start_time=spi_grb_setup1._time_start,
+                                  stop_time=spi_grb_setup1._time_stop,
+                                  dead_time=np.zeros_like(spi_grb_setup1.times),
+                                  first_channel=0,
+                                  instrument=spi_grb_setup1._det_name,
+                                  mission=spi_grb_setup1._mission,
+                                  verbose=False,
+                                  edges=spi_grb_setup1.ebounds,
+        )
+
+        tsb = cls(f"spi_{pointing_id}_{det}",
+                  e,
+                  verbose=True,
+                  response=response,
+                  container_type=BinnedSpectrumWithDispersion)
+
+        tsb.set_active_time_interval(f"{spi_grb_setup1.times[0]}-{spi_grb_setup1.times[-1]}")
+
+        return tsb
