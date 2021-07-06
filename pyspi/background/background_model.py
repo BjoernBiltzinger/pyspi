@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 from scipy.interpolate import interp1d
 from pyspi.utils.livedets import get_live_dets_pointing
+from pyspi.io.package_data import get_path_of_data_file
 #from scipy.special import erfc
 from math import erfc
 try:
@@ -220,7 +221,7 @@ class BackgroundModelPointingDet(object):
         """
 
         # Get the basis information from hdf5 file
-        with h5py.File('/home/bjorn/Documents/jupyter/pyspi_notebooks/background_database_new.h5', 'r') as fh5:
+        with h5py.File(get_path_of_data_file('background_database_new.h5'), 'r') as fh5:
             # The bkg model is split in several Ebins which are determined independetly.
             # Read in the boundaries of these Ebins
             self._energy_bounds = np.array(fh5['Ebounds'][()], dtype=np.float64)
@@ -236,7 +237,7 @@ class BackgroundModelPointingDet(object):
 
 
         # Read in all the line and continuum informations for all background model ebins
-        with h5py.File('/home/bjorn/Documents/jupyter/pyspi_notebooks/background_database_new.h5', 'r') as fh5:
+        with h5py.File(get_path_of_data_file('background_database_new.h5'), 'r') as fh5:
 
             self._cont = np.zeros((len(self._energy_bounds)-1, 2))
             all_lines = []
