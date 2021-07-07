@@ -54,7 +54,7 @@ if has_numba:
         
         lin_interp = np.interp(logxnew, logx, logy)
 
-        return 10**lin_interp
+        return 10.**lin_interp
     
 else:
     
