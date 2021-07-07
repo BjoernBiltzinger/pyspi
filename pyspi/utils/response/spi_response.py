@@ -415,20 +415,9 @@ class Response(object):
         :param zenith:
         :returns: 
         """
-        # np.pi/2 - zenith. TODO: Check if this is corect. Only a guess at the moment!
-        # zenith = np.pi/2-zenith
-        x = np.cos(azimuth)*np.cos(zenith)
-        y = np.sin(azimuth)*np.cos(zenith)
-        z = np.sin(zenith)
 
-        zenith_pointing = np.arccos(x)
-        azimuth_pointing = np.arctan2(z,y)
-        
-        x_pos = (zenith_pointing * np.cos(azimuth_pointing) - self._irf_ob._irf_xmin) / self._irf_ob._irf_xbin
-        y_pos = (zenith_pointing * np.sin(azimuth_pointing) - self._irf_ob._irf_ymin) / self._irf_ob._irf_ybin
-
-        return x_pos, y_pos
-
+        return _get_xy_pos(azimuth, zenith, self._irf_ob._irf_xmin, self._irf_ob._irf_ymin, self._irf_ob._irf_xbin, self._irf_ob._irf_ybin)
+    
     def set_location(self, ra, dec):
         """
         Calculate the weighted irfs for the three event types for a given position
@@ -1373,6 +1362,23 @@ class ResponsePhotopeak(Response):
             
     #    self._current_interpolated_irfs_ph = interpolated_irfs_ph
 
+@njit(fastmath=True)
+def _get_xy_pos(azimuth, zenith, xmin, ymin, xmin, ybin):
+
+    x = np.cos(azimuth)*np.cos(zenith)
+    y = np.sin(azimuth)*np.cos(zenith)
+    z = np.sin(zenith)
+
+    zenith_pointing = np.arccos(x)
+    azimuth_pointing = np.arctan2(z,y)
+        
+    x_pos = (zenith_pointing * np.cos(azimuth_pointing) - xmin) / xbin
+    y_pos = (zenith_pointing * np.sin(azimuth_pointing) - ymin) / ybin
+
+    return x_pos, y_pos
+
+
+    
 def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     
     left_low = [int(ix_left), int(iy_low)]
