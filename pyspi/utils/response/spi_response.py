@@ -10,7 +10,7 @@ from IPython.display import HTML
 from numba import float64, njit
 from threeML.io.file_utils import sanitize_filename
 
-from interpolation import eval_linear
+from interpolation import interp
 
 
 
@@ -50,12 +50,12 @@ def log_interp1d(x_new, x_old, y_old):
     # log of all
     logx = np.log10(x_old)
     
-    logxnew = np.log10(x_new).reshape((len(x_new),1))
+    logxnew = np.log10(x_new)
     
     # Avoid nan entries for yy=0 entries
     logy = np.log10(np.where(y_old <= 0, 1e-99, y_old))
 
-    lin_interp = eval_linear(x_old, y_old, logxnew)
+    lin_interp = interp(logx, logy, logxnew)
     #lin_interp = np.interp(logxnew, logx, logy)
 
     return np.power(10., lin_interp)
