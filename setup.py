@@ -22,6 +22,7 @@ REQUIRED = [
     'ipython',
     'astropy',
     'scipy',
+    'configya'
     ]
 
 # What packages are optional?

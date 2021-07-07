@@ -112,6 +112,13 @@ class SPILike(DispersionSpectrumLike):
                 self._psd_eff_area[self._rsp._psd_bins] = self._like_model.psd_eff_spi.value*np.ones(np.sum(self._rsp._psd_bins))
         """
 
+    def _evaluate_model(self, precalc_fluxes=None):
+
+        source = super(SPILike, self)._evaluate_model(precalc_fluxes=precalc_fluxes)
+        self._update_bkg_array()
+        bkg = self._bkg_array*self._bkg_base_array
+        return source+bkg
+
     def get_model(self, precalc_fluxes=None):
 
         if self._free_position:
@@ -121,10 +128,11 @@ class SPILike(DispersionSpectrumLike):
 
             self._rsp.set_location(ra, dec) # For photopeak not classical "response" matrix but photopeak response vector
 
-        source = super(SPILike, self).get_model(precalc_fluxes=precalc_fluxes)
-        self._update_bkg_array()
-        bkg = self._bkg_array*self._bkg_base_array
-        return source+bkg
+        return super(SPILike, self).get_model(precalc_fluxes=precalc_fluxes)
+        #source = super(SPILike, self).get_model(precalc_fluxes=precalc_fluxes)
+        #self._update_bkg_array()
+        #bkg = self._bkg_array*self._bkg_base_array
+        #return source+bkg
 
     def _add_bkg_nuisance_parameter(self, bkg_parameters):
         self._bkg_parameters = bkg_parameters
