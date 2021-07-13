@@ -7,6 +7,9 @@ Welcome to pySPI's documentation!
 
 Test this a test
 =================================
+
+Here should be something
+
 .. toctree::
     :maxdepth: 5
     :hidden:
