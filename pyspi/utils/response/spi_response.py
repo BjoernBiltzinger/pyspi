@@ -1363,7 +1363,7 @@ class ResponsePhotopeak(Response):
     #    self._current_interpolated_irfs_ph = interpolated_irfs_ph
 
 @njit(fastmath=True)
-def _get_xy_pos(azimuth, zenith, xmin, ymin, xmin, ybin):
+def _get_xy_pos(azimuth, zenith, xmin, ymin, xbin, ybin):
 
     x = np.cos(azimuth)*np.cos(zenith)
     y = np.sin(azimuth)*np.cos(zenith)
