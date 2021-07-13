@@ -1,84 +1,65 @@
-import numpy as np
+import os
+from datetime import datetime
+
 import h5py
+import numpy as np
 import scipy.interpolate as interpolate
+import yaml
+from astropy.time.core import Time, TimeDelta
+from IPython.display import HTML
+from numba import float64, njit
+from threeML.io.file_utils import sanitize_filename
+
+from interpolation import interp
+
+
+
+from pyspi.config.config_builder import Config
+from pyspi.io.get_files import get_files_afs, get_files_isdcarc
+from pyspi.io.package_data import (get_path_of_data_file,
+                                   get_path_of_external_data_dir)
+from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids
+from pyspi.utils.response.spi_pointing import (SPIPointing,
+                                               _construct_sc_matrix,
+                                               _transform_icrs_to_spi)
 #import scipy.integrate as integrate
 from pyspi.utils.rmf_base import *
-from IPython.display import HTML
-from datetime import datetime
-from pyspi.io.package_data import get_path_of_external_data_dir, \
-    get_path_of_data_file
-from pyspi.io.get_files import get_files_afs, get_files_isdcarc
-from pyspi.config.config_builder import Config
-from threeML.io.file_utils import sanitize_filename
-from astropy.time.core import Time, TimeDelta
-from pyspi.io.package_data import get_path_of_data_file
-from pyspi.utils.response.spi_pointing import _construct_sc_matrix, \
-    _transform_icrs_to_spi, SPIPointing
-from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids
 from pyspi.utils.rmf_base import load_rmf_non_ph_1, load_rmf_non_ph_2
-import os
-import yaml
 
-try:
-    from numba import njit, float64
-    has_numba = True
-except:
-    has_numba = False
 
-if has_numba:
-    @njit([float64[:](float64[:,::1], float64[:,::1])])
-    def trapz(y,x):
-        """
-        Fast trapz integration with numba
-        :param x: x values
-        :param y: y values
-        :return: Trapz integrated
-        """
-        return np.trapz(y,x)
+@njit([float64[:](float64[:,::1], float64[:,::1])])
+def trapz(y,x):
+    """
+    Fast trapz integration with numba
+    :param x: x values
+    :param y: y values
+    :return: Trapz integrated
+    """
+    return np.trapz(y,x)
 
-    @njit#(float64[:](float64[:], float64[:], float64[:]))
-    def log_interp1d(x_new, x_old, y_old):
-        """
-        Linear interpolation in log space for base value pairs (x_old, y_old)
-        for new x_values x_new
-        :param x_old: Old x values used for interpolation
-        :param y_old: Old y values used for interpolation
-        :param x_new: New x values
-        :retrun: y_new from liner interpolation in log space
-        """
-        # log of all
-        logx = np.log10(x_old)
-        logxnew = np.log10(x_new)
-        # Avoid nan entries for yy=0 entries
-        logy = np.log10(np.where(y_old <= 0, 1e-99, y_old))
-        
-        lin_interp = np.interp(logxnew, logx, logy)
-
-        return 10.**lin_interp
+@njit#(float64[:](float64[:], float64[:], float64[:]))
+def log_interp1d(x_new, x_old, y_old):
+    """
+    Linear interpolation in log space for base value pairs (x_old, y_old)
+    for new x_values x_new
+    :param x_old: Old x values used for interpolation
+    :param y_old: Old y values used for interpolation
+    :param x_new: New x values
+    :retrun: y_new from liner interpolation in log space
+    """
+    # log of all
+    logx = np.log10(x_old)
     
-else:
+    logxnew = np.log10(x_new)
     
-    from numpy import trapz
-    
-    #@njit(float64[:](float64[:],float64[:],float64[:]))
-    def log_interp1d(x_new, x_old, y_old):
-        """
-        Linear interpolation in log space for base value pairs (x_old, y_old)
-        for new x_values x_new
-        :param x_old: Old x values used for interpolation
-        :param y_old: Old y values used for interpolation
-        :param x_new: New x values
-        :retrun: y_new from liner interpolation in log space
-        """
-        # log of all
-        logx = np.log10(x_old)
-        logxnew = np.log10(x_new)
-        # Avoid nan entries for yy=0 entries
-        logy = np.log10(np.where(y_old<=0, 1e-99, y_old))
-        
-        lin_interp = np.interp(logxnew,logx, logy)
+    # Avoid nan entries for yy=0 entries
+    logy = np.log10(np.where(y_old <= 0, 1e-99, y_old))
 
-        return 10**lin_interp
+    lin_interp = interp(logx, logy, logxnew)
+    #lin_interp = np.interp(logxnew, logx, logy)
+
+    return np.power(10., lin_interp)
+    
 
 
 def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
@@ -434,20 +415,9 @@ class Response(object):
         :param zenith:
         :returns: 
         """
-        # np.pi/2 - zenith. TODO: Check if this is corect. Only a guess at the moment!
-        # zenith = np.pi/2-zenith
-        x = np.cos(azimuth)*np.cos(zenith)
-        y = np.sin(azimuth)*np.cos(zenith)
-        z = np.sin(zenith)
 
-        zenith_pointing = np.arccos(x)
-        azimuth_pointing = np.arctan2(z,y)
-        
-        x_pos = (zenith_pointing * np.cos(azimuth_pointing) - self._irf_ob._irf_xmin) / self._irf_ob._irf_xbin
-        y_pos = (zenith_pointing * np.sin(azimuth_pointing) - self._irf_ob._irf_ymin) / self._irf_ob._irf_ybin
-
-        return x_pos, y_pos
-
+        return _get_xy_pos(azimuth, zenith, self._irf_ob._irf_xmin, self._irf_ob._irf_ymin, self._irf_ob._irf_xbin, self._irf_ob._irf_ybin)
+    
     def set_location(self, ra, dec):
         """
         Calculate the weighted irfs for the three event types for a given position
@@ -1392,6 +1362,23 @@ class ResponsePhotopeak(Response):
             
     #    self._current_interpolated_irfs_ph = interpolated_irfs_ph
 
+@njit(fastmath=True)
+def _get_xy_pos(azimuth, zenith, xmin, ymin, xbin, ybin):
+
+    x = np.cos(azimuth)*np.cos(zenith)
+    y = np.sin(azimuth)*np.cos(zenith)
+    z = np.sin(zenith)
+
+    zenith_pointing = np.arccos(x)
+    azimuth_pointing = np.arctan2(z,y)
+        
+    x_pos = (zenith_pointing * np.cos(azimuth_pointing) - xmin) / xbin
+    y_pos = (zenith_pointing * np.sin(azimuth_pointing) - ymin) / ybin
+
+    return x_pos, y_pos
+
+
+    
 def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     
     left_low = [int(ix_left), int(iy_low)]
