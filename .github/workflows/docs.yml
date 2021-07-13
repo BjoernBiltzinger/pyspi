@@ -19,6 +19,7 @@ jobs:
           pip install black
           pip install --upgrade numpy ipython jupyter matplotlib
           pip install jupytext jupyterthemes
+          pip install -r requirements.txt
           python setup.py install
 
 
