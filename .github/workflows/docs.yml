@@ -34,7 +34,7 @@ jobs:
           name: notebooks-for-${{ github.sha }}
           path: docs/notebooks
 
-      - name: Sleep for 5 minutes
+      - name: Sleep for 1 minutes
         uses: jakejarvis/wait-action@master
         with:
           time: '1m'

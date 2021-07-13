@@ -10,7 +10,10 @@ Test this a test
 
 Here should be something
 
+
+
 .. toctree::
-    :maxdepth: 5
-    :hidden:
-    notebooks/installation.ipynb
+   :maxdepth: 2
+   :hidden:
+
+   notebooks/installation.ipynb
