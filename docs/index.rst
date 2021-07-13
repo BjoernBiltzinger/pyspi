@@ -4,6 +4,8 @@
    contain the root `toctree` directive.
 
 Welcome to pySPI's documentation!
+
+Test this a test
 =================================
 
 .. toctree::
