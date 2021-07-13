@@ -288,4 +288,4 @@ class BackgroundModelPointingDet(object):
 
     @property
     def livetime_fraction(self):
-        return self.livetime/(4300*60) #/livetime_of_bkg_revolution
+        return 1/(4300*60) #self.livetime/(4300*60) #/livetime_of_bkg_revolution
