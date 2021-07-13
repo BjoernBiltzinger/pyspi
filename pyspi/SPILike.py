@@ -1,12 +1,13 @@
+import collections
+
+import numpy as np
+from astromodels import Parameter, Model
+from astromodels.functions.priors import Cosine_Prior, Uniform_prior
 from threeML import PluginPrototype
 from threeML.io.file_utils import sanitize_filename
-from astromodels import Parameter
-import collections
 from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
-from astromodels.functions.priors import Uniform_prior, Cosine_Prior
 from threeML.plugins.SpectrumLike import SpectrumLike
-import numpy as np
-
+from threeML.io.logging import setup_logger
 from pyspi.utils.response.spi_response import SPIDRM
 
 """
@@ -17,30 +18,35 @@ add view_lightcurves()
 __instrument_name = "INTEGRAL SPI (with PySPI)"
 
 
+log = setup_logger(__name__)
+
 class SPILike(DispersionSpectrumLike):
     """
     Plugin for the data of SPI, based on PySPI
     """
     def __init__(
             self,
-            name,
+            name: str,
             observation,
             background,
             bkg_base_array,
-            #bkg_parameters,
-            free_position,
-            verbose=True,
+            free_position: bool,
+            verbose:bool=True,
             **kwargs
     ):
         """
-        :param name: name of instance
-        :param pyspi_setup: Pyspi Setup object
-        """
-        self._free_position = free_position
 
-        assert isinstance(
+        """
+        self._free_position: bool = free_position
+
+        if not isinstance(
                 observation.response, SPIDRM
-            ), "The response associated with the observation is not a SPIDRM"
+            ):
+
+
+            log.error("The response associated with the observation is not a SPIDRM")
+
+            raise AssertionError()
 
         super(SPILike, self).__init__(name,
                                       observation,
@@ -51,7 +57,7 @@ class SPILike(DispersionSpectrumLike):
         self._bkg_base_array = bkg_base_array
         self._bkg_array = np.ones(len(self._bkg_base_array))
 
-    def set_model(self, likelihood_model):
+    def set_model(self, likelihood_model: Model) -> None:
         """
         Set the model to be used in the joint minimization.
         :param likelihood_model: likelihood model instance
@@ -60,8 +66,10 @@ class SPILike(DispersionSpectrumLike):
         super(SPILike, self).set_model(likelihood_model)
 
         if self._free_position:
-            print("Freeing the position of %s and setting priors" % self.name)
+            log.info(f"Freeing the position of {self.name} and setting priors")
+            
             for key in self._like_model.point_sources.keys():
+
                 self._like_model.point_sources[key].position.ra.free = True
                 self._like_model.point_sources[key].position.dec.free = True
 
@@ -85,8 +93,8 @@ class SPILike(DispersionSpectrumLike):
                 #    lower_bound=-90.0, upper_bound=90
                 #)
 
-                ra = self._like_model.point_sources[key].position.ra.value
-                dec = self._like_model.point_sources[key].position.dec.value
+                ra: float = self._like_model.point_sources[key].position.ra.value
+                dec: float = self._like_model.point_sources[key].position.dec.value
 
         self._rsp.set_location(ra, dec) # For photopeak not classical "response" matrix but photopeak response vector
         """
@@ -119,7 +127,7 @@ class SPILike(DispersionSpectrumLike):
         bkg = self._bkg_array*self._bkg_base_array
         return source+bkg
 
-    def get_model(self, precalc_fluxes=None):
+    def get_model(self, precalc_fluxes: Optional[np.ndarray]=None) -> np.ndarray:
 
         if self._free_position:
 
@@ -134,13 +142,27 @@ class SPILike(DispersionSpectrumLike):
         #bkg = self._bkg_array*self._bkg_base_array
         #return source+bkg
 
-    def _add_bkg_nuisance_parameter(self, bkg_parameters):
+    def _add_bkg_nuisance_parameter(self, bkg_parameters) -> None:
+        """TODO describe function
+
+        :param bkg_parameters: 
+        :type bkg_parameters: 
+        :returns: 
+
+        """
+        
         self._bkg_parameters = bkg_parameters
         for parameter in bkg_parameters:
             self.nuisance_parameters[parameter.name] = parameter
         self._bkg_array = np.ones(len(bkg_parameters))
 
-    def _update_bkg_array(self):
+    def _update_bkg_array(self) -> None:
+        """TODO describe function
+
+        :returns: 
+
+        """
+        
         for key in self._like_model.parameters.keys():
             if "bkg" in key:
                 idx = int(key.split("_")[-1])

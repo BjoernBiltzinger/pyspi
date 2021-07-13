@@ -7,12 +7,11 @@ import scipy.interpolate as interpolate
 import yaml
 from astropy.time.core import Time, TimeDelta
 from IPython.display import HTML
+
 from numba import float64, njit
 from threeML.io.file_utils import sanitize_filename
 
 from interpolation import interp
-
-
 
 from pyspi.config.config_builder import Config
 from pyspi.io.get_files import get_files_afs, get_files_isdcarc
@@ -25,7 +24,6 @@ from pyspi.utils.response.spi_pointing import (SPIPointing,
 #import scipy.integrate as integrate
 from pyspi.utils.rmf_base import *
 from pyspi.utils.rmf_base import load_rmf_non_ph_1, load_rmf_non_ph_2
-
 
 @njit([float64[:](float64[:,::1], float64[:,::1])])
 def trapz(y,x):
@@ -49,12 +47,11 @@ def log_interp1d(x_new, x_old, y_old):
     """
     # log of all
     logx = np.log10(x_old)
-    
     logxnew = np.log10(x_new)
     
     # Avoid nan entries for yy=0 entries
     logy = np.log10(np.where(y_old <= 0, 1e-99, y_old))
-
+    
     lin_interp = interp(logx, logy, logxnew)
     #lin_interp = np.interp(logxnew, logx, logy)
 
