@@ -4,17 +4,13 @@
    contain the root `toctree` directive.
 
 Welcome to pySPI's documentation!
+
+Test this a test
 =================================
 
+Here should be something
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+    :maxdepth: 5
+    :hidden:
+    notebooks/installation.ipynb
