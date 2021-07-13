@@ -18,7 +18,7 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install black
           pip install --upgrade numpy ipython jupyter matplotlib
-          pip install jupytext jupyterthemes pygraphviz
+          pip install jupytext jupyterthemes
           python setup.py install
 
 
