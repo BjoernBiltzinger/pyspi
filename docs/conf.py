@@ -160,7 +160,7 @@ htmlhelp_basename = 'PySpidoc'
 
 source_suffix = ['.rst', '.ipynb']
 
-html_logo = 'media/pypsi_logo1.png'
+html_logo = 'media/pypsi_logo2.png'
 
 # -- Options for LaTeX output ---------------------------------------------
 
