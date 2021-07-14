@@ -18,3 +18,4 @@ This is still not a stable version. Bugs will occure sometimes, please open an i
    :hidden:
 
    notebooks/installation.ipynb
+   api/API
