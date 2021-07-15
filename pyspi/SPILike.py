@@ -9,6 +9,7 @@ from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
 from threeML.plugins.SpectrumLike import SpectrumLike
 from threeML.io.logging import setup_logger
 from pyspi.utils.response.spi_response import SPIDRM
+from typing import Optional
 
 """
 TODO List
