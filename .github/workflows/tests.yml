@@ -24,9 +24,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
-        pip install --upgrade flake8 numpy ipython  matplotlib coverage pytest pytest-cov codecov
+        pip install --upgrade flake8 scipy numpy ipython  matplotlib coverage pytest pytest-cov codecov
         pip install tables
+        pip install astropy emcee 
         pip install astromodels
+        pip install threeml
         python setup.py install
     - name: Lint with flake8
       run: |
