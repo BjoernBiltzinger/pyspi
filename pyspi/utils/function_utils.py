@@ -143,7 +143,7 @@ def ISDC_MJD(time_object):
     """
 
     #TODO Check time. In integral file ISDC_MJD time != DateStart. Which is correct?
-    return (time_object+self._leapseconds(time_object)).tt.mjd-51544
+    return (time_object+leapseconds(time_object)).tt.mjd-51544
 
 def ISDC_MJD_to_cxcsec(ISDC_MJD_time):
     """
