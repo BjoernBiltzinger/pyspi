@@ -289,8 +289,8 @@ class SPILikeGRB(DispersionSpectrumLike):
                 assert "psd_eff_spi" in self._like_model.parameters.keys(), "Need the psd_spi_eff parameter in the model!"
                 self._psd_eff_area[self._rsp._psd_bins] = self._like_model.psd_eff_spi.value*np.ones(np.sum(self._rsp._psd_bins))
         """
-        if precalc_fluxes is None:
-            precalc_fluxes = self._integral_flux()
+        #if precalc_fluxes is None:
+        #    precalc_fluxes = self._integral_flux()
 
     def get_model(self, precalc_fluxes=None):
 
