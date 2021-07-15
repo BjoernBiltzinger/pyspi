@@ -3,6 +3,7 @@ from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
 from astropy.time.core import Time, TimeDelta
 from threeML.utils.spectrum.binned_spectrum import BinnedSpectrumWithDispersion, BinnedSpectrum
 
+import yaml
 import os
 import numpy as np
 from datetime import datetime
