@@ -43,42 +43,6 @@ def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
 
     return sc_matrix
 
-@njit
-def _transform_icrs_to_spi(ra_icrs, dec_icrs, sc_matrix):
-    """
-    Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
-    sc_matrix (sc_matrix pointing dependent)
-    :param ra_icrs: Ra in ICRS in degree
-    :param dec_icrs: Dec in ICRS in degree
-    :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
-    :return: lon, lat in spi frame
-    """
-    # Source in icrs
-    vec_ircs = polar2cart(ra_icrs, dec_icrs)
-    vec_spi = np.dot(sc_matrix, vec_ircs)
-    lon, lat = cart2polar(vec_spi)
-    if lon < 0:
-        lon += 360
-    return lon, lat
-
-@njit
-def _transform_spi_to_icrs(az_spi, zen_spi, sc_matrix):
-    """
-    Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
-    sc_matrix (sc_matrix pointing dependent)
-    :param az_spi: azimuth in SPI coord system in degree
-    :param zen_spi: zenit in SPI coord system in degree
-    :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
-    :return: ra, dex in ICRS in deg
-    """
-    # Source in icrs
-    vec_spi = polar2cart(az_spi, zen_spi)
-    vec_icrs = np.dot(np.linalg.inv(sc_matrix), vec_spi)
-    ra, dec = cart2polar(vec_icrs)
-    if ra < 0:
-        ra += 360
-    return ra, dec
-
 
 class SPIPointing(object):
 
@@ -109,7 +73,7 @@ class SPIPointing(object):
         Open and build the INTEGRAL to SPI misalignment matrix
         that corrects SPI's pointing to the full INTEGRAL
         pointing
-        :return: None
+        :return:
         """
 
         # get the path to the data file
@@ -158,7 +122,6 @@ class SPIPointing(object):
             spi_matrix = np.dot(self._misalignment_matrix, intergal_matrix)
 
             # now convert the ra and dec to the proper frame
-            #scx_ra, scx_dec = np.array([360, 0]) + cart2polar(spi_matrix[0])
             scx_ra, scx_dec = cart2polar(spi_matrix[0])
             scy_ra, scy_dec = cart2polar(spi_matrix[1])
             scz_ra, scz_dec = cart2polar(spi_matrix[2])
@@ -170,11 +133,16 @@ class SPIPointing(object):
 
     @property
     def sc_matrix(self):
-
+        """
+        :return: sc_matrix of all the pointings
+        """
         return self._sc_matrix
 
     @property
     def sc_points(self):
-
+        """
+        :return: ra, dec coordinates of the SPI x,y and z axis in the
+        ICRS frame for all the pointings
+        """
         return self._sc_points
         

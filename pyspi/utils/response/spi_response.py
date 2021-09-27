@@ -10,10 +10,9 @@ from interpolation import interp
 from pyspi.io.get_files import get_files
 from pyspi.io.package_data import (get_path_of_data_file,
                                    get_path_of_external_data_dir)
-from pyspi.utils.response.spi_pointing import (SPIPointing,
-                                               _construct_sc_matrix,
-                                               _transform_icrs_to_spi,
-                                               _transform_spi_to_icrs)
+from pyspi.utils.response.spi_pointing import SPIPointing
+from pyspi.utils.response.spi_frame import (_transform_icrs_to_spi,
+                                            _transform_spi_to_icrs)
 from pyspi.utils.response.spi_response_irfs_read import\
     ResponseIRFReadPhotopeak, ResponseIRFReadRMF
 
@@ -53,7 +52,7 @@ def add_frac(ph_matrix, i, idx, ebounds, einlow, einhigh):
     """
     Recursive Funktion to get the fraction of einlow...
     """
-    if idx+1==len(ebounds):
+    if idx+1 == len(ebounds):
         pass
     elif ebounds[idx+1] >= einhigh:
         ph_matrix[i, idx] =\
@@ -76,6 +75,16 @@ def add_frac(ph_matrix, i, idx, ebounds, einlow, einhigh):
 
 @njit(fastmath=True)
 def _get_xy_pos(azimuth, zenith, xmin, ymin, xbin, ybin):
+    """
+    Get the xy position on the reponse grid for given azimuth and zenith
+    :param azimuth: Azmiuth angle in rad
+    :param zenith: Zenith angle in rad
+    :param xmin: Smallest x-grid entry
+    :param ymin: Smallest y-grid entry
+    :param xbin: Size of bins in x-direction
+    :param ybin: Size of bins in y-direction
+    :return: Grid postition (x,y)
+    """
 
     x = np.cos(azimuth)*np.cos(zenith)
     y = np.sin(azimuth)*np.cos(zenith)
@@ -92,6 +101,15 @@ def _get_xy_pos(azimuth, zenith, xmin, ymin, xbin, ybin):
 
 
 def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
+    """
+    Simple function to get the 2D-indices of the 4 points defined by
+    given pairs of indices in x and y direction
+    :param ix_left: x-index of the left points
+    :param ix_right: x-index of the right points
+    :param iy_low: y-index of the bottom points
+    :param iy_up: y-index of the top points
+    :return: array with the 4 2D indices defining the 4 grid points
+    """
 
     left_low = [int(ix_left), int(iy_low)]
     right_low = [int(ix_right), int(iy_low)]
@@ -108,6 +126,8 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
     Function to initalize the needed responses for the given times.
     Only initalize every needed response version once! Because of memory.
     One response object needs about 1 GB of RAM...
+    TODO: Not needed at the moment. We need this when we want to analyse
+    many pointings together.
     :param times: Times of the different sw used
     :return: list with correct response version object of the times
     """
@@ -276,11 +296,9 @@ class Response(object):
 
                 return wgt, out[0], out[1]
 
-            else:
-
-                ix_left = ix_right
-                wgt_left = 0.5
-                wgt_right = 0.5
+            ix_left = ix_right
+            wgt_left = 0.5
+            wgt_right = 0.5
 
         elif ix_right >= self.irf_ob.irf_nx:
 
@@ -290,11 +308,9 @@ class Response(object):
 
                 return wgt, out[0], out[1]
 
-            else:
-
-                ix_right = ix_left
-                wgt_left = 0.5
-                wgt_right = 0.5
+            ix_right = ix_left
+            wgt_left = 0.5
+            wgt_right = 0.5
 
         else:
 
@@ -306,10 +322,10 @@ class Response(object):
                 out = _prep_out_pixels(ix_left, ix_right, iy_low, iy_up)
 
                 return wgt, out[0], out[1]
-            else:
-                iy_low = iy_up
-                wgt_up = 0.5
-                wgt_low = 0.5
+
+            iy_low = iy_up
+            wgt_up = 0.5
+            wgt_low = 0.5
 
         elif iy_up >= self.irf_ob.irf_ny:
 
@@ -319,11 +335,9 @@ class Response(object):
 
                 return wgt, out[0], out[1]
 
-            else:
-
-                iy_up = iy_low
-                wgt_up = 0.5
-                wgt_low = 0.5
+            iy_up = iy_low
+            wgt_up = 0.5
+            wgt_low = 0.5
 
         else:
 
@@ -340,22 +354,38 @@ class Response(object):
 
     @property
     def irf_ob(self):
+        """
+        :return: the irf_read object with the information from the response
+        simulation
+        """
         return self._irf_ob
 
     @property
     def det(self):
+        """
+        :return: detector number
+        """
         return self._det
 
     @property
     def ebounds(self):
+        """
+        :return: Ebounds of the analysis
+        """
         return self._ebounds
 
     @property
     def ene_min(self):
+        """
+        :return: Start of ebounds
+        """
         return self._ene_min
 
     @property
     def ene_max(self):
+        """
+        :return: End of Ebounds
+        """
         return self._ene_max
     
     @property
@@ -413,6 +443,14 @@ class ResponseRMF(Response):
                       fixed_rsp_matrix=None):
         """
         Construct the Response object from an given config file.
+        :param pointing_id: Pointing ID of the observation
+        :param det: Detector number
+        :param ebounds: Ebounds of Analysis
+        :param monte_carlo_energies: Input energies of Analysis
+        :param rsp_read_obj: Object that holds the response simulation
+        :param fixed_rsp_matrix: [Optional] can give a fixed response matrix
+        to overwrite the one from the simulation
+        :return: Object
         """
         # Get the data, either from afs or from ISDC archive
         try:
@@ -430,7 +468,7 @@ class ResponseRMF(Response):
                                           'sc_orbit_param.fits.gz')
 
         pointing_object = SPIPointing(geometry_file_path)
-        sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
+        sc_matrix = pointing_object.sc_matrix[10]
 
         # Init Response class
         return cls(
@@ -554,9 +592,8 @@ class ResponseRMF(Response):
 
     def _recalculate_response(self):
         """
-        Get response for a given det
-        :param det: Detector ID
-        :returns: Full DRM
+        Get response for the current position
+        :returns:
         """
         if self._given_rsp_mat:
             self._matrix = self._rsp_matrix
@@ -595,34 +632,46 @@ class ResponseRMF(Response):
 
     @property
     def matrix(self):
+        """
+        :return: response matrix
+        """
         return self._matrix
 
     @property
     def transpose_matrix(self):
+        """
+        :return: transposed response matrix
+        """
         return self._transpose_matrix
 
     @property
-    def ebounds(self):
-        return self._ebounds
-
-    @property
     def monte_carlo_energies(self):
+        """
+        :return: Input energies for response
+        """
         return self._monte_carlo_energies
 
 
 class ResponsePhotopeak(Response):
 
-    def __init__(self, ebounds=None, response_irf_read_object=None, sc_matrix=None, det=None):
+    def __init__(self, ebounds=None,
+                 response_irf_read_object=None,
+                 sc_matrix=None,
+                 det=None):
         """
         Init Response object with only Photopeak effective area used
         :param ebound: Ebounds of Ebins
-        :param response_irf_read_object: Object that holds the read in irf values
+        :param response_irf_read_object: Object that holds the read in
+        response simulation
         :return:
         """
         assert isinstance(response_irf_read_object, ResponseIRFReadPhotopeak)
 
         # call init of base class
-        super(ResponsePhotopeak, self).__init__(ebounds, response_irf_read_object, sc_matrix, det)
+        super(ResponsePhotopeak, self).__init__(ebounds,
+                                                response_irf_read_object,
+                                                sc_matrix,
+                                                det)
 
         self._effective_area = None
         self._weighted_irf_ph = None
@@ -642,7 +691,8 @@ class ResponsePhotopeak(Response):
             get_files(pointing_id, access="afs")
         except:
             # Get the files from the iSDC data archive
-            print('AFS data access did not work. I will try the ISDC data archive.')
+            print('AFS data access did not work.'
+                  'I will try the ISDC data archive.')
             get_files(pointing_id, access="isdc")
 
         geometry_file_path = os.path.join(get_path_of_external_data_dir(),
@@ -651,7 +701,7 @@ class ResponsePhotopeak(Response):
                                           'sc_orbit_param.fits.gz')
 
         pointing_object = SPIPointing(geometry_file_path)
-        sc_matrix = _construct_sc_matrix(**pointing_object.sc_points[10])
+        sc_matrix = pointing_object.sc_matrix[10]
 
         # Init Response class
         return cls(
@@ -663,7 +713,8 @@ class ResponsePhotopeak(Response):
 
     def _weighted_irfs(self, azimuth, zenith):
         """
-        Calculate the weighted irfs for the three event types for a given position
+        Calculate the weighted irfs for the three event types for a given
+        position
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
         :returns:
@@ -683,7 +734,7 @@ class ResponsePhotopeak(Response):
 
         except IndexError:
             self._weighted_irf_ph =\
-                np.zeros_like(self.irf_ob.irfs_photopeak[:,self._det,20,20])
+                np.zeros_like(self.irf_ob.irfs_photopeak[:, self._det, 20, 20])
 
     def _recalculate_response(self):
         """
@@ -706,8 +757,12 @@ class ResponsePhotopeak(Response):
         eff_area[:, 0] = inter[:-1]
         eff_area[:, 1] = inter[1:]
         
-        self._effective_area = trapz(eff_area, ebins)/(self._ene_max-self._ene_min)
+        self._effective_area = trapz(eff_area, ebins)/(self._ene_max -
+                                                       self._ene_min)
 
     @property
     def effective_area(self):
+        """
+        :return: vector with photopeak effective area
+        """
         return self._effective_area
