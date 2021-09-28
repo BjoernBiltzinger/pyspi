@@ -17,7 +17,7 @@ from pyspi.utils.response.spi_response_irfs_read import\
     ResponseIRFReadPhotopeak, ResponseIRFReadRMF
 
 @njit
-def trapz(y,x):
+def trapz(y, x):
     """
     Fast trapz integration with numba
     :param x: x values
@@ -64,12 +64,10 @@ def add_frac(ph_matrix, i, idx, ebounds, einlow, einhigh):
                 )
             )
 
-
     else:
         frac = np.min(np.array([(ebounds[idx+1]-einlow)/(einhigh-einlow),
                                (ebounds[idx+1]-ebounds[idx])/(einhigh-einlow)]))
         ph_matrix[i, idx] = frac
-
 
         add_frac(ph_matrix, i, idx+1, ebounds, einlow, einhigh)
 
@@ -137,16 +135,16 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
             # Default latest response version
             response_versions.append(4)
 
-        elif time<Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+        elif time < Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
             response_versions.append(0)
 
-        elif time<Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+        elif time < Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
             response_versions.append(1)
 
-        elif time<Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+        elif time < Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
             response_versions.append(2)
 
-        elif time<Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+        elif time < Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
             response_versions.append(3)
 
         else:
@@ -155,12 +153,13 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
     responses = [None, None, None, None, None]
 
     response_irf_read_times = []
-    for i, version in enumerate(response_versions):
+    for version in response_versions:
         if responses[version] is None:
-            #Create this response object
+            # Create this response object
             if drm == "Photopeak":
-                responses[version] = ResponseIRFReadPhotopeak(detector=detector,
-                                                              version=version)
+                responses[version] = ResponseIRFReadPhotopeak(
+                    detector=detector,
+                    version=version)
             else:
                 responses[version] = ResponseIRFReadRMF(version=version)
                 
@@ -177,7 +176,8 @@ class Response(object):
         Base Response Class - Here we have everything that stays the same for
         GRB and Constant Pointsource Reponses
         :param ebounds: User defined ebins for binned effective area
-        :param response_irf_read_object: Object that holds the read in irf values
+        :param response_irf_read_object: Object that holds
+        the read in irf values
         :param sc_matrix: Matrix to convert SPI coordinate system <-> ICRS
         :param det: Which detector
         :returns: Object
@@ -193,7 +193,8 @@ class Response(object):
     def set_binned_data_energy_bounds(self, ebounds):
         """
         Change the energy bins for the binned effective_area
-        :param ebounds: New ebinedges: ebounds[:-1] start of ebins, ebounds[1:] end of ebins
+        :param ebounds: New ebinedges: ebounds[:-1] start of ebins,
+        ebounds[1:] end of ebins
         :return:
         """
 
@@ -220,7 +221,8 @@ class Response(object):
     
     def set_location(self, ra, dec):
         """
-        Calculate the weighted irfs for the three event types for a given position
+        Calculate the weighted irfs for the three
+        event types for a given position
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
         :returns:
@@ -239,7 +241,8 @@ class Response(object):
 
     def set_location_direct_sat_coord(self, azimuth, zenith):
         """
-        Calculate the weighted irfs for the three event types for a given position
+        Calculate the weighted irfs for the three
+        event types for a given position
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
         :returns: ra and dec value
@@ -254,7 +257,8 @@ class Response(object):
 
     def _weighted_irfs(self, azimuth, zenith):
         """
-        Calculate the weighted irfs for the three event types for a given position
+        Calculate the weighted irfs for the three event
+        types for a given position
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
         :returns:
@@ -409,7 +413,8 @@ class ResponseRMF(Response):
         """
         Init Response object with total RMF used
         :param ebound: Ebounds of Ebins
-        :param response_irf_read_object: Object that holds the read in irf values
+        :param response_irf_read_object: Object that holds
+        the read in irf values
         :return:
         """
         assert isinstance(response_irf_read_object, ResponseIRFReadRMF)
@@ -456,9 +461,10 @@ class ResponseRMF(Response):
         try:
             # Get the data from the afs server
             get_files(pointing_id, access="afs")
-        except:
+        except FileNotFoundError:
             # Get the files from the iSDC data archive
-            print('AFS data access did not work. I will try the ISDC data archive.')
+            print("AFS data access did not work. "
+                  "I will try the ISDC data archive.")
             get_files(pointing_id, access="isdc")
 
         # Read in geometry file to get sc_matrix
@@ -482,7 +488,8 @@ class ResponseRMF(Response):
 
     def _rebin_rmfs(self):
         """
-        Rebin the base rmf shape matrices for the given ebounds and incoming energies
+        Rebin the base rmf shape matrices for the given ebounds and
+        incoming energies
         :return:
         """
         # Number of ebins on input and output side
@@ -521,7 +528,6 @@ class ResponseRMF(Response):
 
         # call the interpolation and create the correct matrix shape
         mat2inter = (lin_int_rmf2(points).reshape(N_ebins, N_monte_carlo).T)
-
 
         mat3inter = (lin_int_rmf3(points).reshape(N_ebins, N_monte_carlo).T)
 
@@ -576,19 +582,18 @@ class ResponseRMF(Response):
         try:
             # select these points on the grid and weight them together
             self._weighted_irf_ph = \
-                self.irf_ob.irfs_photopeak[:,self._det, xx, yy].dot(wgt)
+                self.irf_ob.irfs_photopeak[:, self._det, xx, yy].dot(wgt)
             self._weighted_irf_nonph_1 = \
-                self.irf_ob.irfs_nonphoto_1[:,self._det,xx,yy].dot(wgt)
+                self.irf_ob.irfs_nonphoto_1[:, self._det, xx, yy].dot(wgt)
             self._weighted_irf_nonph_2 = \
-                self.irf_ob.irfs_nonphoto_2[:,self._det,xx,yy].dot(wgt)
-            print(x, y)
+                self.irf_ob.irfs_nonphoto_2[:, self._det, xx, yy].dot(wgt)
         except IndexError:
             self._weighted_irf_ph =\
-                np.zeros_like(self.irf_ob.irfs_photopeak[:,self._det,20,20])
+                np.zeros_like(self.irf_ob.irfs_photopeak[:, self._det, 20, 20])
             self._weighted_irf_nonph_1\
-                = np.zeros_like(self.irf_ob.irfs_nonphoto_1[:,self._det,20,20])
+                = np.zeros_like(self.irf_ob.irfs_nonphoto_1[:, self._det, 20, 20])
             self._weighted_irf_nonph_2\
-                = np.zeros_like(self.irf_ob.irfs_nonphoto_2[:,self._det,20,20])
+                = np.zeros_like(self.irf_ob.irfs_nonphoto_2[:, self._det, 20, 20])
 
     def _recalculate_response(self):
         """
@@ -600,14 +605,12 @@ class ResponseRMF(Response):
         else:
             ein_bins = np.empty((len(self._monte_carlo_energies)-1, 2))
 
-            nonph1 = np.empty_like(ein_bins)
-            nonph2 = np.empty_like(ein_bins)
-
             ein_bins[:, 0] = self._monte_carlo_energies[:-1]
             ein_bins[:, 1] = self._monte_carlo_energies[1:]
 
-            monte_carlo_log_mean = 10**((np.log10(self._monte_carlo_energies[1:]) +
-                                         np.log10(self._monte_carlo_energies[:-1]))/2.0)
+            monte_carlo_log_mean = 10**((
+                np.log10(self._monte_carlo_energies[1:]) +
+                np.log10(self._monte_carlo_energies[:-1]))/2.0)
 
             interph = log_interp1d(monte_carlo_log_mean,
                                    self.irf_ob.energies_database,
@@ -619,7 +622,8 @@ class ResponseRMF(Response):
                                   self.irf_ob.energies_database,
                                   self._weighted_irf_nonph_2)
 
-            #TODO clean up these .T calls and maybe change the trapz to logmean
+            # TODO clean up these .T calls and maybe change
+            # the trapz to logmean
 
             mat1 = (inter2*self._mat2inter.T).T
             mat2 = (inter3*self._mat3inter.T).T

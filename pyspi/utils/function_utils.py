@@ -2,7 +2,7 @@ import numpy as np
 from pyspi.io.package_data import get_path_of_data_file
 from astropy.time.core import Time, TimeDelta
 from datetime import datetime
-mport h5py
+import h5py
 
 # Collection of needed functions that are used by several classes
 

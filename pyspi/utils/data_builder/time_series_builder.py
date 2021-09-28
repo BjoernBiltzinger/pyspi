@@ -11,9 +11,7 @@ from pyspi.io.get_files import get_files
 from pyspi.io.package_data import get_path_of_external_data_dir, \
     get_path_of_data_file
 from pyspi.utils.detector_ids import double_names, triple_names
-from pyspi.config.config_builder import Config
-from pyspi.utils.function_utils import construct_energy_bins, \
-    find_needed_ids, ISDC_MJD_to_cxcsec, leapseconds
+from pyspi.utils.function_utils import find_needed_ids, ISDC_MJD_to_cxcsec
 
 
 from threeML.io.file_utils import sanitize_filename
