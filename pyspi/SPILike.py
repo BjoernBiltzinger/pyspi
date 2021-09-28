@@ -1,17 +1,20 @@
 import collections
-
+from typing import Optional
 import numpy as np
+
 from astromodels import Parameter, Model
 from astromodels.functions.priors import Cosine_Prior, Uniform_prior
+
 from threeML import PluginPrototype
 from threeML.io.file_utils import sanitize_filename
 from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
 from threeML.plugins.SpectrumLike import SpectrumLike
 from threeML.io.logging import setup_logger
+
 from pyspi.utils.response.spi_drm import SPIDRM
-from typing import Optional
 
 log = setup_logger(__name__)
+
 
 class SPILike(DispersionSpectrumLike):
     """
