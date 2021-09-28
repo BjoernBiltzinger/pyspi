@@ -1,8 +1,4 @@
-from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
-
 from astropy.time.core import Time, TimeDelta
-from threeML.utils.spectrum.binned_spectrum import BinnedSpectrumWithDispersion, BinnedSpectrum
-
 import yaml
 import os
 import numpy as np
@@ -16,11 +12,18 @@ from pyspi.io.package_data import get_path_of_external_data_dir, \
     get_path_of_data_file
 from pyspi.utils.detector_ids import double_names, triple_names
 from pyspi.config.config_builder import Config
-from pyspi.utils.function_utils import construct_energy_bins, find_needed_ids, \
-    ISDC_MJD_to_cxcsec, leapseconds
+from pyspi.utils.function_utils import construct_energy_bins, \
+    find_needed_ids, ISDC_MJD_to_cxcsec, leapseconds
+
+
 from threeML.io.file_utils import sanitize_filename
-from threeML.utils.time_series.event_list import EventListWithDeadTime, EventListWithLiveTime
-from threeML.utils.time_series.binned_spectrum_series import BinnedSpectrumSeries
+from threeML.utils.time_series.event_list import EventListWithDeadTime,\
+    EventListWithLiveTime
+from threeML.utils.time_series.binned_spectrum_series import \
+    BinnedSpectrumSeries
+from threeML.utils.spectrum.binned_spectrum import \
+    BinnedSpectrumWithDispersion, BinnedSpectrum
+from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
 
 class SPISWFile(object):
     def __init__(self, det, pointing_id, ebounds):
@@ -38,8 +41,8 @@ class SPISWFile(object):
 
         # Check that det is a valid number
         self._det = det
-        if self._det != "singles":
-            assert self._det in np.arange(85), f"{self._det} is not a valid detector. Please only use detector ids between 0 and 84."
+        assert self._det in np.arange(85), f"{self._det} is not a valid"\
+            " detector. Please only use detector ids between 0 and 84."
 
         # Find the SW ID of the data file we need for this time
         self._pointing_id = pointing_id
@@ -48,9 +51,10 @@ class SPISWFile(object):
         try:
             # Get the data from the afs server
             get_files(pointing_id, access="afs")
-        except:
+        except FileNotFoundError:
             # Get the files from the iSDC data archive
-            print('AFS data access did not work. I will try the ISDC data archive.')
+            print("AFS data access did not work."
+                  " I will try the ISDC data archive.")
             get_files(pointing_id, access="isdc")
 
         # Read in all we need
@@ -58,12 +62,15 @@ class SPISWFile(object):
 
     def _read_in_pointing_data(self, pointing_id):
         """
-        Gets all needed information from the data file for the given pointing_id
+        Gets all needed information from the data file for the given
+        pointing_id
         :param pointing_id: pointing_id for which we want the data
         :return:
         """
 
-        with fits.open(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'spi_oper.fits.gz')) as hdu_oper:
+        with fits.open(os.path.join(get_path_of_external_data_dir(),
+                                    'pointing_data', pointing_id,
+                                    'spi_oper.fits.gz')) as hdu_oper:
 
             # Get time of first and last event (t0 at grb time)
             time_sgl = ISDC_MJD_to_cxcsec(hdu_oper[1].data['time'])
@@ -71,25 +78,30 @@ class SPISWFile(object):
             time_me2 = ISDC_MJD_to_cxcsec(hdu_oper[4].data['time'])
             time_me3 = ISDC_MJD_to_cxcsec(hdu_oper[5].data['time'])
 
-            self._time_start = np.min(np.concatenate([time_sgl, time_psd, time_me2, time_me3]))
-            self._time_stop = np.max(np.concatenate([time_sgl, time_psd, time_me2, time_me3]))
+            self._time_start = np.min(np.concatenate([time_sgl, time_psd,
+                                                      time_me2, time_me3]))
+            self._time_stop = np.max(np.concatenate([time_sgl, time_psd,
+                                                     time_me2, time_me3]))
 
             # Read in the data for the wanted detector
-            # For single events we have to take both the non_psd (often called sgl here...)
-            # and the psd events. Both added together give the real single events.
-            if self._det in range(19) or self._det=="singles":
+            # For single events we have to take both the non_psd
+            # (often called sgl here...)
+            # and the psd events. Both added together
+            # give the real single events.
+            if self._det in range(19) or self._det == "singles":
                 dets_sgl = hdu_oper[1].data['DETE']
                 if self._det != "singles":
                     time_sgl = time_sgl[dets_sgl == self._det]
-                    energy_sgl = hdu_oper[1].data['energy'][dets_sgl == self._det]
+                    energy_sgl = hdu_oper[1].data['energy'][dets_sgl ==
+                                                            self._det]
                 else:
                     energy_sgl = hdu_oper[1].data['energy']
-                #if "psd" in self._event_types:
-                #if self._use_psd:
+
                 dets_psd = hdu_oper[2].data['DETE']
                 if self._det != "singles":
                     time_psd = time_psd[dets_psd == self._det]
-                    energy_psd = hdu_oper[2].data['energy'][dets_psd == self._det]
+                    energy_psd = hdu_oper[2].data['energy'][dets_psd ==
+                                                            self._det]
                 else:
                     energy_psd = hdu_oper[2].data['energy']
 
@@ -112,23 +124,11 @@ class SPISWFile(object):
                 time_me3 = time_me3[mask]
                 energy_me3 = np.sum(hdu_oper[5].data['energy'][mask], axis=1)
 
-        if self._det in range(19) or self._det=="singles":
+        if self._det in range(19):
 
             self._times = time_psd
             self._energies = energy_psd
 
-            # Don't add the non-psd single events in the electronic noise range
-            # We will account for this later by a extra parameter determining
-            # the fraction of psd events in this energy range
-
-
-            ## turn this of for the moment########
-
-            #self._times = np.append(self._times, time_sgl[~np.logical_and(energy_sgl > 1400,
-            #                                                              energy_sgl < 1700)])
-            #self._energies = np.append(self._energies, energy_sgl[~np.logical_and(energy_sgl > 1400,
-            #                                                                      energy_sgl < 1700)])
-            ################
             self._times = np.append(self._times, time_sgl)
             self._energies = np.append(self._energies, energy_sgl)
             # sort in time
@@ -149,14 +149,17 @@ class SPISWFile(object):
         # Check if there are any counts
         if np.sum(self._energies) == 0:
 
-            raise AssertionError(f"The detector {self._det} has zero counts and is therefore not active."\
-                                 "Please exclude this detector!")
+            raise AssertionError(f"The detector {self._det} has zero counts"
+                                 " and is therefore not active."
+                                 " Please exclude this detector!")
 
         # Bin this in the energy bins we have
         self._energy_bins = np.ones_like(self._energies, dtype=int)*-1
         # Loop over ebins
-        for i, (emin, emax) in enumerate(zip(self._ebounds[:-1], self._ebounds[1:])):
-            mask = np.logical_and(self._energies>emin, self._energies<emax)
+        for i, (emin, emax) in enumerate(zip(self._ebounds[:-1],
+                                             self._ebounds[1:])):
+            mask = np.logical_and(self._energies > emin,
+                                  self._energies < emax)
             self._energy_bins[mask] = np.ones_like(self._energy_bins[mask])*i
 
         # Throw away all events that have energies outside of the ebounds that
@@ -171,48 +174,78 @@ class SPISWFile(object):
         """
         Path to the spacecraft geometry file
         """
-        return os.path.join(get_path_of_external_data_dir(), 'pointing_data', self._pointing_id, 'sc_orbit_param.fits.gz')
+        return os.path.join(get_path_of_external_data_dir(), 'pointing_data',
+                            self._pointing_id, 'sc_orbit_param.fits.gz')
 
     @property
     def times(self):
+        """
+        :return: times of detected events
+        """
         return self._times
 
     @property
     def energies(self):
+        """
+        :return: energies of detected events
+        """
         return self._energies
 
     @property
     def energy_bins(self):
+        """
+        :return: energy bin number of every event
+        """
         return self._energy_bins
 
     @property
     def ebounds(self):
+        """
+        :return: ebounds of analysis
+        """
         return self._ebounds
 
     @property
     def det(self):
+        """
+        :return: detector ID
+        """
         return self._det
 
     @property
     def n_channels(self):
+        """
+        :return: number energy channels
+        """
         return self._n_channels
 
     @property
     def time_start(self):
+        """
+        :return: start time of lightcurve
+        """
         return self._time_start
 
     @property
     def time_stop(self):
+        """
+        :return: stop time of lightcurve
+        """
         return self._time_stop
 
     @property
     def det_name(self):
+        """
+        :return: Name det
+        """
         return self._det_name
 
     @property
     def mission(self):
+        """
+        :return: Name Mission
+        """
         return self._mission
-
 
 
 class SPISWFileGRB(object):
@@ -231,7 +264,6 @@ class SPISWFileGRB(object):
 
         self._det_name = f"Detector {det}"
         self._mission = "Integral/SPI"
-
 
         # Set ebounds of energy bins
         self._ebounds = ebounds
@@ -464,59 +496,105 @@ class SPISWFileGRB(object):
 
     @property
     def times(self):
+        """
+        :return: times of detected events
+        """
         return self._times
 
     @property
     def energies(self):
+        """
+        :return: energies of detected events
+        """
         return self._energies
 
     @property
     def energy_bins(self):
+        """
+        :return: energy bin number of every event
+        """
         return self._energy_bins
 
     @property
     def ebounds(self):
+        """
+        :return: ebounds of analysis
+        """
         return self._ebounds
 
     @property
     def det(self):
+        """
+        :return: detector ID
+        """
         return self._det
 
     @property
-    def deadtime_bin_starts(self):
-        return self._deadtime_bin_edges[:-1]
-
-    @property
-    def deadtime_bin_stops(self):
-        return self._deadtime_bin_edges[1:]
-
-    @property
-    def deadtimes_per_interval(self):
-        return self._deadtimes
-
-    @property
-    def livetimes_per_interval(self):
-        return 1-self._deadtimes
-
-    @property
     def n_channels(self):
+        """
+        :return: number energy channels
+        """
         return self._n_channels
 
     @property
     def time_start(self):
+        """
+        :return: start time of lightcurve
+        """
         return self._time_start
 
     @property
     def time_stop(self):
+        """
+        :return: stop time of lightcurve
+        """
         return self._time_stop
 
     @property
     def det_name(self):
+        """
+        :return: Name det
+        """
         return self._det_name
 
     @property
     def mission(self):
+        """
+        :return: Name Mission
+        """
         return self._mission
+
+    @property
+    def deadtime_bin_starts(self):
+        """
+        :return: Start time of time bins which have the deadtime
+        information
+        """
+        return self._deadtime_bin_edges[:-1]
+
+    @property
+    def deadtime_bin_stops(self):
+        """
+        :return: Stop time of time bins which have the deadtime
+        information
+        """
+        return self._deadtime_bin_edges[1:]
+
+    @property
+    def deadtimes_per_interval(self):
+        """
+        :return: Deadtime per time bin which have the deadtime
+        information
+        """
+        return self._deadtimes
+
+    @property
+    def livetimes_per_interval(self):
+        """
+        :return: Livetime per time bin which have the deadtime
+        information
+        """
+        return 1-self._deadtimes
 
 
 class TimeSeriesBuilderSPI(TimeSeriesBuilder):
