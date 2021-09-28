@@ -51,9 +51,11 @@ def get_and_save_file(file_path, file_save_path, access="isdc"):
         else:
 
             try:
-                response = urllib.request.urlopen(file_path)
+                urllib.request.urlopen(file_path)
+
             except:
-                raise AssertionError('Link {} does not exists!'.format(file_path))
+
+                raise AssertionError(f'Link {file_path} does not exists!')
 
             data = download_file(file_path)
             shutil.move(data, file_save_path)
@@ -83,12 +85,12 @@ def get_files(pointing_id, access="isdc"):
                                   pointing_id,
                                   'spi_oper.fits.gz')
     hk_save_path = os.path.join(get_path_of_external_data_dir(),
-                                  'pointing_data',
-                                  pointing_id,
-                                  'spi_science_hk.fits.gz')
+                                'pointing_data',
+                                pointing_id,
+                                'spi_science_hk.fits.gz')
 
     if access == "afs":
-         # Path to pointing_id directory
+        # Path to pointing_id directory
         dir_link = "/afs/ipp-garching.mpg.de/mpe/gamma/"\
             "instruments/integral/data/revolutions/"\
             "{}/{}.001/".format(pointing_id[:4], pointing_id)

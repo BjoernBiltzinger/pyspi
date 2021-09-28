@@ -5,10 +5,16 @@ import numpy as np
 from pyspi.io.package_data import get_path_of_data_file
 import h5py
 
+
 def get_live_dets(time, event_types=["single", "double", "triple"]):
     """
     Get the live dets for a given time
+    :param time: Live dets at a given time. Either
+    "YYMMDD HHMMSS" or as astropy time object
+    :param event_types: which event types?
+    :return: array of live dets
     """
+
     if not isinstance(time, Time):
         time = datetime.strptime(time, '%y%m%d %H%M%S')
         time = Time(time)
@@ -17,20 +23,20 @@ def get_live_dets(time, event_types=["single", "double", "triple"]):
     live_dets = np.arange(19)
     dead_dets = []
     # Check if time is after the failure times
-    # (from https://www.isdc.unige.ch/integral/download/osa/doc/10.1/osa_um_spi/node69.html )
+    # (from https://www.isdc.unige.ch/integral/download/osa/doc/10.1/
+    # osa_um_spi/node69.html )
     if time > Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
-        live_dets = live_dets[live_dets!=2]
+        live_dets = live_dets[live_dets != 2]
         dead_dets.append(2)
     if time > Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
-        live_dets = live_dets[live_dets!=17]
+        live_dets = live_dets[live_dets != 17]
         dead_dets.append(17)
     if time > Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
-        live_dets = live_dets[live_dets!=5]
+        live_dets = live_dets[live_dets != 5]
         dead_dets.append(5)
     if time > Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
-        live_dets = live_dets[live_dets!=1]
+        live_dets = live_dets[live_dets != 1]
         dead_dets.append(1)
-
 
     all_dets = np.array([])
     if "single" in event_types:
@@ -64,8 +70,15 @@ def get_live_dets(time, event_types=["single", "double", "triple"]):
                                    live_triple_dets])
     return np.array(all_dets, dtype=int)
 
-def get_live_dets_pointing(pointing,  event_types=["single", "double", "triple"]):
 
+def get_live_dets_pointing(pointing,
+                           event_types=["single", "double", "triple"]):
+    """
+    Get livedets for a given pointing id
+    :param pointing: pointing id
+    :param event_types: which event types?
+    :return:
+    """
     # get end time of pointing
     id_file_path = get_path_of_data_file('id_data_time.hdf5')
     with h5py.File(id_file_path, "r") as f:
