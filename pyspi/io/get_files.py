@@ -8,97 +8,109 @@ import urllib
 
 from pyspi.io.file_utils import file_existing_and_readable
 
-def get_files_afs(pointing_id):
+def create_file_structure(pointing_id):
     """
-    Function to copy the needed files for a certain pointing_id from the afs server to the local file system.
+    Create the file structure to save the datafiles
     :param pointing_id: Id of pointing e.g. '180100610010' as string!
     :return:
     """
-    
+    # Check if file structure exists. If not, create it.
+    if not os.path.exists(os.path.join(get_path_of_external_data_dir())):
+        os.mkdir(os.path.join(get_path_of_external_data_dir()))
+    if not os.path.exists(os.path.join(get_path_of_external_data_dir(),
+                                       'pointing_data')):
+        os.mkdir(os.path.join(get_path_of_external_data_dir(),
+                              'pointing_data'))
+    if not os.path.exists(os.path.join(get_path_of_external_data_dir(),
+                                       'pointing_data',
+                                       pointing_id)):
+        os.mkdir(os.path.join(get_path_of_external_data_dir(),
+                              'pointing_data',
+                              pointing_id))
+
+
+def get_and_save_file(file_path, file_save_path, access="isdc"):
+    """
+    Function to get and save a file located at file_path to file_save_path
+    :param file_path: File location (link or path to afs)
+    :param file_save_path: File Save location (on local system)
+    :param access: How to get the data. Possible are "isdc" and "afs"
+    :return:
+    """
+    assert access in ["isdc", "afs"],\
+        f"Access variable must be 'isdc' or 'afs' but is {access}."
+
+    if not file_existing_and_readable(file_save_path):
+        if access == "afs":
+            assert os.path.exists(file_path), "Either pointing_id "\
+                "is not valid, or you have no access to the afs server "\
+                "or no rights to read the integral data"
+
+            copyfile(file_path, file_save_path)
+
+        else:
+
+            try:
+                urllib.request.urlopen(file_path)
+
+            except:
+
+                raise AssertionError(f'Link {file_path} does not exists!')
+
+            data = download_file(file_path)
+            shutil.move(data, file_save_path)
+
+
+def get_files(pointing_id, access="isdc"):
+    """
+    Function to get the needed files for a certain pointing_id and save
+    them in the correct folders.
+    :param pointing_id: Id of pointing e.g. '180100610010' as string or int
+    :param access: How to get the data. Possible are "isdc" and "afs"
+    :return:
+    """
     # If pointing_id is given as integer, convert it to string
     pointing_id = str(pointing_id)
 
-    # Path to pointing_id directory
-    dir_path = '/afs/ipp-garching.mpg.de/mpe/gamma/instruments/integral/data/revolutions/{}/{}.001/'.format(pointing_id[:4], pointing_id)
-    
+    assert access in ["isdc", "afs"],\
+        f"Access variable must be 'isdc' or 'afs' but is {access}."
+
+    # Path where data should be stored
+    geom_save_path = os.path.join(get_path_of_external_data_dir(),
+                                  'pointing_data',
+                                  pointing_id,
+                                  'sc_orbit_param.fits.gz')
+    data_save_path = os.path.join(get_path_of_external_data_dir(),
+                                  'pointing_data',
+                                  pointing_id,
+                                  'spi_oper.fits.gz')
+    hk_save_path = os.path.join(get_path_of_external_data_dir(),
+                                'pointing_data',
+                                pointing_id,
+                                'spi_science_hk.fits.gz')
+
+    if access == "afs":
+        # Path to pointing_id directory
+        dir_link = "/afs/ipp-garching.mpg.de/mpe/gamma/"\
+            "instruments/integral/data/revolutions/"\
+            "{}/{}.001/".format(pointing_id[:4], pointing_id)
+
+    else:
+
+        dir_link = "ftp://isdcarc.unige.ch/arc/rev_3/scw/"\
+            "{}/{}.001/".format(pointing_id[:4], pointing_id)
+
     # Paths to the data file and the orbit file on the afs server
-    geom_afs_path = os.path.join(dir_path, 'sc_orbit_param.fits.gz') 
-    data_afs_path = os.path.join(dir_path, 'spi_oper.fits.gz')
+    geom_path = os.path.join(dir_link,
+                                 'sc_orbit_param.fits.gz')
+    data_path = os.path.join(dir_link,
+                                 'spi_oper.fits.gz')
+    hk_path = os.path.join(dir_link,
+                                'spi_science_hk.fits.gz')
 
-    # Path where data should be stored
-    geom_save_path = os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'sc_orbit_param.fits.gz')
-    data_save_path = os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'spi_oper.fits.gz')
+    create_file_structure(pointing_id)
 
-    # Check if file structure exists. If not, create it.
-    if not os.path.exists(os.path.join(get_path_of_external_data_dir())):
-        os.mkdir(os.path.join(get_path_of_external_data_dir()))
-    if not os.path.exists(os.path.join(get_path_of_external_data_dir(), 'pointing_data')):
-        os.mkdir(os.path.join(get_path_of_external_data_dir(), 'pointing_data'))
-    if not os.path.exists(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id)):
-        os.mkdir(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id))
-
-    # If needed datafiles are not already in the right path copy them there
-    if not file_existing_and_readable(geom_save_path):
-        assert os.path.exists(geom_afs_path), 'Either pointin_id is not valid, or you have no access to the afs server or no rights to read the integral data' 
-        copyfile(geom_afs_path, geom_save_path)
-
-    if not file_existing_and_readable(data_save_path):
-        assert os.path.exists(data_afs_path), 'Either pointin_id is not valid, or you have no access to the afs server or no rights to read the integral data' 
-        copyfile(data_afs_path, data_save_path)
-        
-
-
-def get_files_isdcarc(pointing_id):
-    """
-    Function to download the needed files for a certain pointing_id from the iSDC archive to the local file system.
-    :param pointing_id: Id of pointing e.g. '180100610010' as string!
-    :return:
-    """
-    
-    # If pointing_id is given as integer, convert it to string
-    pointing_id = str(pointing_id)
-
-    # Dowload link to pointing_id directory
-    dir_link = 'ftp://isdcarc.unige.ch/arc/rev_3/scw/{}/{}.001/'.format(pointing_id[:4], pointing_id)
-    
-    # Download links to the data file and the orbit file
-    geom_link = os.path.join(dir_link, 'sc_orbit_param.fits.gz') 
-    data_link = os.path.join(dir_link, 'spi_oper.fits.gz')
-
-    # Path where data should be stored
-    geom_save_path = os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'sc_orbit_param.fits.gz')
-    data_save_path = os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id, 'spi_oper.fits.gz')
-
-    # Check if file structure exists. If not, create it.
-    if not os.path.exists(os.path.join(get_path_of_external_data_dir())):
-        os.mkdir(os.path.join(get_path_of_external_data_dir()))
-    if not os.path.exists(os.path.join(get_path_of_external_data_dir(), 'pointing_data')):
-        os.mkdir(os.path.join(get_path_of_external_data_dir(), 'pointing_data'))
-    if not os.path.exists(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id)):
-        os.mkdir(os.path.join(get_path_of_external_data_dir(), 'pointing_data', pointing_id))
-
-    # If needed datafiles are not already in the right path download them and save them
-    if not file_existing_and_readable(geom_save_path):
-
-        # Check if link to geom file exists
-        #request = urllib2.Request(geom_link)
-        try:
-            response = urllib.request.urlopen(geom_link)
-        except:
-            raise AssertionError('Link {} does not exists!'.format(geom_link))
-        
-        data = download_file(geom_link)
-        shutil.move(data, geom_save_path)
-
-    if not file_existing_and_readable(data_save_path):
-
-        #Check if link to data file exists
-        #request = urllib2.Request(data_link)
-        try:
-            response = urllib.request.urlopen(data_link)
-        except:
-            raise AssertionError('Link {} does not exists!'.format(data_link))
-
-        data = download_file(data_link)
-        shutil.move(data, data_save_path)
-
+    # Get the data files we need
+    get_and_save_file(geom_path, geom_save_path, access=access)
+    get_and_save_file(data_path, data_save_path, access=access)
+    get_and_save_file(hk_path, hk_save_path, access=access)
