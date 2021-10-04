@@ -6,6 +6,7 @@ from astropy.time.core import Time
 from IPython.display import HTML
 from numba import njit
 from interpolation import interp
+import copy
 
 from pyspi.io.get_files import get_files
 from pyspi.io.package_data import (get_path_of_data_file,
@@ -24,7 +25,7 @@ def trapz(y, x):
     :param y: y values
     :return: Trapz integrated
     """
-    return np.trapz(y,x)
+    return np.trapz(y, x)
 
 @njit
 def log_interp1d(x_new, x_old, y_old):
@@ -461,7 +462,7 @@ class ResponseRMF(Response):
         try:
             # Get the data from the afs server
             get_files(pointing_id, access="afs")
-        except FileNotFoundError:
+        except AssertionError:
             # Get the files from the iSDC data archive
             print("AFS data access did not work. "
                   "I will try the ISDC data archive.")
@@ -634,6 +635,20 @@ class ResponseRMF(Response):
 
             self._matrix = self._transpose_matrix.T
 
+    def clone(self):
+        """
+        Clone this response object
+        :return: cloned response
+        """
+        return ResponseRMF(
+            monte_carlo_energies=copy.deepcopy(self.monte_carlo_energies),
+            ebounds=copy.deepcopy(self.ebounds),
+            response_irf_read_object=self.irf_ob,
+            sc_matrix=copy.deepcopy(self._sc_matrix),
+            det=copy.deepcopy(self.det),
+            fixed_rsp_matrix=copy.deepcopy(self._rsp_matrix)
+        )
+
     @property
     def matrix(self):
         """
@@ -658,7 +673,8 @@ class ResponseRMF(Response):
 
 class ResponsePhotopeak(Response):
 
-    def __init__(self, ebounds=None,
+    def __init__(self,
+                 ebounds=None,
                  response_irf_read_object=None,
                  sc_matrix=None,
                  det=None):
@@ -693,7 +709,7 @@ class ResponsePhotopeak(Response):
         try:
             # Get the data from the afs server
             get_files(pointing_id, access="afs")
-        except:
+        except AssertionError:
             # Get the files from the iSDC data archive
             print('AFS data access did not work.'
                   'I will try the ISDC data archive.')

@@ -49,7 +49,7 @@ class SPISWFile(object):
         try:
             # Get the data from the afs server
             get_files(pointing_id, access="afs")
-        except FileNotFoundError:
+        except AssertionError:
             # Get the files from the iSDC data archive
             print("AFS data access did not work."
                   " I will try the ISDC data archive.")
