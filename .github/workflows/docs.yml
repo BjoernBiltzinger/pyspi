@@ -23,7 +23,10 @@ jobs:
           python setup.py install
           cd pyspi
           wget https://grb.mpe.mpg.de/pyspi_datafolder
+          pwd
           ls
+          ll
+          echo "hallo"
           unzip -o data.zip
           rm -f data.zip
 
