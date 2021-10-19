@@ -4,30 +4,51 @@ from astropy.time.core import Time, TimeDelta
 from datetime import datetime
 import h5py
 
-# Collection of needed functions that are used by several classes
-
 
 def leapseconds(time_object):
-        """
-        Hard coded leap seconds from start of INTEGRAL to time of time_object
-        :param time_object: Time object to which the number of
-        leapseconds should be detemined
-        :return: TimeDelta object of the needed leap seconds
-        """
-        if time_object < Time(datetime.strptime('060101 000000', '%y%m%d %H%M%S')):
-            lsec = 0
-        elif time_object < Time(datetime.strptime('090101 000000', '%y%m%d %H%M%S')):
-            lsec = 1
-        elif time_object < Time(datetime.strptime('120701 000000', '%y%m%d %H%M%S')):
-            lsec = 2
-        elif time_object < Time(datetime.strptime('150701 000000', '%y%m%d %H%M%S')):
-            lsec = 3
-        elif time_object < Time(datetime.strptime('170101 000000', '%y%m%d %H%M%S')):
-            lsec = 4
-        else:
-            lsec = 5
-        return TimeDelta(lsec, format='sec')
+    """
+    Hard coded leap seconds from start of INTEGRAL to time of time_object
+    :param time_object: Time object to which the number of
+    leapseconds should be detemined
+    :return: TimeDelta object of the needed leap seconds
+    """
+    if time_object < Time(datetime.strptime('060101 000000',
+                                            '%y%m%d %H%M%S')):
+        lsec = 0
+    elif time_object < Time(datetime.strptime('090101 000000',
+                                              '%y%m%d %H%M%S')):
+        lsec = 1
+    elif time_object < Time(datetime.strptime('120701 000000',
+                                              '%y%m%d %H%M%S')):
+        lsec = 2
+    elif time_object < Time(datetime.strptime('150701 000000',
+                                              '%y%m%d %H%M%S')):
+        lsec = 3
+    elif time_object < Time(datetime.strptime('170101 000000',
+                                              '%y%m%d %H%M%S')):
+        lsec = 4
+    else:
+        lsec = 5
+    return TimeDelta(lsec, format='sec')
 
+
+def find_response_version(time):
+    """
+    Find the correct response version number for a given time
+    :param time: time of interest
+    :return: response version number
+    """
+    if time < Time(datetime.strptime('031206 060000', '%y%m%d %H%M%S')):
+        version = 0
+    elif time < Time(datetime.strptime('040717 082006', '%y%m%d %H%M%S')):
+        version = 1
+    elif time < Time(datetime.strptime('090219 095957', '%y%m%d %H%M%S')):
+        version = 2
+    elif time < Time(datetime.strptime('100527 124500', '%y%m%d %H%M%S')):
+        version = 3
+    else:
+        version = 4
+    return version
 
 def find_needed_ids(time):
     """
