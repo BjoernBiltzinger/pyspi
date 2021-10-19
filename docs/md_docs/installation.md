@@ -30,8 +30,16 @@ python setup.py install
 ```
 There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run
 ```bash
-wget https://grb.mpe.mpg.de/pyspi_datafolder
+cd pyspi
+wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
+rm data.zip
 ```
-Now unzip the folder and move it to this location in the package: pyspi/pyspi/data (overwrite the data folder if there is already one)
 
-You can check if the installation worked by running the crab_fit.ipynb notebook in the example folder.
+Next you have to set a environment variable to define the storage folder for the different data files that will be downloaded.
+```bash
+export PYSPI=/path/to/datafolder
+```
+You should add this line to your bashrc file to always automatically set this variable in a new terminal.
+
+Now we are ready to go.
+
