@@ -19,6 +19,8 @@ jupyter:
 The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do
 this by specifying a astropy time object.
 ```python
+from threeML import silence_logs
+silencs_logs()
 from astropy.time import Time
 grbtime = Time("2012-07-11T02:44:53", format='isot', scale='utc')
 ```
@@ -41,6 +43,8 @@ rsp_base = ResponseIRFRead.from_version(version)
 
 Now we can create the response object for detector 0 and set the position of the GRB, which we already know.
 ```python
+from pyspi.utils.response.spi_response import ResponseRMF
+from pyspi.utils.response.spi_drm import SPIDRM
 det=0
 ra = 94.6783
 dec = -70.99905
@@ -54,6 +58,7 @@ sd = SPIDRM(rsp, 94.67830, -70.99905)
 
 With this we can build a time series and we use all the single events in this case (PSD + non PSD)
 ```python
+from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 tsb = TimeSeriesBuilderSPI.from_spi_grb_rmf(f"SPIDet{det}", 
     det, 
     ebounds, 
@@ -82,12 +87,15 @@ tsb.view_lightcurve(-50,150)
 ```
 For the fit we of course want to use all the available detectors. So we first check which detectors were still working at that time.
 ```python
+from pyspi.utils.livedets import get_live_dets
 active_dets = get_live_dets(time=grb_time, event_types=["single"])
 print(active_dets)
 ```
 
 Now we loop over these detectors, build the times series, fit the background and construct the SPILike plugins which we can use in 3ML.
 ```python
+from pyspi.SPILike import SPILikeGRB
+from threeML import DataList
 for d in active_dets:
     rsp = ResponseRMF.from_time(grbtime, 
                                 d,
