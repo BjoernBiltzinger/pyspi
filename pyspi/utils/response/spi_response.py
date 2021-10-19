@@ -16,6 +16,8 @@ from pyspi.utils.response.spi_frame import (_transform_icrs_to_spi,
                                             _transform_spi_to_icrs)
 from pyspi.utils.response.spi_response_irfs_read import\
     ResponseIRFReadPhotopeak, ResponseIRFReadRMF
+from pyspi.utils.function_utils import find_needed_ids
+
 
 @njit
 def trapz(y, x):
@@ -26,6 +28,7 @@ def trapz(y, x):
     :return: Trapz integrated
     """
     return np.trapz(y, x)
+
 
 @njit
 def log_interp1d(x_new, x_old, y_old):
@@ -47,6 +50,7 @@ def log_interp1d(x_new, x_old, y_old):
     lin_interp = interp(logx, logy, logxnew)
 
     return np.power(10., lin_interp)
+
 
 @njit
 def add_frac(ph_matrix, i, idx, ebounds, einlow, einhigh):
@@ -71,6 +75,7 @@ def add_frac(ph_matrix, i, idx, ebounds, einlow, einhigh):
         ph_matrix[i, idx] = frac
 
         add_frac(ph_matrix, i, idx+1, ebounds, einlow, einhigh)
+
 
 @njit(fastmath=True)
 def _get_xy_pos(azimuth, zenith, xmin, ymin, xbin, ybin):
@@ -98,7 +103,6 @@ def _get_xy_pos(azimuth, zenith, xmin, ymin, xbin, ybin):
     return x_pos, y_pos
 
 
-
 def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     """
     Simple function to get the 2D-indices of the 4 points defined by
@@ -118,6 +122,7 @@ def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     out = np.array([left_low, right_low, left_up, right_up]).T
 
     return out
+
 
 def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
     """
@@ -166,12 +171,13 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
                 
         response_irf_read_times.append(responses[version])
     return response_irf_read_times
-        
+
+
 class Response(object):
     def __init__(self,
+                 pointing_id=None,
                  ebounds=None,
                  response_irf_read_object=None,
-                 sc_matrix=None,
                  det=None):
         """
         Base Response Class - Here we have everything that stays the same for
@@ -183,13 +189,32 @@ class Response(object):
         :param det: Which detector
         :returns: Object
         """
-        
+        # Get the data, either from afs or from ISDC archive
+        try:
+            # Get the data from the afs server
+            get_files(pointing_id, access="afs")
+        except AssertionError:
+            # Get the files from the iSDC data archive
+            print("AFS data access did not work. "
+                  "I will try the ISDC data archive.")
+            get_files(pointing_id, access="isdc")
+
+        # Read in geometry file to get sc_matrix
+        geometry_file_path = os.path.join(get_path_of_external_data_dir(),
+                                          'pointing_data',
+                                          pointing_id,
+                                          'sc_orbit_param.fits.gz')
+
+        pointing_object = SPIPointing(geometry_file_path)
+        sc_matrix = pointing_object.sc_matrix[10]
+
         self._irf_ob = response_irf_read_object
         self._ebounds = ebounds
         if ebounds is not None:
             self.set_binned_data_energy_bounds(ebounds)
         self._sc_matrix = sc_matrix
         self._det = det
+        self._pointing_id = pointing_id
 
     def set_binned_data_energy_bounds(self, ebounds):
         """
@@ -254,7 +279,9 @@ class Response(object):
 
         self._recalculate_response()
 
-        return _transform_spi_to_icrs(azimuth, zenith)
+        return _transform_spi_to_icrs(azimuth,
+                                      zenith,
+                                      self._sc_matrix)
 
     def _weighted_irfs(self, azimuth, zenith):
         """
@@ -392,7 +419,7 @@ class Response(object):
         :return: End of Ebounds
         """
         return self._ene_max
-    
+
     @property
     def rod(self):
         """
@@ -405,24 +432,31 @@ class Response(object):
 class ResponseRMF(Response):
 
     def __init__(self,
+                 pointing_id=None,
                  monte_carlo_energies=None,
                  ebounds=None,
                  response_irf_read_object=None,
-                 sc_matrix=None,
                  det=None,
                  fixed_rsp_matrix=None):
         """
         Init Response object with total RMF used
+        :param pointing_id: The pointing ID for which the
+        response should be valid
         :param ebound: Ebounds of Ebins
+        :param monte_carlo_energies: Input energy bin edges
         :param response_irf_read_object: Object that holds
         the read in irf values
-        :return:
+        :param det: Detector ID
+        :param fixed_rsp_matrix: A fixed response matrix to overload
+        the normal matrix
+        :return: Object
         """
         assert isinstance(response_irf_read_object, ResponseIRFReadRMF)
 
-        super(ResponseRMF, self).__init__(ebounds=ebounds,
-                                          response_irf_read_object=response_irf_read_object,
-                                          sc_matrix=sc_matrix,
+        super(ResponseRMF, self).__init__(pointing_id=pointing_id,
+                                          ebounds=ebounds,
+                                          response_irf_read_object=
+                                          response_irf_read_object,
                                           det=det)
 
         self._monte_carlo_energies = monte_carlo_energies
@@ -440,49 +474,33 @@ class ResponseRMF(Response):
         self._weighted_irf_nonph_2 = None
 
     @classmethod
-    def from_pointing(cls,
-                      pointing_id,
-                      det,
-                      ebounds,
-                      monte_carlo_energies,
-                      rsp_read_obj,
-                      fixed_rsp_matrix=None):
+    def from_time(cls,
+                  time,
+                  det,
+                  ebounds,
+                  monte_carlo_energies,
+                  rsp_read_obj,
+                  fixed_rsp_matrix=None):
         """
-        Construct the Response object from an given config file.
-        :param pointing_id: Pointing ID of the observation
-        :param det: Detector number
-        :param ebounds: Ebounds of Analysis
-        :param monte_carlo_energies: Input energies of Analysis
-        :param rsp_read_obj: Object that holds the response simulation
-        :param fixed_rsp_matrix: [Optional] can give a fixed response matrix
-        to overwrite the one from the simulation
+        Init Response object with total RMF used from a time
+        :param time: Time for which to construct the response object
+        :param ebound: Ebounds of Ebins
+        :param monte_carlo_energies: Input energy bin edges
+        :param response_irf_read_object: Object that holds
+        the read in irf values
+        :param det: Detector ID
+        :param fixed_rsp_matrix: A fixed response matrix to overload
+        the normal matrix
         :return: Object
         """
-        # Get the data, either from afs or from ISDC archive
-        try:
-            # Get the data from the afs server
-            get_files(pointing_id, access="afs")
-        except AssertionError:
-            # Get the files from the iSDC data archive
-            print("AFS data access did not work. "
-                  "I will try the ISDC data archive.")
-            get_files(pointing_id, access="isdc")
 
-        # Read in geometry file to get sc_matrix
-        geometry_file_path = os.path.join(get_path_of_external_data_dir(),
-                                          'pointing_data',
-                                          pointing_id,
-                                          'sc_orbit_param.fits.gz')
+        pointing_id = find_needed_ids(time)
 
-        pointing_object = SPIPointing(geometry_file_path)
-        sc_matrix = pointing_object.sc_matrix[10]
-
-        # Init Response class
         return cls(
-            ebounds=ebounds,
+            pointing_id=pointing_id,
             monte_carlo_energies=monte_carlo_energies,
+            ebounds=ebounds,
             response_irf_read_object=rsp_read_obj,
-            sc_matrix=sc_matrix,
             det=det,
             fixed_rsp_matrix=fixed_rsp_matrix
         )
@@ -641,10 +659,10 @@ class ResponseRMF(Response):
         :return: cloned response
         """
         return ResponseRMF(
+            pointing_id=copy.deepcopy(self._pointing_id),
             monte_carlo_energies=copy.deepcopy(self.monte_carlo_energies),
             ebounds=copy.deepcopy(self.ebounds),
             response_irf_read_object=self.irf_ob,
-            sc_matrix=copy.deepcopy(self._sc_matrix),
             det=copy.deepcopy(self.det),
             fixed_rsp_matrix=copy.deepcopy(self._rsp_matrix)
         )
@@ -674,62 +692,31 @@ class ResponseRMF(Response):
 class ResponsePhotopeak(Response):
 
     def __init__(self,
+                 pointing_id=None,
                  ebounds=None,
                  response_irf_read_object=None,
-                 sc_matrix=None,
                  det=None):
         """
-        Init Response object with only Photopeak effective area used
+        Init Response object with photopeak only
+        :param pointing_id: The pointing ID for which the
+        response should be valid
         :param ebound: Ebounds of Ebins
-        :param response_irf_read_object: Object that holds the read in
-        response simulation
-        :return:
+        :param response_irf_read_object: Object that holds
+        the read in irf values
+        :param det: Detector ID
+        :return: Object
         """
         assert isinstance(response_irf_read_object, ResponseIRFReadPhotopeak)
 
         # call init of base class
-        super(ResponsePhotopeak, self).__init__(ebounds,
-                                                response_irf_read_object,
-                                                sc_matrix,
-                                                det)
+        super(ResponsePhotopeak, self).__init__(
+            pointing_id,
+            ebounds,
+            response_irf_read_object,
+            det)
 
         self._effective_area = None
         self._weighted_irf_ph = None
-
-    @classmethod
-    def from_pointing(cls,
-                      pointing_id,
-                      det,
-                      ebounds,
-                      rsp_read_obj):
-        """
-        Construct the Response object from an given config file.
-        """
-        # Get the data, either from afs or from ISDC archive
-        try:
-            # Get the data from the afs server
-            get_files(pointing_id, access="afs")
-        except AssertionError:
-            # Get the files from the iSDC data archive
-            print('AFS data access did not work.'
-                  'I will try the ISDC data archive.')
-            get_files(pointing_id, access="isdc")
-
-        geometry_file_path = os.path.join(get_path_of_external_data_dir(),
-                                          'pointing_data',
-                                          pointing_id,
-                                          'sc_orbit_param.fits.gz')
-
-        pointing_object = SPIPointing(geometry_file_path)
-        sc_matrix = pointing_object.sc_matrix[10]
-
-        # Init Response class
-        return cls(
-            ebounds=ebounds,
-            response_irf_read_object=rsp_read_obj,
-            sc_matrix=sc_matrix,
-            det=det,
-        )
 
     def _weighted_irfs(self, azimuth, zenith):
         """
@@ -779,6 +766,31 @@ class ResponsePhotopeak(Response):
         
         self._effective_area = trapz(eff_area, ebins)/(self._ene_max -
                                                        self._ene_min)
+
+    @classmethod
+    def from_time(cls,
+                  time,
+                  det,
+                  ebounds,
+                  rsp_read_obj,):
+        """
+        Init Response object with photopeak only
+        :param time: The time for which the
+        response should be valid
+        :param ebound: Ebounds of Ebins
+        :param response_irf_read_object: Object that holds
+        the read in irf values
+        :param det: Detector ID
+        :return: Object
+        """
+        pointing_id = find_needed_ids(time)
+
+        return cls(
+            pointing_id=pointing_id,
+            ebounds=ebounds,
+            response_irf_read_object=rsp_read_obj,
+            det=det,
+        )
 
     @property
     def effective_area(self):
