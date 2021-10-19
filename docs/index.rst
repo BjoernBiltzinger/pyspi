@@ -11,11 +11,12 @@ PySpi is pure python interface to analyze Integral/SPI data. At the moment it al
 
 It provides plugins for [3ML](https://threeml.readthedocs.io/en/stable/) and therefore all the spectral models from [astromodels](https://astromodels.readthedocs.io/en/latest/) are available for the fits. Check out these two software packages for more information.
 
-This is still not a stable version. Bugs will occure sometimes, please open an issue on github if you find one.
+This is still not a stable version. Bugs will occur sometimes, please open an issue on github if you find one.
 
 .. toctree::
    :maxdepth: 2
    :hidden:
 
    notebooks/installation.ipynb
+   notebooks/grb_analysis.ipynb
    api/API
