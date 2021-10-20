@@ -15,11 +15,11 @@ jobs:
           python-version: 3.9
 
       - name: Cache data folder
-            uses: actions/cache@v2
-            id: cache-data-folder
-            with:
-              path: ~/data
-              key: data-ver3
+        uses: actions/cache@v2
+        id: cache-data-folder
+        with:
+          path: ~/data
+          key: data-ver3
 
       - name: Download data folder
         env:
