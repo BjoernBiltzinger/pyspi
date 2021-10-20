@@ -6,12 +6,41 @@ jobs:
     name: "Build the notebooks for the docs"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
+
+      - name: Cache data folder
+            uses: actions/cache@v2
+            id: cache-data-folder
+            with:
+              path: ~/data
+              key: data-ver3
+
+      - name: Download data folder
+        env:
+          CACHE_HIT: ${{steps.cache-data-folder.outputs.cache-hit}}
+        run: |
+          echo "Getting data folder"
+          if [[ "$CACHE_HIT" == 'true' ]]; then
+
+          echo "data folder already in cache. using this."
+
+          else
+          echo "Download zip data folder."
+          wget https://grb.mpe.mpg.de/pyspi_datafolder
+          mv pyspi_datafolder ~/data.zip
+
+          fi
+
+      - name: Set environment variables
+        run: |
+          mkdir ~/PySPI_data
+          export PYSPI=~/PySPI_data
 
       - name: Install dependencies
         run: |
@@ -22,31 +51,26 @@ jobs:
           pip install -r requirements.txt
           python setup.py install
 
-      - name: Download data folder
+      - name: Unzip data folder
         run: |
-          cd pyspi
-          wget https://grb.mpe.mpg.de/pyspi_datafolder
-          unzip -o pyspi_datafolder
-          rm -f pyspi_datafolder
-
-      - name: Set environment variables
-        run: |
-          mkdir ~/PySPI_data
-          export PYSPI=~/PySPI_data
+          ls ~/pyspi/pyspi/data
+          unzip -o ~/data.zip -d ~/pyspi/pyspi/data
+          ls ~/pyspi/pyspi/data
 
       - name: Execute the notebooks
         shell: bash -l {0}
         run: |
-          mkdir chains
-          jupytext --to ipynb --execute docs/md_docs/*.md
-          rm -r chains
-          mv docs/md_docs/*.ipynb docs/notebooks/
-          ls docs/notebooks
+          ls ~/pyspi/docs/notebooks
+          mkdir ~/pyspi/docs/md_docs/chains
+          jupytext --to ipynb --execute ~/pyspi/docs/md_docs/*.md
+          rm -r ~/pyspi/docs/md_docs/chains
+          mv ~/pyspi/docs/md_docs/*.ipynb ~/pyspi/docs/notebooks/
+          ls ~/pyspi/docs/notebooks
 
       - uses: actions/upload-artifact@v2
         with:
           name: notebooks-for-${{ github.sha }}
-          path: docs/notebooks
+          path: ~/pyspi/docs/notebooks
 
       - name: Sleep for 1 minutes
         uses: jakejarvis/wait-action@master
