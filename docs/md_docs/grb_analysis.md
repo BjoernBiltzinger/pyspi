@@ -5,22 +5,24 @@ jupyter:
     text_representation:
       extension: .md
       format_name: markdown
-      format_version: '1.2'
-      jupytext_version: 1.7.1
+      format_version: '1.3'
+      jupytext_version: 1.13.0
   kernelspec:
     display_name: Python 3
     language: python
     name: python3
 ---
 
-<!-- #region -->
 # Analyse GRB data
 
 The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do
 this by specifying a astropy time object.
 ```python
+%%capture
 from threeML import silence_logs
-silencs_logs()
+import warnings
+warnings.filterwarnings("ignore")
+silence_logs()
 from astropy.time import Time
 grbtime = Time("2012-07-11T02:44:53", format='isot', scale='utc')
 ```
@@ -38,7 +40,7 @@ from pyspi.utils.function_utils import find_response_version
 from pyspi.utils.response.spi_response_irfs_read import ResponseIRFReadRMF
 version = find_response_version(grbtime)
 print(version)
-rsp_base = ResponseIRFRead.from_version(version)
+rsp_base = ResponseIRFReadRMF.from_version(version)
 ```
 
 Now we can create the response object for detector 0 and set the position of the GRB, which we already know.
@@ -70,7 +72,7 @@ tsb = TimeSeriesBuilderSPI.from_spi_grb_rmf(f"SPIDet{det}",
 
 Now we can have a look at the light curves of data from -50 to 150 seconds
 ```python
-tsb.view_lightcurve(-50,150)
+tsb.view_lightcurve(-50,150);
 ```
 
 With this we can select the active time and some background time intervals.
@@ -83,12 +85,12 @@ tsb.set_background_interval(bkg_time1, bkg_time2)
 ```
 We can check if the selection and background fitting worked by looking again at the light curve
 ```python
-tsb.view_lightcurve(-50,150)
+tsb.view_lightcurve(-50,150);
 ```
 For the fit we of course want to use all the available detectors. So we first check which detectors were still working at that time.
 ```python
 from pyspi.utils.livedets import get_live_dets
-active_dets = get_live_dets(time=grb_time, event_types=["single"])
+active_dets = get_live_dets(time=grbtime, event_types=["single"])
 print(active_dets)
 ```
 
@@ -96,6 +98,7 @@ Now we loop over these detectors, build the times series, fit the background and
 ```python
 from pyspi.SPILike import SPILikeGRB
 from threeML import DataList
+spilikes = []
 for d in active_dets:
     rsp = ResponseRMF.from_time(grbtime, 
                                 d,
@@ -105,9 +108,9 @@ for d in active_dets:
     sd = SPIDRM(rsp, 94.67830, -70.99905)
     tsb = TimeSeriesBuilderSPI.from_spi_grb_rmf(f"SPIDet{d}", 
                                                 d, 
-                                                ebounds_sgl, 
-                                                time_of_grb, 
-                                                response=sd_sgl,
+                                                ebounds, 
+                                                grbtime, 
+                                                response=sd,
                                                 sgl_type="both",
                                                 )
     tsb.set_active_time_interval(active_time)
@@ -135,12 +138,15 @@ model = Model(ps)
 Everything is ready to fit now! We make a Bayesian fit here with multinest
 ```python
 from threeML import BayesianAnalysis
+import os
 ba_spi = BayesianAnalysis(model, datalist)
 ba_spi.set_sampler("multinest", share_spectrum=True)
+if not os.path.isdir("chains"):
+    os.mkdir("chains")
 ba_spi.sampler.setup(800, 
                     chain_name='./chains/docs_',
                     resume=False, 
-                    verbose=True,
+                    verbose=False,
                     importance_nested_sampling=False)
 ba_spi.sample()
 ```
@@ -154,7 +160,8 @@ display_spectrum_model_counts(ba_spi,
                                 source_only=True,
                                 show_background=False,
                                 model_cmap="viridis", 
-                                data_cmap="viridis")
+                                data_cmap="viridis",
+                                background_cmap="viridis");
 ```
 
 and have a look at the spectrum
@@ -179,3 +186,8 @@ ba_spi.results.display()
 
 
 
+<!-- #endregion -->
+
+```python
+
+```

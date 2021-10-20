@@ -270,9 +270,11 @@ class SPISWFileGRB(object):
         self._n_channels = len(self._ebounds)-1
 
         # Time of GRB. Needed to get the correct pointing.
-        time = datetime.strptime(time_of_grb,
-                                 '%y%m%d %H%M%S')
-        self._time_of_GRB = Time(time)
+        if not isinstance(time_of_grb, Time):
+            time = datetime.strptime(time_of_grb,
+                                     '%y%m%d %H%M%S')
+            time_of_grb = Time(time)
+        self._time_of_GRB = time_of_grb
 
         # Check that det is a valid number
         self._det = det
