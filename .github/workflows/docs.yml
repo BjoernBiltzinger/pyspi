@@ -66,6 +66,7 @@ jobs:
           ls pyspi/utils
           ls pyspi/utils/response
           ls docs/notebooks
+          mkdir ~/PySPI_data
           mkdir docs/md_docs/chains
           jupytext --to ipynb --execute docs/md_docs/*.md
           rm -r docs/md_docs/chains
