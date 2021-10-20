@@ -54,7 +54,8 @@ jobs:
       - name: Unzip data folder
         run: |
           ls ~/pyspi/pyspi/data
-          unzip -o ~/data.zip -d ~/pyspi/pyspi/data
+          unzip -o ~/data.zip -d ~/
+          mv -f ~/data ~/pyspi/pyspi/data
           ls ~/pyspi/pyspi/data
 
       - name: Execute the notebooks
