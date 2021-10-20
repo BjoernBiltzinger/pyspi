@@ -58,6 +58,7 @@ jobs:
           ls pyspi/data
           unzip -o ~/data.zip
           ls
+          rm pyspi/data
           mv -f data pyspi/
           ls pyspi/data
 
