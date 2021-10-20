@@ -18,8 +18,8 @@ jobs:
         uses: actions/cache@v2
         id: cache-data-folder
         with:
-          path: ~/
-          key: data.zip
+          path: /home/runner/
+          key: data
 
       - name: Download data folder
         env:
@@ -54,27 +54,28 @@ jobs:
       - name: Unzip data folder
         run: |
           ls ~/
-          ls ~/pyspi
-          ls ~/pyspi/pyspi
+          ls pyspi
+          ls pyspi/pyspi
+          ls pyspi/pyspi/data
           unzip -o ~/data.zip
           ls
-          mv -f data ~/pyspi/pyspi
-          ls ~/pyspi/pyspi/data
+          mv -f data pyspi/pyspi
+          ls pyspi/pyspi/data
 
       - name: Execute the notebooks
         shell: bash -l {0}
         run: |
-          ls ~/pyspi/docs/notebooks
-          mkdir ~/pyspi/docs/md_docs/chains
-          jupytext --to ipynb --execute ~/pyspi/docs/md_docs/*.md
-          rm -r ~/pyspi/docs/md_docs/chains
-          mv ~/pyspi/docs/md_docs/*.ipynb ~/pyspi/docs/notebooks/
-          ls ~/pyspi/docs/notebooks
+          ls pyspi/docs/notebooks
+          mkdir pyspi/docs/md_docs/chains
+          jupytext --to ipynb --execute pyspi/docs/md_docs/*.md
+          rm -r pyspi/docs/md_docs/chains
+          mv pyspi/docs/md_docs/*.ipynb pyspi/docs/notebooks/
+          ls pyspi/docs/notebooks
 
       - uses: actions/upload-artifact@v2
         with:
           name: notebooks-for-${{ github.sha }}
-          path: ~/pyspi/docs/notebooks
+          path: pyspi/docs/notebooks
 
       - name: Sleep for 1 minutes
         uses: jakejarvis/wait-action@master
