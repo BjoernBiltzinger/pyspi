@@ -59,6 +59,8 @@ jobs:
 
       - name: Execute the notebooks
         shell: bash -l {0}
+        env:
+          PYSPI: ~/PySPI_data
         run: |
           ls pyspi
           ls pyspi/utils
