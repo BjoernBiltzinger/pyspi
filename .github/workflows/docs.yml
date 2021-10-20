@@ -54,7 +54,7 @@ jobs:
       - name: Copy data folder
         run: |
           rm -r pyspi/data
-          cp ~/data pyspi/
+          cp -r ~/data pyspi/
           ls pyspi/data
 
       - name: Execute the notebooks

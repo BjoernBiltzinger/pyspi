@@ -13,7 +13,6 @@ jupyter:
     name: python3
 ---
 
-<!-- #region -->
 # Installation
 There is currently no PyPI version of this software package, so you have to install it from Github. To to this run
 ```bash
@@ -32,7 +31,7 @@ There are a few large data files for the background model and the response that 
 ```bash
 cd pyspi
 wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
-rm data.zip
+rm -f data.zip
 ```
 
 Next you have to set a environment variable to define the storage folder for the different data files that will be downloaded.
