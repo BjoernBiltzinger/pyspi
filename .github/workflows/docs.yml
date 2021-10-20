@@ -18,8 +18,8 @@ jobs:
         uses: actions/cache@v2
         id: cache-data-folder
         with:
-          path: ~/data
-          key: data-ver3
+          path: ~/
+          key: data.zip
 
       - name: Download data folder
         env:
@@ -53,9 +53,12 @@ jobs:
 
       - name: Unzip data folder
         run: |
-          ls ~/pyspi/pyspi/data
-          unzip -o ~/data.zip -d ~/
-          mv -f ~/data ~/pyspi/pyspi/data
+          ls ~/
+          ls ~/pyspi
+          ls ~/pyspi/pyspi
+          unzip -o ~/data.zip
+          ls
+          mv -f data ~/pyspi/pyspi
           ls ~/pyspi/pyspi/data
 
       - name: Execute the notebooks
