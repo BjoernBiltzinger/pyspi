@@ -60,6 +60,9 @@ jobs:
       - name: Execute the notebooks
         shell: bash -l {0}
         run: |
+          ls pyspi
+          ls pyspi/utils
+          ls pyspi/utils/response
           ls docs/notebooks
           mkdir docs/md_docs/chains
           jupytext --to ipynb --execute docs/md_docs/*.md
