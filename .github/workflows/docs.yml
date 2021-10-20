@@ -21,10 +21,18 @@ jobs:
           pip install jupytext jupyterthemes
           pip install -r requirements.txt
           python setup.py install
+
+      - name: Download data folder
+        run: |
           cd pyspi
           wget https://grb.mpe.mpg.de/pyspi_datafolder
           unzip -o pyspi_datafolder
           rm -f pyspi_datafolder
+
+      - name: Set environment variables
+        run: |
+          mkdir ~/PySPI_data
+          export PYSPI=~/PySPI_data
 
       - name: Execute the notebooks
         shell: bash -l {0}
@@ -34,6 +42,7 @@ jobs:
           rm -r chains
           mv docs/md_docs/*.ipynb docs/notebooks/
           ls docs/notebooks
+
       - uses: actions/upload-artifact@v2
         with:
           name: notebooks-for-${{ github.sha }}
