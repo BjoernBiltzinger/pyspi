@@ -34,7 +34,7 @@ jobs:
           echo "Download zip data folder."
           wget https://grb.mpe.mpg.de/pyspi_datafolder
           mv pyspi_datafolder ~/data.zip
-
+          unzip -o ~/data.zip -d ~/
           fi
 
       - name: Set environment variables
@@ -51,26 +51,21 @@ jobs:
           pip install -r requirements.txt
           python setup.py install
 
-      - name: Unzip data folder
+      - name: Copy data folder
         run: |
-          ls ~/
-          ls pyspi
-          ls pyspi/data
-          unzip -o ~/data.zip
-          ls
           rm -r pyspi/data
-          mv -f data pyspi/
+          cp ~/data pyspi/
           ls pyspi/data
 
       - name: Execute the notebooks
         shell: bash -l {0}
         run: |
-          ls pyspi/docs/notebooks
-          mkdir pyspi/docs/md_docs/chains
-          jupytext --to ipynb --execute pyspi/docs/md_docs/*.md
-          rm -r pyspi/docs/md_docs/chains
-          mv pyspi/docs/md_docs/*.ipynb pyspi/docs/notebooks/
-          ls pyspi/docs/notebooks
+          ls docs/notebooks
+          mkdir docs/md_docs/chains
+          jupytext --to ipynb --execute docs/md_docs/*.md
+          rm -r docs/md_docs/chains
+          mv docs/md_docs/*.ipynb docs/notebooks/
+          ls docs/notebooks
 
       - uses: actions/upload-artifact@v2
         with:
