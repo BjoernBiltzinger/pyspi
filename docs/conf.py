@@ -60,9 +60,16 @@ def skip(app, what, name, obj, would_skip, options):
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'nbsphinx', 'recommonmark', 'sphinx.ext.autodoc', 'sphinx.ext.mathjax',
-    'sphinx.ext.viewcode', 'sphinx.ext.autodoc', 'sphinx.ext.githubpages',
-    'sphinx.ext.napoleon', 'rtds_action', 'sphinx_gallery.load_style',
+    'nbsphinx',
+    'recommonmark',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.githubpages',
+    'sphinx.ext.napoleon',
+    'rtds_action',
+    'sphinx_gallery.load_style',
 ]
 
 napoleon_google_docstring = True
@@ -158,7 +165,7 @@ html_theme_options = {
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'PySpidoc'
 
-source_suffix = ['.rst', '.ipynb']
+source_suffix = ['.rst']
 
 html_logo = 'media/pypsi_logo2.png'
 
