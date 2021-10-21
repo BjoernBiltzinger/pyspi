@@ -5,3 +5,6 @@ sphinx-gallery
 cython
 numpy>=1.6,<1.16
 speclite
+sphinx>= 1.4
+nbsphinx
+sphinx-autoapi
