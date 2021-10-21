@@ -13,6 +13,8 @@ jupyter:
     name: python3
 ---
 
+<!-- #region -->
+
 # Installation
 There is currently no PyPI version of this software package, so you have to install it from Github. To to this run
 ```bash
@@ -41,3 +43,4 @@ You should add this line to your bashrc file to always automatically set this va
 
 Now we are ready to go.
 
+<!-- #endregion -->
