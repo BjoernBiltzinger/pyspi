@@ -1,7 +1,7 @@
-popsynth
+pyspi
 ========
 
 .. toctree::
    :maxdepth: 4
 
-   popsynth
+   pyspi
