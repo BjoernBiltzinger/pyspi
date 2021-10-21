@@ -39,8 +39,8 @@ jobs:
 
       - name: Set environment variables
         run: |
-          mkdir ~/PySPI_data
-          export PYSPI=~/PySPI_data
+          mkdir /home/runner/PySPI_data
+          export PYSPI=/home/runner/PySPI_data
 
       - name: Install dependencies
         run: |
@@ -60,14 +60,14 @@ jobs:
       - name: Execute the notebooks
         shell: bash -l {0}
         env:
-          PYSPI: ~/PySPI_data
+          PYSPI: /home/runner/PySPI_data
         run: |
           ls ~/
           ls pyspi
           ls pyspi/utils
           ls pyspi/utils/response
           ls docs/notebooks
-          mkdir ~/PySPI_data
+          mkdir /home/runner/PySPI_data
           mkdir docs/md_docs/chains
           jupytext --to ipynb --execute docs/md_docs/*.md
           rm -r docs/md_docs/chains
