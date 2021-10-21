@@ -62,6 +62,7 @@ jobs:
         env:
           PYSPI: ~/PySPI_data
         run: |
+          ls ~/
           ls pyspi
           ls pyspi/utils
           ls pyspi/utils/response

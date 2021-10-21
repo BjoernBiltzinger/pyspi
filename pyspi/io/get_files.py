@@ -15,12 +15,14 @@ def create_file_structure(pointing_id):
     :return:
     """
     # Check if file structure exists. If not, create it.
-    if not os.path.exists(os.path.join(get_path_of_external_data_dir())):
-        os.mkdir(os.path.join(get_path_of_external_data_dir()))
+    if not os.path.exists(get_path_of_external_data_dir()):
+        os.mkdir(get_path_of_external_data_dir())
+
     if not os.path.exists(os.path.join(get_path_of_external_data_dir(),
                                        'pointing_data')):
         os.mkdir(os.path.join(get_path_of_external_data_dir(),
                               'pointing_data'))
+
     if not os.path.exists(os.path.join(get_path_of_external_data_dir(),
                                        'pointing_data',
                                        pointing_id)):
