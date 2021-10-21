@@ -19,6 +19,6 @@ WHAT THE HELL!!!!!!!!!!!!!!!
    :maxdepth: 5
    :hidden:
 
-   notebooks/installation.ipynb
-   notebooks/grb_analysis.ipynb
+   notebooks/installation
+   notebooks/grb_analysis
    api/API
