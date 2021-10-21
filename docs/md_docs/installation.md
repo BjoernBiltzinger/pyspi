@@ -31,7 +31,6 @@ There are a few large data files for the background model and the response that 
 ```bash
 cd pyspi
 wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
-rm -f data.zip
 ```
 
 Next you have to set a environment variable to define the storage folder for the different data files that will be downloaded.

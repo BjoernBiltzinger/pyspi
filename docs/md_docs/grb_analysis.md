@@ -15,14 +15,18 @@ jupyter:
 
 # Analyse GRB data
 
-The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do
-this by specifying a astropy time object.
 ```python
 %%capture
+# to make the output clean for the docs
 from threeML import silence_logs
 import warnings
 warnings.filterwarnings("ignore")
 silence_logs()
+```
+
+The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do
+this by specifying a astropy time object.
+```python
 from astropy.time import Time
 grbtime = Time("2012-07-11T02:44:53", format='isot', scale='utc')
 ```
@@ -125,29 +129,22 @@ datalist = DataList(*spilikes)
 Now we have to specify a model for the fit. We use astromodels for this.
 ```python
 from astromodels import *
-band = Band()
-band.K.prior = Log_uniform_prior(lower_bound=1e-6, upper_bound=1e4)
-band.alpha.set_uninformative_prior(Uniform_prior)
-band.beta.set_uninformative_prior(Uniform_prior)
-band.xp.prior = Uniform_prior(lower_bound=10,upper_bound=8000)
-ps = PointSource('GRB',ra=ra, dec=dec, spectral_shape=band)
+pl = Powerlaw()
+pl.K.prior = Log_uniform_prior(lower_bound=1e-6, upper_bound=1e4)
+pl.index.set_uninformative_prior(Uniform_prior)
+pl.piv.value = 200
+ps = PointSource('GRB',ra=ra, dec=dec, spectral_shape=pl)
 
 model = Model(ps)
 ```
 
-Everything is ready to fit now! We make a Bayesian fit here with multinest
+Everything is ready to fit now! We make a Bayesian fit here with emcee
 ```python
 from threeML import BayesianAnalysis
 import os
 ba_spi = BayesianAnalysis(model, datalist)
-ba_spi.set_sampler("multinest", share_spectrum=True)
-if not os.path.isdir("chains"):
-    os.mkdir("chains")
-ba_spi.sampler.setup(800, 
-                    chain_name='./chains/docs_',
-                    resume=False, 
-                    verbose=False,
-                    importance_nested_sampling=False)
+ba_spi.set_sampler("emcee", share_spectrum=True)
+ba_spi.sampler.setup(n_walkers=20, n_iterations=500)
 ba_spi.sample()
 ```
 
@@ -168,26 +165,10 @@ and have a look at the spectrum
 
 ```python
 from threeML import plot_spectra
-plot_spectra(ba_spi.results, flux_unit="keV/(s cm2)")
+plot_spectra(ba_spi.results, flux_unit="keV/(s cm2)", ene_min=20, ene_max=600);
 ```
 
 We can also get a summary of the fit and write the results to disk (see 3ML documentation)
 ```python
 ba_spi.results.display()
-```
-
-
-
-
-
-
-
-
-
-
-
-<!-- #endregion -->
-
-```python
-
 ```
