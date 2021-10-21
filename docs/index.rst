@@ -13,8 +13,10 @@ It provides plugins for [3ML](https://threeml.readthedocs.io/en/stable/) and the
 
 This is still not a stable version. Bugs will occur sometimes, please open an issue on github if you find one.
 
+WHAT THE HELL!!!!!!!!!!!!!!!
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 5
    :hidden:
 
    notebooks/installation.ipynb
