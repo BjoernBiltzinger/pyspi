@@ -62,22 +62,14 @@ jobs:
         env:
           PYSPI: /home/runner/PySPI_data
         run: |
-          ls ~/
-          ls pyspi
-          ls pyspi/utils
-          ls pyspi/utils/response
-          ls docs/notebooks
-          mkdir /home/runner/PySPI_data
-          mkdir docs/md_docs/chains
           jupytext --to ipynb --execute docs/md_docs/*.md
-          rm -r docs/md_docs/chains
           mv docs/md_docs/*.ipynb docs/notebooks/
           ls docs/notebooks
 
       - uses: actions/upload-artifact@v2
         with:
           name: notebooks-for-${{ github.sha }}
-          path: pyspi/docs/notebooks
+          path: docs/notebooks
 
       - name: Sleep for 1 minutes
         uses: jakejarvis/wait-action@master
