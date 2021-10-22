@@ -173,18 +173,18 @@ We can also get a summary of the fit and write the results to disk (see 3ML docu
 It is also possible to localize GRBs with PySPI, to this we simply free the position of point source with:
 
 ```python
-#for s in spilikes:
-#    s.set_free_position(True)
-#datalist = DataList(*spilikes)
+for s in spilikes:
+    s.set_free_position(True)
+datalist = DataList(*spilikes)
 ```
 Initialize the Bayesian Analysis
 ```python
-#from threeML import BayesianAnalysis
-#import os
-#ba_spi = BayesianAnalysis(model, datalist)
-#ba_spi.set_sampler("emcee", share_spectrum=True)
-#ba_spi.sampler.setup(n_walkers=20, n_iterations=500)
-#ba_spi.sample()
+from threeML import BayesianAnalysis
+import os
+ba_spi = BayesianAnalysis(model, datalist)
+ba_spi.set_sampler("emcee", share_spectrum=True)
+ba_spi.sampler.setup(n_walkers=20, n_iterations=500)
+ba_spi.sample()
 ```
 
 When we compare the results for ra and dec, we can see that this matches with the position from [Swift-XRT for the same GRB (RA, Dec = 94.67830, -70.99905)]{https://gcn.gsfc.nasa.gov/gcn/other/120711A.gcn3}
