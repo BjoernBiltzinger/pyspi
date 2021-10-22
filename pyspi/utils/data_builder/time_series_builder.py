@@ -632,16 +632,16 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         )
 
     @classmethod
-    def from_spi_grb_rmf(cls,
-                         name,
-                         det,
-                         ebounds,
-                         time_of_grb,
-                         response=None,
-                         sgl_type=None,
-                         restore_background=None,
-                         poly_order=0,
-                         verbose=True
+    def from_spi_grb(cls,
+                     name,
+                     det,
+                     ebounds,
+                     time_of_grb,
+                     response=None,
+                     sgl_type=None,
+                     restore_background=None,
+                     poly_order=0,
+                     verbose=True
     ):
         """
         Class method to build the time_series_builder for a given GRB time
