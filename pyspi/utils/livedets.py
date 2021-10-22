@@ -1,9 +1,12 @@
+import numpy as np
 from astropy.time.core import Time
 from datetime import datetime
-from pyspi.utils.detector_ids import double_names, triple_names
-import numpy as np
-from pyspi.io.package_data import get_path_of_data_file
 import h5py
+
+from pyspi.io.package_data import get_path_of_data_file
+from pyspi.utils.function_utils import get_time_object
+from pyspi.utils.detector_ids import double_names, triple_names
+
 
 
 def get_live_dets(time, event_types=["single", "double", "triple"]):
@@ -15,9 +18,7 @@ def get_live_dets(time, event_types=["single", "double", "triple"]):
     :return: array of live dets
     """
 
-    if not isinstance(time, Time):
-        time = datetime.strptime(time, '%y%m%d %H%M%S')
-        time = Time(time)
+    time = get_time_object(time)
 
     # All single dets
     live_dets = np.arange(19)
