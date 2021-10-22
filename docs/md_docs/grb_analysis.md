@@ -76,7 +76,7 @@ tsb = TimeSeriesBuilderSPI.from_spi_grb_rmf(f"SPIDet{det}",
 
 Now we can have a look at the light curves of data from -50 to 150 seconds
 ```python
-tsb.view_lightcurve(-50,150);
+tsb.view_lightcurve(-50,150)
 ```
 
 With this we can select the active time and some background time intervals.
@@ -89,7 +89,7 @@ tsb.set_background_interval(bkg_time1, bkg_time2)
 ```
 We can check if the selection and background fitting worked by looking again at the light curve
 ```python
-tsb.view_lightcurve(-50,150);
+tsb.view_lightcurve(-50,150)
 ```
 For the fit we of course want to use all the available detectors. So we first check which detectors were still working at that time.
 ```python
@@ -158,14 +158,14 @@ display_spectrum_model_counts(ba_spi,
                                 show_background=False,
                                 model_cmap="viridis", 
                                 data_cmap="viridis",
-                                background_cmap="viridis");
+                                background_cmap="viridis")
 ```
 
 and have a look at the spectrum
 
 ```python
 from threeML import plot_spectra
-plot_spectra(ba_spi.results, flux_unit="keV/(s cm2)", ene_min=20, ene_max=600);
+plot_spectra(ba_spi.results, flux_unit="keV/(s cm2)", ene_min=20, ene_max=600)
 ```
 We can also get a summary of the fit and write the results to disk (see 3ML documentation).
 
