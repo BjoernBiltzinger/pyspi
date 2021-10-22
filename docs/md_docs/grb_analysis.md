@@ -183,7 +183,7 @@ from threeML import BayesianAnalysis
 import os
 ba_spi = BayesianAnalysis(model, datalist)
 ba_spi.set_sampler("emcee", share_spectrum=True)
-ba_spi.sampler.setup(n_walkers=20, n_iterations=500)
+ba_spi.sampler.setup(n_walkers=20, n_burn_in=1000, n_iterations=500)
 ba_spi.sample()
 ```
 
