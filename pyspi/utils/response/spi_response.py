@@ -453,11 +453,11 @@ class ResponseRMFGenerator(ResponseGenerator):
         """
         assert isinstance(response_irf_read_object, ResponseIRFReadRMF)
 
-        super(ResponseRMF, self).__init__(pointing_id=pointing_id,
-                                          ebounds=ebounds,
-                                          response_irf_read_object=
-                                          response_irf_read_object,
-                                          det=det)
+        super(ResponseRMFGenerator, self).__init__(
+            pointing_id=pointing_id,
+            ebounds=ebounds,
+            response_irf_read_object=response_irf_read_object,
+            det=det)
 
         self._monte_carlo_energies = monte_carlo_energies
 
@@ -658,7 +658,7 @@ class ResponseRMFGenerator(ResponseGenerator):
         Clone this response object
         :return: cloned response
         """
-        return ResponseRMF(
+        return ResponseRMFGenerator(
             pointing_id=copy.deepcopy(self._pointing_id),
             monte_carlo_energies=copy.deepcopy(self.monte_carlo_energies),
             ebounds=copy.deepcopy(self.ebounds),
@@ -709,7 +709,7 @@ class ResponsePhotopeakGenerator(ResponseGenerator):
         assert isinstance(response_irf_read_object, ResponseIRFReadPhotopeak)
 
         # call init of base class
-        super(ResponsePhotopeak, self).__init__(
+        super(ResponsePhotopeakGenerator, self).__init__(
             pointing_id,
             ebounds,
             response_irf_read_object,
