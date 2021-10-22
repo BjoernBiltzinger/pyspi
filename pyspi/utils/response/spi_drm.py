@@ -1,6 +1,6 @@
 import numpy as np
-
 from threeML.utils.OGIP.response import InstrumentResponse
+
 
 class SPIDRM(InstrumentResponse):
     def __init__(self, drm_generator, ra, dec):

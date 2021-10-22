@@ -173,7 +173,7 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
     return response_irf_read_times
 
 
-class Response(object):
+class ResponseGenerator(object):
     def __init__(self,
                  pointing_id=None,
                  ebounds=None,
@@ -429,7 +429,7 @@ class Response(object):
         """
         return HTML(filename=get_path_of_data_file('roland.html'))
 
-class ResponseRMF(Response):
+class ResponseRMFGenerator(ResponseGenerator):
 
     def __init__(self,
                  pointing_id=None,
@@ -689,7 +689,7 @@ class ResponseRMF(Response):
         return self._monte_carlo_energies
 
 
-class ResponsePhotopeak(Response):
+class ResponsePhotopeakGenerator(ResponseGenerator):
 
     def __init__(self,
                  pointing_id=None,

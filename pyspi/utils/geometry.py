@@ -1,10 +1,5 @@
 import numpy as np
-try:
-    from numba import njit
-    has_numba = True
-except:
-    has_numba = False
-
+from numba import njit
 
 @njit
 def polar2cart(ra, dec):

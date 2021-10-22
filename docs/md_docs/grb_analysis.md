@@ -15,17 +15,17 @@ jupyter:
 
 # Analyse GRB data
 
+
+Setup to make the output clean for the docs:
 ```python
 %%capture
-# to make the output clean for the docs
 from threeML import silence_logs
 import warnings
 warnings.filterwarnings("ignore")
 silence_logs()
 ```
 
-The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do
-this by specifying a astropy time object.
+The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do this by specifying a astropy time object.
 ```python
 from astropy.time import Time
 grbtime = Time("2012-07-11T02:44:53", format='isot', scale='utc')
@@ -49,17 +49,17 @@ rsp_base = ResponseIRFReadRMF.from_version(version)
 
 Now we can create the response object for detector 0 and set the position of the GRB, which we already know.
 ```python
-from pyspi.utils.response.spi_response import ResponseRMF
+from pyspi.utils.response.spi_response import ResponseRMFGenerator
 from pyspi.utils.response.spi_drm import SPIDRM
 det=0
 ra = 94.6783
 dec = -70.99905
-rsp = ResponseRMF.from_time(grbtime, 
-                                det,
-                                ebounds, 
-                                ein,
-                                rsp_base)
-sd = SPIDRM(rsp, 94.67830, -70.99905)
+drm_generator = ResponseRMFGenerator.from_time(grbtime, 
+                                                det,
+                                                ebounds, 
+                                                ein,
+                                                rsp_base)
+sd = SPIDRM(drm_generator, 94.67830, -70.99905)
 ```
 
 With this we can build a time series and we use all the single events in this case (PSD + non PSD)
