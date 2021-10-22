@@ -11,16 +11,15 @@ from pyspi.io.get_files import get_files
 from pyspi.io.package_data import get_path_of_external_data_dir, \
     get_path_of_data_file
 from pyspi.utils.detector_ids import double_names, triple_names
-from pyspi.utils.function_utils import find_needed_ids, ISDC_MJD_to_cxcsec
-
+from pyspi.utils.function_utils import find_needed_ids, ISDC_MJD_to_cxcsec, \
+    get_time_object
 
 from threeML.io.file_utils import sanitize_filename
 from threeML.utils.time_series.event_list import EventListWithDeadTime,\
     EventListWithLiveTime
 from threeML.utils.time_series.binned_spectrum_series import \
     BinnedSpectrumSeries
-from threeML.utils.spectrum.binned_spectrum import \
-    BinnedSpectrumWithDispersion, BinnedSpectrum
+from threeML.utils.spectrum.binned_spectrum import BinnedSpectrumWithDispersion
 from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
 
 class SPISWFile(object):
@@ -270,11 +269,7 @@ class SPISWFileGRB(object):
         self._n_channels = len(self._ebounds)-1
 
         # Time of GRB. Needed to get the correct pointing.
-        if not isinstance(time_of_grb, Time):
-            time = datetime.strptime(time_of_grb,
-                                     '%y%m%d %H%M%S')
-            time_of_grb = Time(time)
-        self._time_of_GRB = time_of_grb
+        self._time_of_GRB = get_time_object(time_of_grb)
 
         # Check that det is a valid number
         self._det = det
