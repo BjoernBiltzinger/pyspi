@@ -65,7 +65,7 @@ sd = SPIDRM(drm_generator, ra, dec)
 With this we can build a time series and we use all the single events in this case (PSD + non PSD)
 ```python
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
-tsb = TimeSeriesBuilderSPI.from_spi_grb_rmf(f"SPIDet{det}", 
+tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
     det, 
     ebounds, 
     grbtime, 
@@ -110,7 +110,7 @@ for d in active_dets:
                                                     ein,
                                                     rsp_base)
     sd = SPIDRM(drm_generator, ra, dec)
-    tsb = TimeSeriesBuilderSPI.from_spi_grb_rmf(f"SPIDet{d}", 
+    tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{d}", 
                                                 d, 
                                                 ebounds, 
                                                 grbtime, 
@@ -131,6 +131,7 @@ Now we have to specify a model for the fit. We use astromodels for this.
 from astromodels import *
 pl = Powerlaw()
 pl.K.prior = Log_uniform_prior(lower_bound=1e-6, upper_bound=1e4)
+pl.K.bounds = (1e-6, 1e4)
 pl.index.set_uninformative_prior(Uniform_prior)
 pl.piv.value = 200
 ps = PointSource('GRB',ra=ra, dec=dec, spectral_shape=pl)
@@ -180,11 +181,16 @@ datalist = DataList(*spilikes)
 Initialize the Bayesian Analysis
 ```python
 from threeML import BayesianAnalysis
-import os
 ba_spi = BayesianAnalysis(model, datalist)
-ba_spi.set_sampler("emcee", share_spectrum=True)
-ba_spi.sampler.setup(n_walkers=20, n_burn_in=1000, n_iterations=500)
+ba_spi.set_sampler("ultranest")
+ba_spi.sampler.setup(
+    min_num_live_points=400, frac_remain=0.5, use_mlfriends=False
+)
 ba_spi.sample()
+#ba_spi = BayesianAnalysis(model, datalist)
+#ba_spi.set_sampler("emcee", share_spectrum=True)
+#ba_spi.sampler.setup(n_walkers=20, n_burn_in=3000, n_iterations=1000)
+#ba_spi.sample()
 ```
 
 We can use the threeML features to create a corner plot for this fit:
