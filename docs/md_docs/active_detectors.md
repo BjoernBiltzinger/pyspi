@@ -15,6 +15,15 @@ jupyter:
 
 # Active Detectors
 
+Setup to make the output clean for the docs:
+```python
+%%capture
+from threeML import silence_logs
+import warnings
+warnings.filterwarnings("ignore")
+silence_logs()
+```
+
 During the life of INTEGRAL/SPI several detectors stopped working correctly and were therefore disabled. In our analysis we need to take this into account, to not include a detector with 0 counts all the time and because the response for the surrounding detectors change when a detector is deactivated. 
 
 In PySPI you can get for a given time, which detectors are active and which response version is valid at that time.
@@ -36,7 +45,7 @@ It is also possible to plot the same version in a visual way:
 ```python
 from pyspi.io.plotting.spi_display import SPI
 s = SPI(time=time_string)
-s.plot_spi_working_dets();
+s.plot_spi_working_dets()
 ```
 
 The response version at that time can be calculated with:

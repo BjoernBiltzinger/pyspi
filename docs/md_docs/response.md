@@ -72,6 +72,6 @@ sd = SPIDRM(drm_generator, ra, dec)
 SPIDRM is a child class of [InstrumentResponse](https://threeml.readthedocs.io/en/stable/api/threeML.utils.OGIP.response.html#threeML.utils.OGIP.response.InstrumentResponse) from threeML, therefore we can use the plotting functions from 3ML.
 
 ```python
-sd.plot_matrix();
+sd.plot_matrix()
 ```
 
