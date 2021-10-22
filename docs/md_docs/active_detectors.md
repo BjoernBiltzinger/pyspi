@@ -43,5 +43,5 @@ The response version at that time can be calculated with:
 ```python
 from pyspi.utils.function_utils import find_response_version
 print("Response version number:")
-find_response_version(grbtime)
+find_response_version(time_string)
 ```

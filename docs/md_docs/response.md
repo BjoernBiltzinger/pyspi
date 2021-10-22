@@ -48,7 +48,7 @@ Get the response version and construct the rsp base, which is an object holding 
 ```python
 from pyspi.utils.function_utils import find_response_version
 from pyspi.utils.response.spi_response_irfs_read import ResponseIRFReadRMF
-version = find_response_version(grbtime)
+version = find_response_version(rsp_time)
 print(version)
 rsp_base = ResponseIRFReadRMF.from_version(version)
 ```
@@ -61,7 +61,7 @@ from pyspi.utils.response.spi_drm import SPIDRM
 det = 0
 ra = 94.6783
 dec = -70.99905
-drm_generator = ResponseRMFGenerator.from_time(grbtime,
+drm_generator = ResponseRMFGenerator.from_time(rsp_time,
                                                 det,
                                                 ebounds, 
                                                 ein,
