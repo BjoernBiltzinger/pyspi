@@ -59,7 +59,7 @@ drm_generator = ResponseRMFGenerator.from_time(grbtime,
                                                 ebounds, 
                                                 ein,
                                                 rsp_base)
-sd = SPIDRM(drm_generator, 94.67830, -70.99905)
+sd = SPIDRM(drm_generator, ra, dec)
 ```
 
 With this we can build a time series and we use all the single events in this case (PSD + non PSD)
@@ -104,12 +104,12 @@ from pyspi.SPILike import SPILikeGRB
 from threeML import DataList
 spilikes = []
 for d in active_dets:
-    rsp = ResponseRMF.from_time(grbtime, 
-                                d,
-                                ebounds, 
-                                ein,
-                                rsp_base)
-    sd = SPIDRM(rsp, 94.67830, -70.99905)
+    drm_generator = ResponseRMFGenerator.from_time(grbtime, 
+                                                    d,
+                                                    ebounds, 
+                                                    ein,
+                                                    rsp_base)
+    sd = SPIDRM(drm_generator, ra, dec)
     tsb = TimeSeriesBuilderSPI.from_spi_grb_rmf(f"SPIDet{d}", 
                                                 d, 
                                                 ebounds, 
@@ -167,8 +167,24 @@ and have a look at the spectrum
 from threeML import plot_spectra
 plot_spectra(ba_spi.results, flux_unit="keV/(s cm2)", ene_min=20, ene_max=600);
 ```
+We can also get a summary of the fit and write the results to disk (see 3ML documentation).
 
-We can also get a summary of the fit and write the results to disk (see 3ML documentation)
+
+It is also possible to localize GRBs with PySPI, to this we simply free the position of point source with:
+
 ```python
-ba_spi.results.display()
+#for s in spilikes:
+#    s.set_free_position(True)
+#datalist = DataList(*spilikes)
 ```
+Initialize the Bayesian Analysis
+```python
+#from threeML import BayesianAnalysis
+#import os
+#ba_spi = BayesianAnalysis(model, datalist)
+#ba_spi.set_sampler("emcee", share_spectrum=True)
+#ba_spi.sampler.setup(n_walkers=20, n_iterations=500)
+#ba_spi.sample()
+```
+
+When we compare the results for ra and dec, we can see that this matches with the position from [Swift-XRT for the same GRB (RA, Dec = 94.67830, -70.99905)]{https://gcn.gsfc.nasa.gov/gcn/other/120711A.gcn3}
