@@ -32,7 +32,7 @@ We start by defining a time, for which we want to construct the response, to get
 
 ```python
 from astropy.time import Time
-rsp_time = Time("2008-02-05T12:34:53", format='isot', scale='utc')
+rsp_time = Time("2008-02-05T16:34:53", format='isot', scale='utc')
 ```
 
 Next we define the input and output energy bins for the response.
