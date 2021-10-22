@@ -144,6 +144,14 @@ class SPILike(DispersionSpectrumLike):
                 idx = int(key.split("_")[-1])
                 self._bkg_array[idx] = self._like_model.parameters[key].value
 
+    def set_free_position(self, flag):
+        """
+        Set the free position flag
+        :param flag: True or False
+        :return:
+        """
+        self._free_position = flag
+
     @classmethod
     def from_spectrumlike(
         cls,
@@ -249,6 +257,13 @@ class SPILikeGRB(DispersionSpectrumLike):
 
         return super(SPILikeGRB, self).get_model(precalc_fluxes=precalc_fluxes)
 
+    def set_free_position(self, flag):
+        """
+        Set the free position flag
+        :param flag: True or False
+        :return:
+        """
+        self._free_position = flag
 
     @classmethod
     def from_spectrumlike(
