@@ -36,12 +36,11 @@ To get the active single detectors for this time use:
 
 ```python
 from pyspi.utils.livedets import get_live_dets
-print("Active detectors:")
-get_live_dets(time_string, event_types="single")
+ld = get_live_dets(time_string, event_types="single")
+print(f"Active detectors: {ld}")
 ```
 
-It is also possible to plot the same version in a visual way:
-
+It is also possible to plot the same version in a visual way. This shows the detector plane, and all the inactive detectors at this time are colored red.
 ```python
 from pyspi.io.plotting.spi_display import SPI
 s = SPI(time=time_string)
@@ -51,6 +50,6 @@ s.plot_spi_working_dets()
 The response version at that time can be calculated with:
 ```python
 from pyspi.utils.function_utils import find_response_version
-print("Response version number:")
-find_response_version(time_string)
+v = find_response_version(time_string)
+print(f"Response version number: {v}")
 ```
