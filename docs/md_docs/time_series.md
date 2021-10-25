@@ -43,6 +43,7 @@ Now we can construct the time series.
 
 ```python
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
+det = 0
 tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
                                         det, 
                                         ebounds, 
