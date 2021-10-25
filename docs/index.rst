@@ -18,7 +18,9 @@ This is still not a stable version. Bugs will occur sometimes, please open an is
    :hidden:
 
    notebooks/installation.ipynb
+   notebooks/time_series.ipynb
    notebooks/response.ipynb
+   notebooks/psd.ipynb
    notebooks/active_detectors.ipynb
    api/API
 
