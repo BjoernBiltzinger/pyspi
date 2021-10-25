@@ -49,7 +49,7 @@ jobs:
           pip install --upgrade numpy ipython jupyter matplotlib
           pip install jupytext jupyterthemes emcee
           pip install -r requirements.txt
-          pip install ultranest
+          pip install Cython ultranest
           python setup.py develop
 
       - name: Copy data folder
