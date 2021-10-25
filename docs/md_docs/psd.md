@@ -41,7 +41,8 @@ from astropy.time import Time
 import numpy as np
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 grbtime = Time("2012-07-11T02:44:53", format='isot', scale='utc')
-ebounds = np.geomspace(20,400,30)
+ebounds = np.geomspace(20,8000,300)
+det = 0
 
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 tsb_sgl = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
@@ -69,9 +70,16 @@ tsb_both = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}",
 We can check the light curves for all three cases.
 
 ```python
+import matplotlib.pyplot as plt
+print("Only AFEE:")
 tsb_sgl.view_lightcurve(-100,300)
+plt.show()
+print("AFFE and PSD:")
 tsb_psd.view_lightcurve(-100,300)
+plt.show()
+print("Both Combined:")
 tsb_both.view_lightcurve(-100,300)
+plt.show()
 ```
 
 We can see that the PSD event light curve has way less counts. This is due to the fact, that the PSD trigger only starts working at energies > 400 keV.
@@ -95,10 +103,14 @@ ax.step(ebounds[1:], counts_psd, label="AFEE and PSD")
 ax.step(ebounds[1:], counts_both, label="All")
 ax.set_xlabel("Detected Energy [keV]")
 ax.set_ylabel("Counts")
-ax.set_xlim(20,3000)
+ax.set_xlim(20,3500)
 ax.set_yscale("log")
-ax.legend()
+ax.legend();
 ```
 
-Several features are visible. Firstly we can see that sharp cutoff for at small energies for the PSD events, which is due to the low energy threshold in the PSD electronics.
+Several features are visible. 
+1. A sharp cutoff for at small energies for the PSD events, which is due to the low energy threshold in the PSD electronics. 
+2. For energies>~2700 keV the PSD events are again decreasing faster than the other events
+3. The fraction of PSD events to all the single events between ~500 and ~2700 keV is very stable and can be explained by an additional dead time for the PSD electronics
+4. In the non PSD events we see a peak at ~ 1600 keV that is not visible in the PSD events. This is the so called electronic noise, which consists of spurious events.
 
