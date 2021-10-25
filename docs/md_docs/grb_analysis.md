@@ -180,13 +180,11 @@ datalist = DataList(*spilikes)
 ```
 Initialize the Bayesian Analysis
 ```python
-from threeML import BayesianAnalysis
-ba_spi = BayesianAnalysis(model, datalist)
-ba_spi.set_sampler("ultranest")
-ba_spi.sampler.setup(
-    min_num_live_points=400, frac_remain=0.5, use_mlfriends=False
-)
-ba_spi.sample()
+#from threeML import BayesianAnalysis
+#ba_spi = BayesianAnalysis(model, datalist)
+#ba_spi.set_sampler("ultranest")
+#ba_spi.sampler.setup()
+#ba_spi.sample()
 #ba_spi = BayesianAnalysis(model, datalist)
 #ba_spi.set_sampler("emcee", share_spectrum=True)
 #ba_spi.sampler.setup(n_walkers=20, n_burn_in=3000, n_iterations=1000)
@@ -196,7 +194,7 @@ ba_spi.sample()
 We can use the threeML features to create a corner plot for this fit:
 
 ```python
-ba_spi.results.corner_plot_cc()
+#ba_spi.results.corner_plot_cc()
 ```
 
 When we compare the results for ra and dec, we can see that this matches with the position from [Swift-XRT for the same GRB (RA, Dec = 94.67830, -70.99905)](https://gcn.gsfc.nasa.gov/gcn/other/120711A.gcn3)
