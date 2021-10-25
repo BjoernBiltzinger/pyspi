@@ -31,6 +31,10 @@ To account for this problem in out analysis we can construct plugins for the "PS
 
 Let's check the difference between the PSD and the normal single events, to see the effect in real SPI data. 
 
+First we define the time and the energy bins we want to use. Then we construct the time series for the three cases:
+1. Only the events that trigger AFEE and not PSD
+2. Only the events that trigger AFEE and PSD
+3. All the single events
 
 ```python
 from astropy.time import Time
@@ -60,7 +64,41 @@ tsb_both = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}",
     grbtime, 
     sgl_type="both",
     )
-    
 ```
 
+We can check the light curves for all three cases.
+
+```python
+tsb_sgl.view_lightcurve(-100,300)
+tsb_psd.view_lightcurve(-100,300)
+tsb_both.view_lightcurve(-100,300)
+```
+
+We can see that the PSD event light curve has way less counts. This is due to the fact, that the PSD trigger only starts working at energies > 400 keV.
+
+Next we can get the time integrated counts per energy channel.
+
+```python
+tstart = -500
+tstop = 1000
+counts_sgl = tsb_sgl.time_series.count_per_channel_over_interval(tstart, tstop)
+counts_psd = tsb_psd.time_series.count_per_channel_over_interval(tstart, tstop)
+counts_both = tsb_both.time_series.count_per_channel_over_interval(tstart, tstop)
+```
+
+We can now plot the counts as a function of the energy channel energies
+```python
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(1,1)
+ax.step(ebounds[1:], counts_sgl, label="Only AFEE")
+ax.step(ebounds[1:], counts_psd, label="AFEE and PSD")
+ax.step(ebounds[1:], counts_both, label="All")
+ax.set_xlabel("Detected Energy [keV]")
+ax.set_ylabel("Counts")
+ax.set_xlim(20,3000)
+ax.set_yscale("log")
+ax.legend()
+```
+
+Several features are visible. Firstly we can see that sharp cutoff for at small energies for the PSD events, which is due to the low energy threshold in the PSD electronics.
 

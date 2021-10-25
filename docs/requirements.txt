@@ -8,3 +8,4 @@ speclite
 sphinx>= 1.4
 nbsphinx
 sphinx-autoapi
+ultranest
