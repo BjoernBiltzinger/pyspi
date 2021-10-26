@@ -22,6 +22,10 @@ from threeML import silence_logs
 import warnings
 warnings.filterwarnings("ignore")
 silence_logs()
+import matplotlib.pyplot as plt
+%matplotlib inline
+from jupyterthemes import jtplot
+jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
 For every analysis of SPI data we need the correct response for the observation, which is the connection between physical spectra and detected counts. Normally the response is a function of the position of the source in the satellite frame, the input energies of the physical spectrum and the output energy bins of the experiment. For SPI, there is also a time dependency, because a few detectors failed during the mission time and this changed the response of the surrounding detectors.
@@ -72,6 +76,6 @@ sd = SPIDRM(drm_generator, ra, dec)
 SPIDRM is a child class of [InstrumentResponse](https://threeml.readthedocs.io/en/stable/api/threeML.utils.OGIP.response.html#threeML.utils.OGIP.response.InstrumentResponse) from threeML, therefore we can use the plotting functions from 3ML.
 
 ```python
-sd.plot_matrix()
+fig = sd.plot_matrix()
 ```
 

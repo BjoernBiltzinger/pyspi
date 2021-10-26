@@ -29,7 +29,7 @@ jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
 Since many years it is known that there are spurious events in the SPI data around ~1.5 MeV. 
-A paper from [Roques & Jourdain](https://arxiv.org/abs/1811.06391) gives an explanation for this problem. Luckily this problem exists only in the events that only triggered the analog front-end electronics (AFEE). The events that trigger in addition the pulse shape discrimination electronics (PSD) do not show this problem. According to [Roques & Jourdain](https://arxiv.org/abs/1811.06391), one should therefore use the PSD events whenever this is possible, which is for events between ~500 and 2500 keV (the precise boundaries are were changed during the mission time a few times). In the following the events that trigger both the AFEE and PSD are called "PSD events" and the other normal "single events", even thought the PSD events are of course also single events.
+A paper from [Roques & Jourdain](https://arxiv.org/abs/1811.06391) gives an explanation for this problem. Luckily this problem exists only in the events that only triggered the analog front-end electronics (AFEE). The events that trigger in addition the pulse shape discrimination electronics (PSD) do not show this problem. According to [Roques & Jourdain](https://arxiv.org/abs/1811.06391), one should therefore use the PSD events whenever this is possible, which is for events between ~500 and 2500 keV (the precise boundaries were changed during the mission time a few times). In the following the events that trigger both the AFEE and PSD are called "PSD events" and the other normal "single events", even thought the PSD events are of course also single events.
 
 To account for this problem in out analysis we can construct plugins for the "PSD events" and the "single events" and use only the events with the correct flags, when we construct the time series.
 
@@ -74,12 +74,11 @@ tsb_both = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}",
 We can check the light curves for all three cases.
 
 ```python
-import matplotlib.pyplot as plt
 print("Only AFEE:")
 fig = tsb_sgl.view_lightcurve(-100,300)
 ```
 ```python
-print("AFFE and PSD:")
+print("AFFE and PSD trigger:")
 fig = tsb_psd.view_lightcurve(-100,300)
 ```
 ```python
