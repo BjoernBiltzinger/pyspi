@@ -23,6 +23,10 @@ from threeML import silence_logs
 import warnings
 warnings.filterwarnings("ignore")
 silence_logs()
+import matplotlib.pyplot as plt
+%matplotlib inline
+from jupyterthemes import jtplot
+jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
 The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do this by specifying a astropy time object.
@@ -76,7 +80,7 @@ tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}",
 
 Now we can have a look at the light curves of data from -50 to 150 seconds
 ```python
-tsb.view_lightcurve(-50,150)
+fig = tsb.view_lightcurve(-50,150)
 ```
 
 With this we can select the active time and some background time intervals.
@@ -89,7 +93,7 @@ tsb.set_background_interval(bkg_time1, bkg_time2)
 ```
 We can check if the selection and background fitting worked by looking again at the light curve
 ```python
-tsb.view_lightcurve(-50,150)
+fig = tsb.view_lightcurve(-50,150)
 ```
 For the fit we of course want to use all the available detectors. So we first check which detectors were still working at that time.
 ```python
@@ -153,7 +157,7 @@ We can inspect the fits with residual plots
 
 ```python
 from threeML import display_spectrum_model_counts
-display_spectrum_model_counts(ba_spi, 
+fig = display_spectrum_model_counts(ba_spi, 
                                 data_per_plot=5, 
                                 source_only=True,
                                 show_background=False,
@@ -166,7 +170,7 @@ and have a look at the spectrum
 
 ```python
 from threeML import plot_spectra
-plot_spectra(ba_spi.results, flux_unit="keV/(s cm2)", ene_min=20, ene_max=600)
+fig = plot_spectra(ba_spi.results, flux_unit="keV/(s cm2)", ene_min=20, ene_max=600)
 ```
 We can also get a summary of the fit and write the results to disk (see 3ML documentation).
 
@@ -194,7 +198,7 @@ Initialize the Bayesian Analysis
 We can use the threeML features to create a corner plot for this fit:
 
 ```python
-#ba_spi.results.corner_plot_cc()
+#fig = ba_spi.results.corner_plot_cc()
 ```
 
 When we compare the results for ra and dec, we can see that this matches with the position from [Swift-XRT for the same GRB (RA, Dec = 94.67830, -70.99905)](https://gcn.gsfc.nasa.gov/gcn/other/120711A.gcn3)

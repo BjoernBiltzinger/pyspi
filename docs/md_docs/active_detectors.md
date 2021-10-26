@@ -22,6 +22,10 @@ from threeML import silence_logs
 import warnings
 warnings.filterwarnings("ignore")
 silence_logs()
+import matplotlib.pyplot as plt
+%matplotlib inline
+from jupyterthemes import jtplot
+jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
 During the life of INTEGRAL/SPI several detectors stopped working correctly and were therefore disabled. In our analysis we need to take this into account, to not include a detector with 0 counts all the time and because the response for the surrounding detectors change when a detector is deactivated. 
@@ -44,7 +48,7 @@ It is also possible to plot the same version in a visual way. This shows the det
 ```python
 from pyspi.io.plotting.spi_display import SPI
 s = SPI(time=time_string)
-s.plot_spi_working_dets()
+fig = s.plot_spi_working_dets()
 ```
 
 The response version at that time can be calculated with:

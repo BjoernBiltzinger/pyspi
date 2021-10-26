@@ -22,6 +22,10 @@ from threeML import silence_logs
 import warnings
 warnings.filterwarnings("ignore")
 silence_logs()
+import matplotlib.pyplot as plt
+%matplotlib inline
+from jupyterthemes import jtplot
+jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
 Gamma-Ray Bursts are transient sources with a typical duration between milliseconds and a few tens of seconds. Therefore they are nicely visible in light curves. In the following we will see how we can get the light curve of a real GRB as seen by an INTEGRAL/SPI detector.
@@ -55,5 +59,5 @@ tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}",
 We can now plot the light curves for visualization, in which we can clearly see a transient source in this case.
 
 ```python
-tsb.view_lightcurve(-50,250)
+fig = tsb.view_lightcurve(-50,250)
 ```
