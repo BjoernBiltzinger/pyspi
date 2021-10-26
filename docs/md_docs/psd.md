@@ -22,6 +22,10 @@ from threeML import silence_logs
 import warnings
 warnings.filterwarnings("ignore")
 silence_logs()
+import matplotlib.pyplot as plt
+%matplotlib inline
+from jupyterthemes import jtplot
+jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
 Since many years it is known that there are spurious events in the SPI data around ~1.5 MeV. 
@@ -72,14 +76,15 @@ We can check the light curves for all three cases.
 ```python
 import matplotlib.pyplot as plt
 print("Only AFEE:")
-tsb_sgl.view_lightcurve(-100,300)
-plt.show()
+fig = tsb_sgl.view_lightcurve(-100,300)
+```
+```python
 print("AFFE and PSD:")
-tsb_psd.view_lightcurve(-100,300)
-plt.show()
+fig = tsb_psd.view_lightcurve(-100,300)
+```
+```python
 print("Both Combined:")
-tsb_both.view_lightcurve(-100,300)
-plt.show()
+fig = tsb_both.view_lightcurve(-100,300)
 ```
 
 We can see that the PSD event light curve has way less counts. This is due to the fact, that the PSD trigger only starts working at energies > 400 keV.
