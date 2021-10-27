@@ -1,9 +1,10 @@
 import numpy as np
 import astropy.io.fits as fits
 from numba import njit
+import os
 
 from pyspi.utils.geometry import cart2polar, polar2cart
-from pyspi.io.package_data import get_path_of_data_file
+from pyspi.io.package_data import get_path_of_internal_data_dir
 
 @njit
 def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
@@ -77,7 +78,8 @@ class SPIPointing(object):
         """
 
         # get the path to the data file
-        matrix_file = get_path_of_data_file('inst_misalign_20050328.fits')
+        matrix_file = os.path.join(get_path_of_internal_data_dir,
+                                   'inst_misalign_20050328.fits')
 
         # open the file
         with fits.open(matrix_file) as f:
