@@ -5,28 +5,35 @@ from glob import glob
 import re
 import os
 
-def sort_human(l):
-    """
-    sort a list with indices and letters the way a human would
-    :param l: a list of string
-    """
-    convert = lambda text: float(text) if text.isdigit() else text
-    alphanum = lambda key: [ convert(c) for c in re.split('([-+]?[0-9]*\.?[0-9]*)', key) ]
-    l.sort(key=alphanum)
-    return l
 
-def create_spi_irf_file(irf_database, file_name):
-        
-    irf_files = sort_human(glob(os.path.join(irf_database,
-                                             'spi_irf_rsp*.fits')))[-51:]
+def create_spi_irf_file(irf_grp_fits_file):
+    """
+    Create the IRF hdf5 file pyspi needs to run. To use this function you need
+    access to the mpe afs. But normal users never need to run this function,
+    because the result should be in the data folder.
+    """
 
+    version_number = int(irf_grp_fits_file.split(".")[-2][-2:])-20
+    # for some reason version number 5 was skipped
+    if version_number > 4:
+        version_number -= 1
+
+    # in pyspi we start counting at 0
+    version_number -= 1
+
+    base = os.path.join(*irf_grp_fits_file.split("/")[:-1])
+    base = f"/{base}"
+
+    with fits.open(irf_grp_fits_file) as f:
+        irf_files = f[2].data["MEMBER_LOCATION"]
 
     energies = np.zeros(len(irf_files),dtype=np.float64)
 
     masks = []
 
     for i, irf_file in enumerate(irf_files):
-        with fits.open(irf_file) as f:
+        print(irf_file)
+        with fits.open(os.path.join(base, irf_file)) as f:
 
             irf_ext = f['SPI.-IRF.-RSP']
 
@@ -53,10 +60,10 @@ def create_spi_irf_file(irf_database, file_name):
 
             energies[i] = irf_header['ENERGY']
 
-            # currently ignore the other two matrices
+            # Get all three IRF values, for photo peak, non-photo peak that first interact in det and
+            # non-photo peak that first interact in the dead material
 
-            masks.append(irf_ext.data.T[...,0])
-
+            masks.append(irf_ext.data.T)
 
     # now lots make one big matrix
     tmp = [len(masks)]
@@ -64,51 +71,42 @@ def create_spi_irf_file(irf_database, file_name):
 
     mask_matrix = np.zeros(tuple(tmp))
 
-    for i,mask in enumerate(masks):
+    for i, mask in enumerate(masks):
 
         mask_matrix[i,...] = mask
 
-    f = h5py.File(file_name, "w")
-    
-    irf_dataset = f.create_dataset("irfs", 
+    f = h5py.File(f"spi_three_irfs_database_{version_number}.hdf5", "w")
+
+    irf_dataset = f.create_dataset("irfs",
                                    mask_matrix.shape,
                                    dtype=mask_matrix.dtype,
                                    compression="gzip")
     irf_dataset[...] = mask_matrix
-    
+
     irf_dataset.attrs['irf_crpix2'] = irf_crpix2
     irf_dataset.attrs['irf_crpix3'] = irf_crpix3
-    
+
     irf_dataset.attrs['irf_crval2'] = irf_crval2
     irf_dataset.attrs['irf_crval3'] = irf_crval3
-    
+
     irf_dataset.attrs['irf_cdelt2'] = irf_cdelt2
     irf_dataset.attrs['irf_cdelt3'] = irf_cdelt3
-    
+
     irf_dataset.attrs['irf_reg'] = irf_reg
     irf_dataset.attrs['ndete'] = ndete
     irf_dataset.attrs['nx'] = nx
     irf_dataset.attrs['ny'] = ny
-    
+
     irf_dataset.attrs['irf_xmin'] = irf_xmin
     irf_dataset.attrs['irf_ymin'] = irf_ymin
     irf_dataset.attrs['irf_xbin'] = irf_xbin
     irf_dataset.attrs['irf_ybin'] = irf_ybin
-    
-    
-    energies_dataset = f.create_dataset("energies", 
+
+    energies_dataset = f.create_dataset("energies",
                                         energies.shape,
                                         dtype=energies.dtype,
                                         compression="gzip")
-    
+
     energies_dataset[...] = energies
-    
-    
+
     f.close()
-    
-    
-        
-        
-        
-    
-    

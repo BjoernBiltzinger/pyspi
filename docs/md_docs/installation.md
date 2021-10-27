@@ -16,7 +16,15 @@ jupyter:
 <!-- #region -->
 
 # Installation
-There is currently no PyPI version of this software package, so you have to install it from Github. To to this run
+
+## Pip
+There is currently no PyPI version of this software package.
+
+TODO: How the data folder download for the pip version?
+
+## Github
+
+To install the latest release from Github run
 ```bash
 git clone https://github.com/BjoernBiltzinger/pyspi.git
 ```
@@ -29,17 +37,36 @@ Now you can install PySpi with
 ```bash
 python setup.py install
 ```
+
 There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run
 ```bash
 cd pyspi
 wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
 ```
 
-Next you have to set a environment variable to define the storage folder for the different data files that will be downloaded.
+Now you can delete the downloaded zip folder
+```bash
+rm -f data.zip
+```
+
+## Additional Data Files
+
+There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run
+```bash
+cd pyspi
+wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
+```
+
+Now you can delete the downloaded zip folder
+```bash
+rm -f data.zip
+```
+
+Next you have to set a environment variable to define the storage folder for the different SPI data files that will be downloaded by PySPI.
 ```bash
 export PYSPI=/path/to/datafolder
 ```
-You should add this line to your bashrc file to always automatically set this variable in a new terminal.
+You should add this line to your bashrc file to automatically set this variable in every new terminal.
 
 Now we are ready to go.
 

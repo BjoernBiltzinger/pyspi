@@ -6,7 +6,7 @@ from pyspi.io.package_data import get_path_of_data_file
 from pyspi.utils.rmf_base import load_rmf_non_ph_1, load_rmf_non_ph_2
 
 @dataclass
-class ResponseIRFRead:
+class ResponseData:
     """
     Base Datacĺass to hold the IRF data
     """
@@ -76,30 +76,29 @@ class ResponseIRFRead:
             ebounds_rmf_3_base, rmf_3_base
 
 @dataclass
-class ResponseIRFReadPhotopeak(ResponseIRFRead):
+class ResponseDataPhotopeak(ResponseData):
     """
     Datacĺass to hold the IRF data if we only need the photopeak irf
     """
     irfs_photopeak: np.array
 
     @classmethod
-    def from_version(self, version):
+    def from_version(cls, version):
         """
         Construct the dataclass object
         :param version: Which IRF version?
         :return: ResponseIRFReadPhotopeak object
         """
-        data = super(ResponseIRFReadPhotopeak, self).\
-            get_data(ResponseIRFRead, version)
+        data = super().get_data(ResponseData, version)
 
         irfs_photopeak = data[0][:, :, :, :, 0]
 
-        return ResponseIRFReadPhotopeak(*data[1:],
-                                        irfs_photopeak)
+        return cls(*data[1:],
+                   irfs_photopeak)
 
 
 @dataclass
-class ResponseIRFReadRMF(ResponseIRFRead):
+class ResponseDataRMF(ResponseData):
     """
     Datacĺass to hold the IRF data if we only need all three irfs
     """
@@ -108,20 +107,19 @@ class ResponseIRFReadRMF(ResponseIRFRead):
     irfs_nonphoto_2: np.array
 
     @classmethod
-    def from_version(self, version):
+    def from_version(cls, version):
         """
         Construct the dataclass object
         :param version: Which IRF version?
         :return: ResponseIRFReadPhotopeak object
         """
-        data = super(ResponseIRFReadRMF, self).\
-            get_data(ResponseIRFRead, version)
+        data = super().get_data(ResponseData, version)
 
         irfs_photopeak = data[0][:, :, :, :, 0]
         irfs_nonphoto_1 = data[0][:, :, :, :, 1]
         irfs_nonphoto_2 = data[0][:, :, :, :, 2]
 
-        return ResponseIRFReadRMF(*data[1:],
-                                  irfs_photopeak,
-                                  irfs_nonphoto_1,
-                                  irfs_nonphoto_2)
+        return cls(*data[1:],
+                   irfs_photopeak,
+                   irfs_nonphoto_1,
+                   irfs_nonphoto_2)

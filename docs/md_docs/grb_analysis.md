@@ -29,26 +29,27 @@ from jupyterthemes import jtplot
 jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
-The first thing we need to specify when we want to analyze GRB data is the time of the GRB. We do this by specifying a astropy time object.
+The first thing we need to do, is to specify the time of the GRB. We do this by specifying a astropy time object or a string in the format YYMMDD HHMMSS.
 ```python
 from astropy.time import Time
 grbtime = Time("2012-07-11T02:44:53", format='isot', scale='utc')
+#grbtime = "120711 024453" # works also
 ```
 
-Next thing is we need to specify the output and input energy bins we want to use.
+Next, we need to specify the output and input energy bins we want to use.
 ```python
 import numpy as np
 ein = np.geomspace(20,800,300)
 ebounds = np.geomspace(20,400,30)
 ```
 
-Due to detector failures there are several versions of the response for SPI. Therefore we have to find the version number for grb time and construct the base response object for this version
+Due to detector failures there are several versions of the response for SPI. Therefore we have to find the version number for the time of the GRB and construct the base response object for this version.
 ```python
 from pyspi.utils.function_utils import find_response_version
-from pyspi.utils.response.spi_response_irfs_read import ResponseIRFReadRMF
+from pyspi.utils.response.spi_response_data import ResponseDataRMF
 version = find_response_version(grbtime)
 print(version)
-rsp_base = ResponseIRFReadRMF.from_version(version)
+rsp_base = ResponseDataRMF.from_version(version)
 ```
 
 Now we can create the response object for detector 0 and set the position of the GRB, which we already know.
@@ -66,7 +67,7 @@ drm_generator = ResponseRMFGenerator.from_time(grbtime,
 sd = SPIDRM(drm_generator, ra, dec)
 ```
 
-With this we can build a time series and we use all the single events in this case (PSD + non PSD)
+With this we can build a time series and we use all the single events in this case (PSD + non PSD; see section about electronic noise)
 ```python
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
@@ -78,7 +79,7 @@ tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}",
     )
 ```
 
-Now we can have a look at the light curves of data from -50 to 150 seconds
+Now we can have a look at the light curves from -50 to 150 seconds around the specified GRB time.
 ```python
 fig = tsb.view_lightcurve(-50,150)
 ```
@@ -130,7 +131,7 @@ for d in active_dets:
 datalist = DataList(*spilikes)
 ```
 
-Now we have to specify a model for the fit. We use astromodels for this.
+Now we have to specify a model for the fit. We use [astromodels](https://astromodels.readthedocs.io/en/latest/) for this.
 ```python
 from astromodels import *
 pl = Powerlaw()
@@ -195,7 +196,7 @@ Initialize the Bayesian Analysis
 #ba_spi.sample()
 ```
 
-We can use the threeML features to create a corner plot for this fit:
+We can use the 3ML features to create a corner plot for this fit:
 
 ```python
 #fig = ba_spi.results.corner_plot_cc()

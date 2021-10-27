@@ -14,8 +14,8 @@ from pyspi.io.package_data import (get_path_of_data_file,
 from pyspi.utils.response.spi_pointing import SPIPointing
 from pyspi.utils.response.spi_frame import (_transform_icrs_to_spi,
                                             _transform_spi_to_icrs)
-from pyspi.utils.response.spi_response_irfs_read import\
-    ResponseIRFReadPhotopeak, ResponseIRFReadRMF
+from pyspi.utils.response.spi_response_data import (ResponseDataPhotopeak,
+                                                    ResponseDataRMF)
 from pyspi.utils.function_utils import find_needed_ids
 
 
@@ -163,11 +163,11 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
         if responses[version] is None:
             # Create this response object
             if drm == "Photopeak":
-                responses[version] = ResponseIRFReadPhotopeak(
+                responses[version] = ResponseDataPhotopeak(
                     detector=detector,
                     version=version)
             else:
-                responses[version] = ResponseIRFReadRMF(version=version)
+                responses[version] = ResponseDataRMF(version=version)
                 
         response_irf_read_times.append(responses[version])
     return response_irf_read_times
@@ -451,7 +451,7 @@ class ResponseRMFGenerator(ResponseGenerator):
         the normal matrix
         :return: Object
         """
-        assert isinstance(response_irf_read_object, ResponseIRFReadRMF)
+        assert isinstance(response_irf_read_object, ResponseDataRMF)
 
         super(ResponseRMFGenerator, self).__init__(
             pointing_id=pointing_id,
@@ -706,7 +706,7 @@ class ResponsePhotopeakGenerator(ResponseGenerator):
         :param det: Detector ID
         :return: Object
         """
-        assert isinstance(response_irf_read_object, ResponseIRFReadPhotopeak)
+        assert isinstance(response_irf_read_object, ResponseDataPhotopeak)
 
         # call init of base class
         super(ResponsePhotopeakGenerator, self).__init__(
