@@ -15,7 +15,7 @@ def load_rmf_non_ph_1():
     """
 
     with fits.open(os.path.join(
-            get_path_of_internal_data_dir,
+            get_path_of_internal_data_dir(),
             'spi_rmf2_rsp_0002.fits')
                    ) as rmf_file:
         rmf_comp = rmf_file['SPI.-RMF2-RSP'].data['MATRIX']
@@ -43,7 +43,7 @@ def load_rmf_non_ph_2():
     """
 
     with fits.open(os.path.join(
-            get_path_of_internal_data_dir,
+            get_path_of_internal_data_dir(),
             'spi_rmf3_rsp_0002.fits')
                    ) as rmf_file:
         rmf_comp = rmf_file['SPI.-RMF3-RSP'].data['MATRIX']
@@ -90,7 +90,7 @@ class ResponseData:
         assert version in [0, 1, 2, 3, 4],\
             f"Version must be in [0, 1, 2, 3, 4] but is {version}"
 
-        irf_file = os.path.join(get_path_of_internal_data_dir,
+        irf_file = os.path.join(get_path_of_internal_data_dir(),
                                 f"spi_three_irfs_database_{version}.hdf5")
 
         if version == 0:

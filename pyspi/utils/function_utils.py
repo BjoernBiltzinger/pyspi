@@ -2,8 +2,9 @@ import numpy as np
 from astropy.time.core import Time, TimeDelta
 from datetime import datetime
 import h5py
+import os
 
-from pyspi.io.package_data import get_path_of_data_file
+from pyspi.io.package_data import get_path_of_internal_data_dir
 
 
 def get_time_object(time):
@@ -81,7 +82,8 @@ def find_needed_ids(time):
 
     # Path to file, which contains id information and start and stop
     # time
-    id_file_path = get_path_of_data_file('id_data_time.hdf5')
+    id_file_path = os.path.join(get_path_of_internal_data_dir(),
+                                'id_data_time.hdf5')
 
     # Get GRB time in ISDC_MJD
     time_of_GRB_ISDC_MJD = (time).tt.mjd-51544
