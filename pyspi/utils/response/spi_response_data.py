@@ -1,9 +1,66 @@
 import numpy as np
 import h5py
 from dataclasses import dataclass
+import os
+import astropy.io.fits as fits
 
-from pyspi.io.package_data import get_path_of_data_file
-from pyspi.utils.rmf_base import load_rmf_non_ph_1, load_rmf_non_ph_2
+from pyspi.io.package_data import get_path_of_internal_data_dir
+
+
+def load_rmf_non_ph_1():
+    """
+    Load the RMF for the non-photopeak events that first interact in the det
+    :return: ebounds of RMF and rmf matrix for the non-photopeak events that
+    first interact in the det
+    """
+
+    with fits.open(os.path.join(
+            get_path_of_internal_data_dir,
+            'spi_rmf2_rsp_0002.fits')
+                   ) as rmf_file:
+        rmf_comp = rmf_file['SPI.-RMF2-RSP'].data['MATRIX']
+        emax = rmf_file['SPI.-RMF2-RSP'].data['ENERG_HI']
+        emin = rmf_file['SPI.-RMF2-RSP'].data['ENERG_LO']
+
+    ebounds = np.append(emin, emax[-1])
+
+    # The RMFs are stored in a weird way, we have to expand this to a
+    # real square matrix
+    rmf = np.zeros((len(rmf_comp), len(rmf_comp)))
+    for i, row in enumerate(rmf_comp):
+        length = len(row.flatten())
+        rmf[i, :length] = row.flatten()
+
+    return ebounds, rmf
+
+
+def load_rmf_non_ph_2():
+    """
+    Load the RMF for the non-photopeak events that first interact
+    in the dead material
+    :return: ebounds of RMF and rmf matrix for the non-photopeak events that
+    first interact in the dead material
+    """
+
+    with fits.open(os.path.join(
+            get_path_of_internal_data_dir,
+            'spi_rmf3_rsp_0002.fits')
+                   ) as rmf_file:
+        rmf_comp = rmf_file['SPI.-RMF3-RSP'].data['MATRIX']
+        emax = rmf_file['SPI.-RMF3-RSP'].data['ENERG_HI']
+        emin = rmf_file['SPI.-RMF3-RSP'].data['ENERG_LO']
+
+    ebounds = np.append(emin, emax[-1])
+
+    # The RMFs are stored in a weird way, we have to expand this to a
+    # real square matrix
+    rmf = np.zeros((len(rmf_comp), len(rmf_comp)))
+    for i, row in enumerate(rmf_comp):
+        length = len(row.flatten())
+        rmf[i, :length] = row.flatten()
+    rmf[0] = np.zeros(len(rmf))
+    return ebounds, rmf
+
 
 @dataclass
 class ResponseData:
@@ -33,8 +90,8 @@ class ResponseData:
         assert version in [0, 1, 2, 3, 4],\
             f"Version must be in [0, 1, 2, 3, 4] but is {version}"
 
-        irf_file =\
-            get_path_of_data_file(f"spi_three_irfs_database_{version}.hdf5")
+        irf_file = os.path.join(get_path_of_internal_data_dir,
+                                f"spi_three_irfs_database_{version}.hdf5")
 
         if version == 0:
             print('Using the irfs that are valid between Start'
@@ -72,8 +129,8 @@ class ResponseData:
         ebounds_rmf_3_base, rmf_3_base = load_rmf_non_ph_2()
 
         return irfs, energies_database, irf_xmin, irf_ymin, irf_xbin, \
-            irf_ybin, irf_nx, irf_ny, irf_data, ebounds_rmf_2_base, rmf_2_base, \
-            ebounds_rmf_3_base, rmf_3_base
+            irf_ybin, irf_nx, irf_ny, irf_data, ebounds_rmf_2_base, \
+            rmf_2_base, ebounds_rmf_3_base, rmf_3_base
 
 @dataclass
 class ResponseDataPhotopeak(ResponseData):

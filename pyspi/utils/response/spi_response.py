@@ -9,7 +9,7 @@ from interpolation import interp
 import copy
 
 from pyspi.io.get_files import get_files
-from pyspi.io.package_data import (get_path_of_data_file,
+from pyspi.io.package_data import (get_path_of_internal_data_dir,
                                    get_path_of_external_data_dir)
 from pyspi.utils.response.spi_pointing import SPIPointing
 from pyspi.utils.response.spi_frame import (_transform_icrs_to_spi,
@@ -427,7 +427,11 @@ class ResponseGenerator(object):
 
         :return: Roland
         """
-        return HTML(filename=get_path_of_data_file('roland.html'))
+        return HTML(filename=os.path.join(
+            get_path_of_internal_data_dir(),
+            "Roland.html")
+                    )
+
 
 class ResponseRMFGenerator(ResponseGenerator):
 
