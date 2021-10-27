@@ -51,22 +51,20 @@ rm -f data.zip
 
 ## Additional Data Files
 
-There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run
+There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run and specify the path where this data folder should be stored on your local machine.
 ```bash
-cd pyspi
-wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
+wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip data.zip && mv data /path/to/internal/data && rm -f data.zip
 ```
 
-Now you can delete the downloaded zip folder
+## Environment Variables
+
+Next you have to set two environment variable. One to define the path to the folder of the external data like the different SPI data files that will be downloaded by PySPI and one to define the path to the internal data folder we downloaded earlier.
 ```bash
-rm -f data.zip
+export PYSPI=/path/to/external/datafolder
+export PYSPI_PACKAGE_DATA=/path/to/internal/data
 ```
 
-Next you have to set a environment variable to define the storage folder for the different SPI data files that will be downloaded by PySPI.
-```bash
-export PYSPI=/path/to/datafolder
-```
-You should add this line to your bashrc file to automatically set this variable in every new terminal.
+You should add these two line to your bashrc file to automatically set this variable in every new terminal.
 
 Now we are ready to go.
 
