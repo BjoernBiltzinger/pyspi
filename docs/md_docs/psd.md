@@ -28,12 +28,11 @@ from jupyterthemes import jtplot
 jtplot.style(context="talk", fscale=1, ticks=True, grid=False)
 ```
 
-Since many years it is known that there are spurious events in the SPI data around ~1.5 MeV. 
-A paper from [Roques & Jourdain](https://arxiv.org/abs/1811.06391) gives an explanation for this problem. Luckily this problem exists only in the events that only triggered the analog front-end electronics (AFEE). The events that trigger in addition the pulse shape discrimination electronics (PSD) do not show this problem. According to [Roques & Jourdain](https://arxiv.org/abs/1811.06391), one should therefore use the PSD events whenever this is possible, which is for events between ~500 and 2500 keV (the precise boundaries were changed during the mission time a few times). In the following the events that trigger both the AFEE and PSD are called "PSD events" and the other normal "single events", even thought the PSD events are of course also single events.
+Since shortly after the launch of INTEGRAL it is known that there are spurious events in the SPI data around ~1.5 MeV. A paper from [Roques & Jourdain](https://arxiv.org/abs/1811.06391) gives an explanation for this problem. Luckily this problem exists only in the events that only triggered the analog front-end electronics (AFEE). The events that trigger in addition the pulse shape discrimination electronics (PSD) do not show this problem. According to [Roques & Jourdain](https://arxiv.org/abs/1811.06391), one should therefore use the PSD events whenever this is possible, which is for events between ~500 and 2500 keV (the precise boundaries were changed during the mission a few times). In the following the events that trigger both the AFEE and PSD are called "PSD events" and the other normal "single events" or "Non-PSD events", even thought the PSD events are of course also single events.
 
-To account for this problem in out analysis we can construct plugins for the "PSD events" and the "single events" and use only the events with the correct flags, when we construct the time series.
+To account for this problem in out analysis we can construct plugins for the "PSD events" and the for the "Non-PSD events" and use only the events with the correct flags, when we construct the time series.
 
-Let's check the difference between the PSD and the normal single events, to see the effect in real SPI data. 
+Let's check the difference between the PSD and the Non-PSD events, to see the effect in real SPI data. 
 
 First we define the time and the energy bins we want to use. Then we construct the time series for the three cases:
 1. Only the events that trigger AFEE and not PSD
@@ -86,7 +85,7 @@ print("Both Combined:")
 fig = tsb_both.view_lightcurve(-100,300)
 ```
 
-We can see that the PSD event light curve has way less counts. This is due to the fact, that the PSD trigger only starts working at energies > 400 keV.
+We can see that the PSD event light curve has way less counts. This is due to the fact, that the PSD trigger only starts detecting photons with energies >~ 400 keV.
 
 Next we can get the time integrated counts per energy channel.
 
@@ -114,7 +113,7 @@ ax.legend();
 
 Several features are visible. 
 1. A sharp cutoff for at small energies for the PSD events, which is due to the low energy threshold in the PSD electronics. 
-2. For energies>~2700 keV the PSD events are again decreasing faster than the other events
-3. The fraction of PSD events to all the single events between ~500 and ~2700 keV is very stable and can be explained by an additional dead time for the PSD electronics
-4. In the non PSD events we see a peak at ~ 1600 keV that is not visible in the PSD events. This is the so called electronic noise, which consists of spurious events.
+2. For energies>~2700 keV the PSD events decrease again faster than the other events.
+3. The fraction of PSD events to all the single events between ~500 and ~2700 keV is very stable and can be explained by an additional dead time for the PSD electronics.
+4. In the Non-PSD events we see a peak at ~ 1600 keV that is not visible in the PSD events. This is the so called electronic noise, which consists of spurious events.
 
