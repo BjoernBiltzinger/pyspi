@@ -22,20 +22,20 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v2
-        - name: Set up Python 3.7
-          uses: actions/setup-python@v1
-          with:
-            python-version: 3.7
-        - name: Build package
-          run: |
-            pip install wheel
-            python setup.py sdist
-        - name: Publish
-          uses: pypa/gh-action-pypi-publish@v1.1.0
-          with:
-            user: __token__
-            password: ${{ secrets.PYSPI_GITHUB_PYPI }}
-            skip-existing: true
+      - name: Set up Python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Build package
+        run: |
+          pip install wheel
+          python setup.py sdist
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@v1.1.0
+        with:
+          user: __token__
+          password: ${{ secrets.PYSPI_GITHUB_PYPI }}
+          skip-existing: true
 
   test-publish-pypi:
     name: Build & verify package
