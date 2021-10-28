@@ -76,6 +76,7 @@ jobs:
       - name: Execute the notebooks
         shell: bash -l {0}
         env:
+          LD_LIBRARY_PATH: /home/runner/multinest_install:${LD_LIBRARY_PATH}
           PYSPI: /home/runner/PySPI_data
           PYSPI_PACKAGE_DATA: /home/runner/data
         run: |
