@@ -80,6 +80,14 @@ jobs:
           PYSPI: /home/runner/PySPI_data
           PYSPI_PACKAGE_DATA: /home/runner/data
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          files: ./coverage1.xml,./coverage2.xml
+          directory: ./coverage/reports/
+
+
   publish-pypi:
     name: Publish to PyPi
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && (! endsWith(github.ref, 'dev'))
