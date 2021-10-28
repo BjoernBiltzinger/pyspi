@@ -37,6 +37,31 @@ jobs:
           unzip -o ~/data.zip -d ~/
           fi
 
+      - name: Install Multinest
+        run: |
+
+          sudo apt-get install -qq libblas{3,-dev} liblapack{3,-dev} cmake build-essential git gfortran
+          git clone https://github.com/farhanferoz/MultiNest.git
+
+          mkdir /home/runner/multinest_install
+
+          cd MultiNest/MultiNest_v3.12_CMake/multinest
+
+          mkdir build
+
+          cd build
+
+          cmake -DCMAKE_INSTALL_PREFIX=/home/runner/multinest_install ..
+
+          make
+
+          make install
+
+          export LD_LIBRARY_PATH=/home/runner/multinest_install:${LD_LIBRARY_PATH}
+
+          cd ../../../
+          pwd
+        
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
@@ -45,7 +70,7 @@ jobs:
           pip install jupytext jupyterthemes emcee
           pip install -r requirements.txt
           pip install Cython
-          pip install ultranest
+          pip install pymultinest
           python setup.py develop
 
       - name: Execute the notebooks
