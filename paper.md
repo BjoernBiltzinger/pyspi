@@ -8,7 +8,7 @@ tags:
 authors:
   - name: Björn Biltzinger
     orcid: 0000-0003-3345-9515
-    affiliation: "1", "2"
+    affiliation: "1, 2"
   - name: J. Michael Burgess
     orcid: 0000-0003-3345-9515
     affiliation: "1"
