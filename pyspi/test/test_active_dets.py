@@ -25,3 +25,10 @@ def test_active_dets_and_response_version():
 
     assert np.sum(ld) == 146, f"Got wrong active det numbers for {time_string}"
     assert version == 4, f"Got wrong rsp version number for {time_string}"
+
+
+def test_plotting():
+    from pyspi.io.plotting.spi_display import SPI
+    time_string = "151212 205010"
+    s = SPI(time=time_string)
+    fig = s.plot_spi_working_dets()
