@@ -14,6 +14,9 @@ jobs:
         with:
           python-version: 3.9
 
+      - name: install latex
+        uses: xu-cheng/texlive-action/small@v1
+
       - name: Cache data folder
         uses: actions/cache@v2
         id: cache-data-folder
