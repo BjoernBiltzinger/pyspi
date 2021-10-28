@@ -2,9 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.patches import RegularPolygon
-from astromodels import *
 from pyspi.utils.livedets import get_live_dets
-from pyspi.io.array_to_cmap import array_to_cmap
 
 NUM_REAL_DETS = 19
 NUM_PSEUDO_DOUBLE_DETS = 42

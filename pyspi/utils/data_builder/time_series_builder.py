@@ -8,8 +8,7 @@ from astropy.io import fits
 
 
 from pyspi.io.get_files import get_files
-from pyspi.io.package_data import get_path_of_external_data_dir, \
-    get_path_of_data_file
+from pyspi.io.package_data import get_path_of_external_data_dir
 from pyspi.utils.detector_ids import double_names, triple_names
 from pyspi.utils.function_utils import find_needed_ids, ISDC_MJD_to_cxcsec, \
     get_time_object

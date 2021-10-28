@@ -147,7 +147,6 @@ model = Model(ps)
 Everything is ready to fit now! We make a Bayesian fit here with emcee
 ```python
 from threeML import BayesianAnalysis
-import os
 ba_spi = BayesianAnalysis(model, datalist)
 ba_spi.set_sampler("emcee", share_spectrum=True)
 ba_spi.sampler.setup(n_walkers=20, n_iterations=500)
@@ -185,21 +184,21 @@ datalist = DataList(*spilikes)
 ```
 Initialize the Bayesian Analysis
 ```python
-#from threeML import BayesianAnalysis
-#ba_spi = BayesianAnalysis(model, datalist)
-#ba_spi.set_sampler("ultranest")
-#ba_spi.sampler.setup()
-#ba_spi.sample()
-#ba_spi = BayesianAnalysis(model, datalist)
-#ba_spi.set_sampler("emcee", share_spectrum=True)
-#ba_spi.sampler.setup(n_walkers=20, n_burn_in=3000, n_iterations=1000)
-#ba_spi.sample()
+import os
+os.mkdir("./chains")
+ba_spi = BayesianAnalysis(model, datalist)
+ba_spi.set_sampler("multinest")
+ba_spi.sampler.setup(800, 
+                    chain_name='./chains/{}_'.format(name_fit),
+                    resume=False,
+                    verbose=False)
+ba_spi.sample()
 ```
 
 We can use the 3ML features to create a corner plot for this fit:
 
 ```python
-#fig = ba_spi.results.corner_plot_cc()
+fig = ba_spi.results.corner_plot_cc()
 ```
 
 When we compare the results for ra and dec, we can see that this matches with the position from [Swift-XRT for the same GRB (RA, Dec = 94.67830, -70.99905)](https://gcn.gsfc.nasa.gov/gcn/other/120711A.gcn3)
