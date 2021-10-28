@@ -78,7 +78,7 @@ class SPIPointing(object):
         """
 
         # get the path to the data file
-        matrix_file = os.path.join(get_path_of_internal_data_dir,
+        matrix_file = os.path.join(get_path_of_internal_data_dir(),
                                    'inst_misalign_20050328.fits')
 
         # open the file
