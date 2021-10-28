@@ -32,17 +32,6 @@ Now you can install ```PySPI``` with
 python setup.py install
 ```
 
-There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run
-```bash
-cd pyspi
-wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
-```
-
-Now you can delete the downloaded zip folder
-```bash
-rm -f data.zip
-```
-
 ### Additional Data Files
 
 There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run and specify the path where this data folder should be stored on your local machine.
@@ -68,4 +57,4 @@ Please have a look at the [documentation](https://pyspi.readthedocs.io/en/latest
 
 ## Contributing
 
-Everyone can contribute to ```PySPI```. If you want to contribute, please use the standard Github features, like opening issues and pull requests. Please also always make sure that you add tests and documentation for the changes you want to include into the package.
+Everyone is invited to contribute to ```PySPI```. If you want to contribute, please use the standard Github features, like opening issues and pull requests. Please also always make sure, that you add tests and documentation for the changes you want to include into the package.
