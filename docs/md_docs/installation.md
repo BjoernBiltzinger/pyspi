@@ -39,17 +39,6 @@ Now you can install PySpi with
 python setup.py install
 ```
 
-There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run
-```bash
-cd pyspi
-wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
-```
-
-Now you can delete the downloaded zip folder
-```bash
-rm -f data.zip
-```
-
 ## Additional Data Files
 
 There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run and specify the path where this data folder should be stored on your local machine.
