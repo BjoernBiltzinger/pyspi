@@ -61,7 +61,7 @@ jobs:
 
           mkdir /home/runner/multinest_install
 
-          cd Multinest/MultiNest_v3.12_CMake/multinest
+          cd MultiNest/MultiNest_v3.12_CMake/multinest
           
           mkdir build
           
@@ -73,7 +73,10 @@ jobs:
 
           make install
 
-          export LD_LIBRARY_PATH=/home/runner/multinest_install:${LD_LIBRARY_PATH} 
+          export LD_LIBRARY_PATH=/home/runner/multinest_install:${LD_LIBRARY_PATH}
+
+          cd ../../../
+          pwd
           
       - name: Install dependencies
         run: |
