@@ -76,10 +76,13 @@ jobs:
       - name: Execute the notebooks
         shell: bash -l {0}
         env:
-          LD_LIBRARY_PATH: /home/runner/multinest_install:${LD_LIBRARY_PATH}
+          LD_LIBRARY_PATH: /home/runner/multinest_install/lib/:${LD_LIBRARY_PATH}
           PYSPI: /home/runner/PySPI_data
           PYSPI_PACKAGE_DATA: /home/runner/data
         run: |
+          echo $LD_LIBRARY_PATH
+          ls /home/runner/multinest_install
+          ls /home/runner/multinest_install/lib/
           mkdir /home/runner/PySPI_data
           jupytext --to ipynb --execute docs/md_docs/*.md
           mv docs/md_docs/*.ipynb docs/notebooks/
