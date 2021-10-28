@@ -2,8 +2,9 @@ import numpy as np
 from astropy.time.core import Time
 from datetime import datetime
 import h5py
+import os
 
-from pyspi.io.package_data import get_path_of_data_file
+from pyspi.io.package_data import get_path_of_internal_data_dir
 from pyspi.utils.function_utils import get_time_object
 from pyspi.utils.detector_ids import double_names, triple_names
 
@@ -81,7 +82,8 @@ def get_live_dets_pointing(pointing,
     :return:
     """
     # get end time of pointing
-    id_file_path = get_path_of_data_file('id_data_time.hdf5')
+    id_file_path = os.path.join(get_path_of_internal_data_dir,
+                                'id_data_time.hdf5')
     with h5py.File(id_file_path, "r") as f:
         idx = np.argwhere(f["ID"][()] == pointing.encode('utf-8'))
         assert len(idx) != 0, "Poiinting not found in database"
