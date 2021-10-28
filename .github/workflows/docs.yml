@@ -37,11 +37,6 @@ jobs:
           unzip -o ~/data.zip -d ~/
           fi
 
-      - name: Set environment variables
-        run: |
-          mkdir /home/runner/PySPI_data
-          export PYSPI=/home/runner/PySPI_data
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip wheel
@@ -53,17 +48,13 @@ jobs:
           pip install ultranest
           python setup.py develop
 
-      - name: Copy data folder
-        run: |
-          rm -r pyspi/data
-          cp -r ~/data pyspi/
-          ls pyspi/data
-
       - name: Execute the notebooks
         shell: bash -l {0}
         env:
           PYSPI: /home/runner/PySPI_data
+          PYSPI_PACKAGE_DATA: /home/runner/data
         run: |
+          mkdir /home/runner/PySPI_data
           jupytext --to ipynb --execute docs/md_docs/*.md
           mv docs/md_docs/*.ipynb docs/notebooks/
           ls docs/notebooks
