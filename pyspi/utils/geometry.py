@@ -23,7 +23,7 @@ def cart2polar(vector):
     :param vector: cartesian coord vector
     :return: ra and dec
     """
-    ra = np.arctan2(vector[1],vector[0])
+    ra = np.arctan2(vector[1], vector[0])
     dec = np.arcsin(vector[2])
 
     return np.rad2deg(ra), np.rad2deg(dec)
