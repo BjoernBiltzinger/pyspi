@@ -4,6 +4,68 @@
 # pyspi
 ![alt text](https://raw.githubusercontent.com/BjoernBiltzinger/pyspi/master/docs/media/pypsi_logo2.png)
 
-Pure python tools for interfacing with INTEGRAL SPI data.
+A python analysis framework for INTEGRAL/SPI
 
-Ideally, this tool will allow for direct reading, and manipulation od SPI point source and extended source data via a lightweight python interface. Additionally, an 3ML plugin is provided allowing for multi-messenger analysis of SPI data using it's full, unbinned energy likelihood. 
+```PySPI``` provides a plugin for [3ML](https://threeml.readthedocs.io/en/stable/) for INTEGRAL/SPI data, which allows to analyze GRB data at the moment. In the future we plan to also add support for non transient sources.
+
+## Installation
+
+### Pip
+```PySPI``` can be installed via pip.
+```bash
+pip install py-spi
+```
+
+### Github
+
+To install the latest release from Github run
+```bash
+git clone https://github.com/BjoernBiltzinger/pyspi.git
+```
+After that first install the packages from the requirement.txt file with
+```bash
+cd pyspi
+pip install -r requirements.txt
+```
+Now you can install ```PySPI``` with
+```bash
+python setup.py install
+```
+
+There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run
+```bash
+cd pyspi
+wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip -o data.zip
+```
+
+Now you can delete the downloaded zip folder
+```bash
+rm -f data.zip
+```
+
+### Additional Data Files
+
+There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run and specify the path where this data folder should be stored on your local machine.
+```bash
+wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip data.zip && mv data /path/to/internal/data && rm -f data.zip
+```
+
+### Environment Variables
+
+Next you have to set two environment variable. One to define the path to the folder of the external data like the different SPI data files that will be downloaded by PySPI and one to define the path to the internal data folder we downloaded earlier.
+```bash
+export PYSPI=/path/to/external/datafolder
+export PYSPI_PACKAGE_DATA=/path/to/internal/data
+```
+
+You should add these two line to your bashrc file to automatically set this variable in every new terminal.
+
+Now we are ready to go.
+
+## Features
+
+Please have a look at the [documentation](https://pyspi.readthedocs.io/en/latest/) to check out the features ```PySPI``` provides. There is also a [full example](https://pyspi.readthedocs.io/en/latest/notebooks/grb_analysis/), how to perform a spectral fit for the data for GRB120711A, as well as how to localize the GRB with ```PySPI```.
+
+## Contributing
+
+Everyone can contribute to ```PySPI```. If you want to contribute, please use the standard Github features, like opening issues and pull requests. Please also always make sure that you add tests and documentation for the changes you want to include into the package.

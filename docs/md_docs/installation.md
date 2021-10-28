@@ -18,9 +18,10 @@ jupyter:
 # Installation
 
 ## Pip
-There is currently no PyPI version of this software package.
-
-TODO: How the data folder download for the pip version?
+PySPI can be installed via pip.
+```bash
+pip install py-spi
+```
 
 ## Github
 
