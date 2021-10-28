@@ -216,4 +216,4 @@ texinfo_documents = [
 
 def setup(app):
     app.connect("builder-inited", run_apidoc)
-    app.connect("autodoc-skip-member", skip)
+    #app.connect("autodoc-skip-member", skip)
