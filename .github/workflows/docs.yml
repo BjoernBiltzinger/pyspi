@@ -66,6 +66,7 @@ jobs:
           pip install black
           pip install --upgrade numpy ipython jupyter matplotlib
           pip install jupytext jupyterthemes emcee
+          pip install astromodels
           git clone https://github.com/threeML/threeML.git
           cd threeML
           python setup.py install
