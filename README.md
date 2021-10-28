@@ -1,4 +1,4 @@
-[![CI tests](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/tests.yml/badge.svg)](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/tests.yml)
+[![CI tests](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/publish_pypi.yml/badge.svg)](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/tests.yml)
 [![Docs](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/docs.yml/badge.svg)](https://pyspi.readthedocs.io/en/latest/)
 [![codecov](https://codecov.io/gh/BjoernBiltzinger/pyspi/branch/master/graph/badge.svg)](https://codecov.io/gh/BjoernBiltzinger/pyspi)
 # pyspi
