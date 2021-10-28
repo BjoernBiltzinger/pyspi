@@ -189,7 +189,7 @@ os.mkdir("./chains")
 ba_spi = BayesianAnalysis(model, datalist)
 ba_spi.set_sampler("multinest")
 ba_spi.sampler.setup(800, 
-                    chain_name='./chains/{}_'.format(name_fit),
+                    chain_name='./chains/docsfit1_',
                     resume=False,
                     verbose=False)
 ba_spi.sample()
