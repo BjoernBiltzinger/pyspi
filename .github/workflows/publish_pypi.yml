@@ -56,7 +56,7 @@ jobs:
       - name: Install Multinest
         run: |
           
-          sudo apt-get install -qq libblas{3,-dev} liblapack{3,-dev} libatlas{3-base,-dev} cmake build-essential git gfortran
+          sudo apt-get install -qq libblas{3,-dev} liblapack{3,-dev} cmake build-essential git gfortran
           git clone https://github.com/farhanferoz/MultiNest.git
 
           mkdir /home/runner/multinest_install
