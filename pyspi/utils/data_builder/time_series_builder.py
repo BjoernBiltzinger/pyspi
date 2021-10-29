@@ -634,8 +634,8 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
     def from_spi_grb(cls,
                      name,
                      det,
-                     ebounds,
                      time_of_grb,
+                     ebounds=None,
                      response=None,
                      sgl_type=None,
                      restore_background=None,
@@ -656,6 +656,18 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :param verbose: Verbose?
         :return: Initalized TimeSeriesBuilder object
         """
+
+        assert ebounds is not None or response is not None, "You have to "\
+            "either specify ebounds or input a response object."
+
+        if ebounds is not None and response is not None:
+            # check that the ebounds match
+            assert np.all(response.ebounds == ebounds), "Ebounds do not "\
+                "match the ones in the response object!"
+
+        elif response is not None:
+            # ebounds is None in this case
+            ebounds = response.ebounds
 
         # Get an object with all the needed information
         spi_grb_setup = SPISWFileGRB(det,

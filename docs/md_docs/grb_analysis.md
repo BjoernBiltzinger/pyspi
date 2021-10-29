@@ -72,7 +72,6 @@ With this we can build a time series and we use all the single events in this ca
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
     det, 
-    ebounds, 
     grbtime, 
     response=sd,
     sgl_type="both",
@@ -116,8 +115,7 @@ for d in active_dets:
                                                     rsp_base)
     sd = SPIDRM(drm_generator, ra, dec)
     tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{d}", 
-                                                d, 
-                                                ebounds, 
+                                                d,
                                                 grbtime, 
                                                 response=sd,
                                                 sgl_type="both",
