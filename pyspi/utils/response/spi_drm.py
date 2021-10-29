@@ -8,10 +8,10 @@ class SPIDRM(InstrumentResponse):
         Init a SPIDRM object which is based on the InstrumenResponse
         class from 3ML. Contains everything that is necessary for
         3ML to recognize it as a response.
+
         :param drm_generator: DRM generator for the SPI Response
         :param ra: ra of source (in ICRS)
         :param dec: dec of source (in ICRS)
-        :return: Object
         """
         self._drm_generator = drm_generator
 
@@ -30,9 +30,11 @@ class SPIDRM(InstrumentResponse):
     def set_location(self, ra, dec, cache=False):
         """
         Set the source location
+
         :param ra: ra of source (in ICRS)
         :param dec: dec of source (in ICRS)
-        :return:
+
+        :returns:
         """
         self._drm_generator.set_location(ra, dec)
 
@@ -45,9 +47,11 @@ class SPIDRM(InstrumentResponse):
     def set_location_direct_sat_coord(self, azimuth, zenith, cache=False):
         """
         Set the source location
+
         :param azimuth: az poisition in the sat. frame
         :param zenith: zenith poisition in the sat. frame
-        :return:
+
+        :returns:
         """
         self._ra, self._dec =\
             self._drm_generator.set_location_direct_sat_coord(azimuth, zenith)
@@ -57,7 +61,8 @@ class SPIDRM(InstrumentResponse):
 
     def clone(self) -> "SPIDRM":
         """
-        return a new response with the contents of this response
+        Get clone of this response object
+
         :returns: new cloned response
         """
 
@@ -74,4 +79,4 @@ class SPIDRM(InstrumentResponse):
         return SPIDRM(drm_generator=new_drm_generator,
                       ra=self._ra,
                       dec=self._dec,
-        )
+                      )
