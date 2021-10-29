@@ -28,3 +28,4 @@ This is still not a stable version. Bugs will occur sometimes, please open an is
    :caption: Features and examples:
 
    notebooks/grb_analysis.ipynb
+   notebooks/psd_eff.ipynb
