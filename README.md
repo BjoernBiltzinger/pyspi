@@ -34,14 +34,14 @@ python setup.py install
 
 ### Additional Data Files
 
-There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run and specify the path where this data folder should be stored on your local machine.
+There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run and specify the path where this data folder should be stored on your local machine. Here you have to change the /path/to/internal/data with the path you want to use on your local computer.
 ```bash
 wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip data.zip && mv data /path/to/internal/data && rm -f data.zip
 ```
 
 ### Environment Variables
 
-Next you have to set two environment variable. One to define the path to the folder of the external data like the different SPI data files that will be downloaded by PySPI and one to define the path to the internal data folder we downloaded earlier.
+Next you have to set two environment variable. One to define the path to the folder of the external data like the different SPI data files that will be downloaded by ```PySPI``` and one to define the path to the internal data folder we downloaded earlier.
 ```bash
 export PYSPI=/path/to/external/datafolder
 export PYSPI_PACKAGE_DATA=/path/to/internal/data

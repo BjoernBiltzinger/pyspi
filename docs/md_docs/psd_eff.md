@@ -102,14 +102,14 @@ We can check if the selection and background fitting worked by looking again at 
 fig = tsb_sgl.view_lightcurve(-50,150)
 ```
 
-In this example we use three detectors (IDs: 0, 3 and 4). For these three detectors we build the times series, fit the background and construct the SPILike plugins which we can use in 3ML.
+In this example we use three detectors (IDs: 0, 3 and 4). For these three detectors we build the times series, fit the background and construct the SPILikeGRB plugins which we can use in 3ML.
 
 ```python
 from pyspi.SPILike import SPILikeGRB
 from threeML import DataList
 spilikes_sgl = []
 spilikes_psd = []
-for d in [0,3,4]: #active_dets:
+for d in [0,3,4]:
     drm_generator_sgl = ResponseRMFGenerator.from_time(grbtime, 
                                                         d,
                                                         ebounds_sgl, 
@@ -177,6 +177,7 @@ model = Model(ps)
 Everything is ready to fit now! We make a Bayesian fit here with multinest
 
 ```python
+from threeML import BayesianAnalysis
 import os
 os.mkdir("./chains_psd_eff")
 ba_spi = BayesianAnalysis(model, datalist)
@@ -189,10 +190,6 @@ ba_spi.sampler.setup(500,
                     resume=False,
                     verbose=True)
 ba_spi.sample()
-```
-
-```python
-model.free_parameters
 ```
 
 We can use the 3ML features to create a corner plot for this fit:
