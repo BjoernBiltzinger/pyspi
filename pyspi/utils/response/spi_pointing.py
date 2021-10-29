@@ -6,16 +6,19 @@ import os
 from pyspi.utils.geometry import cart2polar, polar2cart
 from pyspi.io.package_data import get_path_of_internal_data_dir
 
+
 @njit
 def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
     """
     Construct the vector of the y-axis of the Integral coord system
     in the ICRS frame
-    :pararm scx_ra: ra coordinate of satellite x-axis in ICRS
-    :pararm scx_dec: dec coordinate of satellite x-axis in ICRS
-    :pararm scz_ra: ra coordinate of satellite z-axis in ICRS
-    :pararm scz_dec: dec coordinate of satellite z-axis in ICRS
-    :return: vector of the y-axis of the Integral coord system
+
+    :param scx_ra: ra coordinate of satellite x-axis in ICRS
+    :param scx_dec: dec coordinate of satellite x-axis in ICRS
+    :param scz_ra: ra coordinate of satellite z-axis in ICRS
+    :param scz_dec: dec coordinate of satellite z-axis in ICRS
+
+    :returns: vector of the y-axis of the Integral coord system
     in the ICRS frame
     """
     x = polar2cart(scx_ra, scx_dec)
@@ -23,20 +26,23 @@ def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
 
     return cart2polar(np.cross(x, -z))
 
+
 @njit
 def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
     """
     Construct the sc_matrix, with which we can transform ICRS <-> Sat. Frame
-    :pararm scx_ra: ra coordinate of satellite x-axis in ICRS
-    :pararm scx_dec: dec coordinate of satellite x-axis in ICRS
-    :pararm scy_ra: ra coordinate of satellite y-axis in ICRS
-    :pararm scy_dec: dec coordinate of satellite y-axis in ICRS
-    :pararm scz_ra: ra coordinate of satellite z-axis in ICRS
-    :pararm scz_dec: dec coordinate of satellite z-axis in ICRS
-    :return: sc_matrix (3x3)
+
+    :param scx_ra: ra coordinate of satellite x-axis in ICRS
+    :param scx_dec: dec coordinate of satellite x-axis in ICRS
+    :param scy_ra: ra coordinate of satellite y-axis in ICRS
+    :param scy_dec: dec coordinate of satellite y-axis in ICRS
+    :param scz_ra: ra coordinate of satellite z-axis in ICRS
+    :param scz_dec: dec coordinate of satellite z-axis in ICRS
+
+    :returns: sc_matrix (3x3)
     """
 
-    sc_matrix = np.zeros((3,3))
+    sc_matrix = np.zeros((3, 3))
 
     sc_matrix[0, :] = polar2cart(scx_ra, scx_dec)
     sc_matrix[1, :] = polar2cart(scy_ra, scy_dec)
@@ -45,7 +51,7 @@ def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
     return sc_matrix
 
 
-class SPIPointing(object):
+class SPIPointing:
 
     def __init__(self, sc_pointing_file):
         """
@@ -53,7 +59,8 @@ class SPIPointing(object):
         based of the input SPI pointing file
 
         :param sc_pointing_file: An INTEGRAL/SPI spacecraft pointing file
-        :return:
+
+        :returns:
         """
 
         # construct the misalignment matrix
@@ -74,7 +81,8 @@ class SPIPointing(object):
         Open and build the INTEGRAL to SPI misalignment matrix
         that corrects SPI's pointing to the full INTEGRAL
         pointing
-        :return:
+
+        :returns:
         """
 
         # get the path to the data file
@@ -97,7 +105,8 @@ class SPIPointing(object):
         """
         Extract and construct the SPI pointings taking into account the
         misalignment between INTEGRAL and SPI
-        :return:
+
+        :returns:
         """
 
         self._n_pointings = len(self._pointing_data)
@@ -136,14 +145,18 @@ class SPIPointing(object):
     @property
     def sc_matrix(self):
         """
-        :return: sc_matrix of all the pointings
+        get the sc_matrics of all the times in this pointing
+        :returns: array of sc_matrices
         """
         return self._sc_matrix
 
     @property
     def sc_points(self):
         """
-        :return: ra, dec coordinates of the SPI x,y and z axis in the
+        ra, dec coordinates of the SPI x,y and z axis in the ICRS frame
+        for all the times in this pointing
+
+        :returns: ra, dec coordinates of the SPI x,y and z axis in the
         ICRS frame for all the pointings
         """
         return self._sc_points
