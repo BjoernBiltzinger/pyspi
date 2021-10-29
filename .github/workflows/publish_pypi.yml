@@ -5,6 +5,8 @@ on:
       - "README.md"
       - "**/docs/**"
       - ".github/workflows/docs.yml"
+      - "paper.md"
+      - "paper.bib"
 
   pull_request:
     branches:
