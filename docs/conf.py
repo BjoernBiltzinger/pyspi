@@ -38,8 +38,8 @@ def run_apidoc(app):
     better_apidoc.main(
         [
             "better-apidoc",
-            #"-t",
-            #str(DOCS / "_templates"),
+            "-t",
+            str(DOCS / "_templates"),
             "--force",
             "--no-toc",
             "--separate",
