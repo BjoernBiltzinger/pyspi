@@ -61,7 +61,7 @@ class SPISWFile(object):
         Gets all needed information from the data file for the given
         pointing_id
         :param pointing_id: pointing_id for which we want the data
-        :return:
+        :returns:
         """
 
         with fits.open(os.path.join(get_path_of_external_data_dir(),
@@ -176,70 +176,70 @@ class SPISWFile(object):
     @property
     def times(self):
         """
-        :return: times of detected events
+        :returns: times of detected events
         """
         return self._times
 
     @property
     def energies(self):
         """
-        :return: energies of detected events
+        :returns: energies of detected events
         """
         return self._energies
 
     @property
     def energy_bins(self):
         """
-        :return: energy bin number of every event
+        :returns: energy bin number of every event
         """
         return self._energy_bins
 
     @property
     def ebounds(self):
         """
-        :return: ebounds of analysis
+        :returns: ebounds of analysis
         """
         return self._ebounds
 
     @property
     def det(self):
         """
-        :return: detector ID
+        :returns: detector ID
         """
         return self._det
 
     @property
     def n_channels(self):
         """
-        :return: number energy channels
+        :returns: number energy channels
         """
         return self._n_channels
 
     @property
     def time_start(self):
         """
-        :return: start time of lightcurve
+        :returns: start time of lightcurve
         """
         return self._time_start
 
     @property
     def time_stop(self):
         """
-        :return: stop time of lightcurve
+        :returns: stop time of lightcurve
         """
         return self._time_stop
 
     @property
     def det_name(self):
         """
-        :return: Name det
+        :returns: Name det
         """
         return self._det_name
 
     @property
     def mission(self):
         """
-        :return: Name Mission
+        :returns: Name Mission
         """
         return self._mission
 
@@ -255,7 +255,7 @@ class SPISWFileGRB(object):
         :param time_of_grb: Time of the GRB as "YYMMDD HHMMSS"
         :param sgl_type: Which type of single events?
         Only normal sgl, psd or both?
-        :return: Object
+        :returns: Object
         """
 
         self._det_name = f"Detector {det}"
@@ -305,7 +305,7 @@ class SPISWFileGRB(object):
         Gets all needed information from the data file for the given
         pointing_id
         :param pointing_id: pointing_id for which we want the data
-        :return:
+        :returns:
         """
 
         with fits.open(os.path.join(get_path_of_external_data_dir(),
@@ -416,7 +416,7 @@ class SPISWFileGRB(object):
     def _get_deadtime_info(self):
         """
         Get the deadtime info from the hk file
-        :return:
+        :returns:
         """
 
         # read in the OB-Time (on-board time) and the ISDC-MJD times
@@ -481,7 +481,7 @@ class SPISWFileGRB(object):
     @property
     def geometry_file_path(self):
         """
-        :return: Path to the spacecraft geometry file
+        :returns: Path to the spacecraft geometry file
         """
         return os.path.join(get_path_of_external_data_dir(),
                             'pointing_data',
@@ -491,77 +491,77 @@ class SPISWFileGRB(object):
     @property
     def times(self):
         """
-        :return: times of detected events
+        :returns: times of detected events
         """
         return self._times
 
     @property
     def energies(self):
         """
-        :return: energies of detected events
+        :returns: energies of detected events
         """
         return self._energies
 
     @property
     def energy_bins(self):
         """
-        :return: energy bin number of every event
+        :returns: energy bin number of every event
         """
         return self._energy_bins
 
     @property
     def ebounds(self):
         """
-        :return: ebounds of analysis
+        :returns: ebounds of analysis
         """
         return self._ebounds
 
     @property
     def det(self):
         """
-        :return: detector ID
+        :returns: detector ID
         """
         return self._det
 
     @property
     def n_channels(self):
         """
-        :return: number energy channels
+        :returns: number energy channels
         """
         return self._n_channels
 
     @property
     def time_start(self):
         """
-        :return: start time of lightcurve
+        :returns: start time of lightcurve
         """
         return self._time_start
 
     @property
     def time_stop(self):
         """
-        :return: stop time of lightcurve
+        :returns: stop time of lightcurve
         """
         return self._time_stop
 
     @property
     def det_name(self):
         """
-        :return: Name det
+        :returns: Name det
         """
         return self._det_name
 
     @property
     def mission(self):
         """
-        :return: Name Mission
+        :returns: Name Mission
         """
         return self._mission
 
     @property
     def deadtime_bin_starts(self):
         """
-        :return: Start time of time bins which have the deadtime
+        :returns: Start time of time bins which have the deadtime
         information
         """
         return self._deadtime_bin_edges[:-1]
@@ -569,7 +569,7 @@ class SPISWFileGRB(object):
     @property
     def deadtime_bin_stops(self):
         """
-        :return: Stop time of time bins which have the deadtime
+        :returns: Stop time of time bins which have the deadtime
         information
         """
         return self._deadtime_bin_edges[1:]
@@ -577,7 +577,7 @@ class SPISWFileGRB(object):
     @property
     def deadtimes_per_interval(self):
         """
-        :return: Deadtime per time bin which have the deadtime
+        :returns: Deadtime per time bin which have the deadtime
         information
         """
         return self._deadtimes
@@ -585,7 +585,7 @@ class SPISWFileGRB(object):
     @property
     def livetimes_per_interval(self):
         """
-        :return: Livetime per time bin which have the deadtime
+        :returns: Livetime per time bin which have the deadtime
         information
         """
         return 1-self._deadtimes
@@ -615,7 +615,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :param verbose: Verbose?
         :param restore_poly_fit: Path to a file with the poly bkg fits
         :param containter_type: ContainerType for spectrum
-        :return: Object
+        :returns: Object
         """
 
         super(TimeSeriesBuilderSPI, self).__init__(
@@ -654,7 +654,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :param restore_background: File to restore bkg
         :param poly_order: Which poly_order? -1 gives automatic determination
         :param verbose: Verbose?
-        :return: Initalized TimeSeriesBuilder object
+        :returns: Initalized TimeSeriesBuilder object
         """
 
         assert ebounds is not None or response is not None, "You have to "\
@@ -714,7 +714,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :param ebounds: Output ebounds for analysis.
         :param pointing_id: Pointing ID
         :param response: InstrumenResponse Object
-        :return: Initalized TimeSeriesBuilder object
+        :returns: Initalized TimeSeriesBuilder object
         """
 
         spi_grb_setup1 = SPISWFile(det, pointing_id, ebounds)
