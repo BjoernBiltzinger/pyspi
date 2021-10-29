@@ -8,7 +8,7 @@ from astropy.coordinates import (BaseCoordinateFrame,
                                  frame_transform_graph,
                                  spherical_to_cartesian)
 
-from pyspi.utils.response.spi_pointing import _construct_sc_matrix
+from pyspi.utils.response.spi_pointing import construct_sc_matrix
 from pyspi.utils.geometry import cart2polar, polar2cart
 
 class SPIFrame(BaseCoordinateFrame):
@@ -66,7 +66,7 @@ def spi_to_j2000(spi_coord, j2000_frame):
     Transform spi fram to ICRS frame
     """
 
-    sc_matrix = _construct_sc_matrix(spi_coord.scx_ra,
+    sc_matrix = construct_sc_matrix(spi_coord.scx_ra,
                                     spi_coord.scx_dec,
                                     spi_coord.scy_ra,
                                     spi_coord.scy_dec,
@@ -98,7 +98,7 @@ def j2000_to_spi(j2000_frame, spi_coord):
     Transform icrs frame to SPI frame
     """
 
-    sc_matrix = _construct_sc_matrix(spi_coord.scx_ra,
+    sc_matrix = construct_sc_matrix(spi_coord.scx_ra,
                                     spi_coord.scx_dec,
                                     spi_coord.scy_ra,
                                     spi_coord.scy_dec,
@@ -135,7 +135,7 @@ def j2000_to_spi(j2000_frame, spi_coord):
 # Functions to do the coordinate transformation fast! But has none
 # of the astropy benefits.
 @njit
-def _transform_icrs_to_spi(ra_icrs, dec_icrs, sc_matrix):
+def transform_icrs_to_spi(ra_icrs, dec_icrs, sc_matrix):
     """
     Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
     sc_matrix (sc_matrix pointing dependent)
@@ -155,7 +155,7 @@ def _transform_icrs_to_spi(ra_icrs, dec_icrs, sc_matrix):
     return lon, lat
 
 @njit
-def _transform_spi_to_icrs(az_spi, zen_spi, sc_matrix):
+def transform_spi_to_icrs(az_spi, zen_spi, sc_matrix):
     """
     Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
     sc_matrix (sc_matrix pointing dependent)

@@ -12,8 +12,8 @@ from pyspi.io.get_files import get_files
 from pyspi.io.package_data import (get_path_of_internal_data_dir,
                                    get_path_of_external_data_dir)
 from pyspi.utils.response.spi_pointing import SPIPointing
-from pyspi.utils.response.spi_frame import (_transform_icrs_to_spi,
-                                            _transform_spi_to_icrs)
+from pyspi.utils.response.spi_frame import (transform_icrs_to_spi,
+                                            transform_spi_to_icrs)
 from pyspi.utils.response.spi_response_data import (ResponseDataPhotopeak,
                                                     ResponseDataRMF)
 from pyspi.utils.function_utils import find_needed_ids
@@ -271,7 +271,7 @@ class ResponseGenerator(object):
         """
 
         # Transform ra, dec from icrs to spi frame
-        azimuth, zenith = _transform_icrs_to_spi(ra,
+        azimuth, zenith = transform_icrs_to_spi(ra,
                                                  dec,
                                                  self._sc_matrix)
 
@@ -297,9 +297,9 @@ class ResponseGenerator(object):
 
         self._recalculate_response()
 
-        return _transform_spi_to_icrs(azimuth,
-                                      zenith,
-                                      self._sc_matrix)
+        return transform_spi_to_icrs(azimuth,
+                                     zenith,
+                                     self._sc_matrix)
 
     def _weighted_irfs(self, azimuth, zenith):
         """

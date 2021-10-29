@@ -31,13 +31,16 @@ class SPILike(DispersionSpectrumLike):
             **kwargs
     ):
         """
+        Init the plugin for a constant source analysis with PySPI
+
         :param name: Name of plugin
         :param observation: observed spectrum
         :param background: background spectrum
         :param bkg_base_array: Base array for background model
         :param free_position: Free the position in the fit?
         :param verbose: Verbose?
-        :return: Object
+
+        :returns: Object
         """
         self._free_position: bool = free_position
 
@@ -62,8 +65,10 @@ class SPILike(DispersionSpectrumLike):
     def set_model(self, likelihood_model: Model) -> None:
         """
         Set the model to be used in the joint minimization.
+
         :param likelihood_model: likelihood model instance
-        :return:
+
+        :returns:
         """
 
         super(SPILike, self).set_model(likelihood_model)
@@ -95,8 +100,10 @@ class SPILike(DispersionSpectrumLike):
     def _evaluate_model(self, precalc_fluxes=None):
         """
         Evaluate the model
+
         :param precalc_fluxes: Precaclulated flux of spectrum
-        :return: model counts
+
+        :returns: model counts
         """
 
         source = super(SPILike, self)._evaluate_model(precalc_fluxes=
@@ -108,8 +115,10 @@ class SPILike(DispersionSpectrumLike):
     def get_model(self, precalc_fluxes: Optional[np.ndarray] = None) -> np.ndarray:
         """
         Get the model
+
         :param precalc_fluxes: Precaclulated flux of spectrum
-        :return: model counts
+
+        :returns: model counts
         """
         if self._free_position:
 
@@ -124,7 +133,9 @@ class SPILike(DispersionSpectrumLike):
     def _add_bkg_nuisance_parameter(self, bkg_parameters) -> None:
         """
         Add the bkg parameter. Are saved as array.
+
         :param bkg_parameters:
+
         :returns:
         """
         
@@ -136,6 +147,7 @@ class SPILike(DispersionSpectrumLike):
     def _update_bkg_array(self) -> None:
         """
         Update the array with the background parameter
+
         :returns:
         """
         
@@ -147,8 +159,10 @@ class SPILike(DispersionSpectrumLike):
     def set_free_position(self, flag):
         """
         Set the free position flag
+
         :param flag: True or False
-        :return:
+
+        :returns:
         """
         self._free_position = flag
 
@@ -161,10 +175,12 @@ class SPILike(DispersionSpectrumLike):
     ):
         """
         Generate SPILikeGRB from an existing SpectrumLike child
+
         :param spectrum_like: SpectrumLike child
         :param rsp_object: Response object
         :free_position: Free the position? boolean
-        :return: Initialized Object
+
+        :returns: Initialized Object
         """
         return cls(
             spectrum_like.name,
@@ -190,12 +206,13 @@ class SPILikeGRB(DispersionSpectrumLike):
             **kwargs
     ):
         """
+        Init the plugin for a GRB analysis with PySPI
+
         :param name: Name of plugin
         :param observation: observed spectrum
         :param background: background spectrum
         :param free_position: Free the position in the fit?
         :param verbose: Verbose?
-        :return: Object
         """
 
         self._free_position = free_position
@@ -213,8 +230,10 @@ class SPILikeGRB(DispersionSpectrumLike):
     def set_model(self, likelihood_model):
         """
         Set the model to be used in the joint minimization.
+
         :param likelihood_model: likelihood model instance
-        :return:
+
+        :returns:
         """
 
         super(SPILikeGRB, self).set_model(likelihood_model)
@@ -244,8 +263,10 @@ class SPILikeGRB(DispersionSpectrumLike):
     def get_model(self, precalc_fluxes=None):
         """
         Get the model
+
         :param precalc_fluxes: Precaclulated flux of spectrum
-        :return: model counts
+
+        :returns: model counts
         """
         if self._free_position:
 
@@ -260,8 +281,10 @@ class SPILikeGRB(DispersionSpectrumLike):
     def set_free_position(self, flag):
         """
         Set the free position flag
+
         :param flag: True or False
-        :return:
+
+        :returns:
         """
         self._free_position = flag
 
@@ -271,10 +294,12 @@ class SPILikeGRB(DispersionSpectrumLike):
     ):
         """
         Generate SPILikeGRB from an existing SpectrumLike child
+
         :param spectrum_like: SpectrumLike child
         :param rsp_object: Response object
         :free_position: Free the position? boolean
-        :return: Initialized Object
+
+        :returns: Initialized Object
         """
         return cls(
             spectrum_like.name,
