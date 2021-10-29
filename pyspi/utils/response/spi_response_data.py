@@ -10,8 +10,9 @@ from pyspi.io.package_data import get_path_of_internal_data_dir
 def load_rmf_non_ph_1():
     """
     Load the RMF for the non-photopeak events that first interact in the det
-    :return: ebounds of RMF and rmf matrix for the non-photopeak events that
-    first interact in the det
+
+    :returns: ebounds of RMF and rmf matrix for the non-photopeak events that
+        first interact in the det
     """
 
     with fits.open(os.path.join(
@@ -38,8 +39,9 @@ def load_rmf_non_ph_2():
     """
     Load the RMF for the non-photopeak events that first interact
     in the dead material
-    :return: ebounds of RMF and rmf matrix for the non-photopeak events that
-    first interact in the dead material
+
+    :returns: ebounds of RMF and rmf matrix for the non-photopeak events that
+        first interact in the dead material
     """
 
     with fits.open(os.path.join(
@@ -65,7 +67,7 @@ def load_rmf_non_ph_2():
 @dataclass
 class ResponseData:
     """
-    Base Datacĺass to hold the IRF data
+    Base Dataclass to hold the IRF data
     """
 
     energies_database: np.array
@@ -84,8 +86,10 @@ class ResponseData:
     def get_data(self, version):
         """
         Read in the data we need from the irf hdf5 file
+
         :param version: Version of irf file
-        :return: all the infomation we need as a list
+
+        :returns: all the infomation we need as a list
         """
         assert version in [0, 1, 2, 3, 4],\
             f"Version must be in [0, 1, 2, 3, 4] but is {version}"
@@ -132,10 +136,11 @@ class ResponseData:
             irf_ybin, irf_nx, irf_ny, irf_data, ebounds_rmf_2_base, \
             rmf_2_base, ebounds_rmf_3_base, rmf_3_base
 
+
 @dataclass
 class ResponseDataPhotopeak(ResponseData):
     """
-    Datacĺass to hold the IRF data if we only need the photopeak irf
+    Dataclass to hold the IRF data if we only need the photopeak irf
     """
     irfs_photopeak: np.array
 
@@ -143,8 +148,10 @@ class ResponseDataPhotopeak(ResponseData):
     def from_version(cls, version):
         """
         Construct the dataclass object
+
         :param version: Which IRF version?
-        :return: ResponseIRFReadPhotopeak object
+
+        :returns: ResponseDataPhotopeak object
         """
         data = super().get_data(ResponseData, version)
 
@@ -157,7 +164,7 @@ class ResponseDataPhotopeak(ResponseData):
 @dataclass
 class ResponseDataRMF(ResponseData):
     """
-    Datacĺass to hold the IRF data if we only need all three irfs
+    Dataclass to hold the IRF data if we only need all three irfs
     """
     irfs_photopeak: np.array
     irfs_nonphoto_1: np.array
@@ -167,8 +174,10 @@ class ResponseDataRMF(ResponseData):
     def from_version(cls, version):
         """
         Construct the dataclass object
+
         :param version: Which IRF version?
-        :return: ResponseIRFReadPhotopeak object
+
+        :returns: ResponseDataPhotopeak object
         """
         data = super().get_data(ResponseData, version)
 

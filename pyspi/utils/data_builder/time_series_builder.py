@@ -21,6 +21,7 @@ from threeML.utils.time_series.binned_spectrum_series import \
 from threeML.utils.spectrum.binned_spectrum import BinnedSpectrumWithDispersion
 from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
 
+
 class SPISWFile(object):
     def __init__(self, det, pointing_id, ebounds):
         """

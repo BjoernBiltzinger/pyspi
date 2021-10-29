@@ -23,9 +23,11 @@ from pyspi.utils.function_utils import find_needed_ids
 def trapz(y, x):
     """
     Fast trapz integration with numba
+
     :param x: x values
     :param y: y values
-    :return: Trapz integrated
+
+    :returns: Trapz integrated
     """
     return np.trapz(y, x)
 
@@ -35,10 +37,12 @@ def log_interp1d(x_new, x_old, y_old):
     """
     Linear interpolation in log space for base value pairs (x_old, y_old)
     for new x_values x_new
+
     :param x_old: Old x values used for interpolation
     :param y_old: Old y values used for interpolation
     :param x_new: New x values
-    :retrun: y_new from liner interpolation in log space
+
+    :returns: y_new from liner interpolation in log space
     """
     # log of all
     logx = np.log10(x_old)
@@ -81,13 +85,15 @@ def add_frac(ph_matrix, i, idx, ebounds, einlow, einhigh):
 def _get_xy_pos(azimuth, zenith, xmin, ymin, xbin, ybin):
     """
     Get the xy position on the reponse grid for given azimuth and zenith
+
     :param azimuth: Azmiuth angle in rad
     :param zenith: Zenith angle in rad
     :param xmin: Smallest x-grid entry
     :param ymin: Smallest y-grid entry
     :param xbin: Size of bins in x-direction
     :param ybin: Size of bins in y-direction
-    :return: Grid postition (x,y)
+
+    :returns: Grid postition (x,y)
     """
 
     x = np.cos(azimuth)*np.cos(zenith)
@@ -107,11 +113,13 @@ def _prep_out_pixels(ix_left, ix_right, iy_low, iy_up):
     """
     Simple function to get the 2D-indices of the 4 points defined by
     given pairs of indices in x and y direction
+
     :param ix_left: x-index of the left points
     :param ix_right: x-index of the right points
     :param iy_low: y-index of the bottom points
     :param iy_up: y-index of the top points
-    :return: array with the 4 2D indices defining the 4 grid points
+
+    :returns: array with the 4 2D indices defining the 4 grid points
     """
 
     left_low = [int(ix_left), int(iy_low)]
@@ -132,8 +140,10 @@ def multi_response_irf_read_objects(times, detector, drm='Photopeak'):
     One response object needs about 1 GB of RAM...
     TODO: Not needed at the moment. We need this when we want to analyse
     many pointings together.
+
     :param times: Times of the different sw used
-    :return: list with correct response version object of the times
+
+    :returns: list with correct response version object of the times
     """
     response_versions = []
     for time in times:
@@ -182,12 +192,12 @@ class ResponseGenerator(object):
         """
         Base Response Class - Here we have everything that stays the same for
         GRB and Constant Pointsource Reponses
+
         :param ebounds: User defined ebins for binned effective area
         :param response_irf_read_object: Object that holds
-        the read in irf values
+            the read in irf values
         :param sc_matrix: Matrix to convert SPI coordinate system <-> ICRS
         :param det: Which detector
-        :returns: Object
         """
         # Get the data, either from afs or from ISDC archive
         try:
@@ -219,9 +229,11 @@ class ResponseGenerator(object):
     def set_binned_data_energy_bounds(self, ebounds):
         """
         Change the energy bins for the binned effective_area
+
         :param ebounds: New ebinedges: ebounds[:-1] start of ebins,
         ebounds[1:] end of ebins
-        :return:
+
+        :returns:
         """
 
         # if the new bins are not the old ones: update them
@@ -233,8 +245,10 @@ class ResponseGenerator(object):
     def get_xy_pos(self, azimuth, zenith):
         """
         Get xy position (in SPI simulation) for given azimuth and zenith
+
         :param azimuth: Azimuth in Sat. coordinates [rad]
         :param zenith: Zenith in Sat. coordinates [rad]
+
         :returns: grid position in (x,y) coordinates
         """
         # we call a numba function here to speed it up
@@ -249,8 +263,10 @@ class ResponseGenerator(object):
         """
         Calculate the weighted irfs for the three
         event types for a given position
+
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
+
         :returns:
         """
 
@@ -269,8 +285,10 @@ class ResponseGenerator(object):
         """
         Calculate the weighted irfs for the three
         event types for a given position
+
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
+
         :returns: ra and dec value
         """
 
@@ -287,8 +305,10 @@ class ResponseGenerator(object):
         """
         Calculate the weighted irfs for the three event
         types for a given position
+
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
+
         :returns:
         """
         raise NotImplementedError("Must be implemented in child class.")
@@ -301,8 +321,10 @@ class ResponseGenerator(object):
         """
         Get the 4 grid points around (x_pos, y_pos) and the weights
         for a rectangular interpolation
+
         :param x_pos: grid position x-coordinates
         :param y_pos: grid position y-coordinates
+
         :returns: weights, x-indices, y-indices of the 4 closest points
         """
 
@@ -387,7 +409,7 @@ class ResponseGenerator(object):
     @property
     def irf_ob(self):
         """
-        :return: the irf_read object with the information from the response
+        :returns: the irf_read object with the information from the response
         simulation
         """
         return self._irf_ob
@@ -395,28 +417,28 @@ class ResponseGenerator(object):
     @property
     def det(self):
         """
-        :return: detector number
+        :returns: detector number
         """
         return self._det
 
     @property
     def ebounds(self):
         """
-        :return: Ebounds of the analysis
+        :returns: Ebounds of the analysis
         """
         return self._ebounds
 
     @property
     def ene_min(self):
         """
-        :return: Start of ebounds
+        :returns: Start of ebounds
         """
         return self._ene_min
 
     @property
     def ene_max(self):
         """
-        :return: End of Ebounds
+        :returns: End of Ebounds
         """
         return self._ene_max
 
@@ -425,7 +447,7 @@ class ResponseGenerator(object):
         """
         Ensure that you know what you are doing.
 
-        :return: Roland
+        :returns: Roland
         """
         return HTML(filename=os.path.join(
             get_path_of_internal_data_dir(),
@@ -444,20 +466,22 @@ class ResponseRMFGenerator(ResponseGenerator):
                  fixed_rsp_matrix=None):
         """
         Init Response object with total RMF used
+
         :param pointing_id: The pointing ID for which the
-        response should be valid
+            response should be valid
         :param ebound: Ebounds of Ebins
         :param monte_carlo_energies: Input energy bin edges
         :param response_irf_read_object: Object that holds
-        the read in irf values
+            the read in irf values
         :param det: Detector ID
         :param fixed_rsp_matrix: A fixed response matrix to overload
-        the normal matrix
-        :return: Object
+            the normal matrix
+
+        :returns: Object
         """
         assert isinstance(response_irf_read_object, ResponseDataRMF)
 
-        super(ResponseRMFGenerator, self).__init__(
+        super().__init__(
             pointing_id=pointing_id,
             ebounds=ebounds,
             response_irf_read_object=response_irf_read_object,
@@ -487,6 +511,7 @@ class ResponseRMFGenerator(ResponseGenerator):
                   fixed_rsp_matrix=None):
         """
         Init Response object with total RMF used from a time
+
         :param time: Time for which to construct the response object
         :param ebound: Ebounds of Ebins
         :param monte_carlo_energies: Input energy bin edges
@@ -495,7 +520,8 @@ class ResponseRMFGenerator(ResponseGenerator):
         :param det: Detector ID
         :param fixed_rsp_matrix: A fixed response matrix to overload
         the normal matrix
-        :return: Object
+
+        :returns: Object
         """
 
         pointing_id = find_needed_ids(time)
@@ -513,7 +539,8 @@ class ResponseRMFGenerator(ResponseGenerator):
         """
         Rebin the base rmf shape matrices for the given ebounds and
         incoming energies
-        :return:
+
+        :returns:
         """
         # Number of ebins on input and output side
         N_ebins = len(self.ebounds)-1
@@ -589,8 +616,10 @@ class ResponseRMFGenerator(ResponseGenerator):
     def _weighted_irfs(self, azimuth, zenith):
         """
         Calculate the weighted irfs for the three event types for a given position
+
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
+
         :returns:
         """
 
@@ -621,6 +650,7 @@ class ResponseRMFGenerator(ResponseGenerator):
     def _recalculate_response(self):
         """
         Get response for the current position
+
         :returns:
         """
         if self._given_rsp_mat:
@@ -660,7 +690,8 @@ class ResponseRMFGenerator(ResponseGenerator):
     def clone(self):
         """
         Clone this response object
-        :return: cloned response
+
+        :returns: cloned response
         """
         return ResponseRMFGenerator(
             pointing_id=copy.deepcopy(self._pointing_id),
@@ -674,21 +705,21 @@ class ResponseRMFGenerator(ResponseGenerator):
     @property
     def matrix(self):
         """
-        :return: response matrix
+        :returns: response matrix
         """
         return self._matrix
 
     @property
     def transpose_matrix(self):
         """
-        :return: transposed response matrix
+        :returns: transposed response matrix
         """
         return self._transpose_matrix
 
     @property
     def monte_carlo_energies(self):
         """
-        :return: Input energies for response
+        :returns: Input energies for response
         """
         return self._monte_carlo_energies
 
@@ -702,13 +733,13 @@ class ResponsePhotopeakGenerator(ResponseGenerator):
                  det=None):
         """
         Init Response object with photopeak only
+
         :param pointing_id: The pointing ID for which the
         response should be valid
         :param ebound: Ebounds of Ebins
         :param response_irf_read_object: Object that holds
         the read in irf values
         :param det: Detector ID
-        :return: Object
         """
         assert isinstance(response_irf_read_object, ResponseDataPhotopeak)
 
@@ -726,8 +757,10 @@ class ResponsePhotopeakGenerator(ResponseGenerator):
         """
         Calculate the weighted irfs for the three event types for a given
         position
+
         :param azimuth: Azimuth position in sat frame
         :param zenith: Zenith position in sat frame
+
         :returns:
         """
 
@@ -750,7 +783,9 @@ class ResponsePhotopeakGenerator(ResponseGenerator):
     def _recalculate_response(self):
         """
         Get response for a given det
+
         :param det: Detector ID
+
         :returns: Full DRM
         """
         #n_energy_bins = len(self._ebounds) - 1
@@ -779,12 +814,14 @@ class ResponsePhotopeakGenerator(ResponseGenerator):
                   rsp_read_obj,):
         """
         Init Response object with photopeak only
+
         :param time: The time for which the
-        response should be valid
+            response should be valid
         :param ebound: Ebounds of Ebins
         :param response_irf_read_object: Object that holds
-        the read in irf values
+            the read in irf values
         :param det: Detector ID
+
         :return: Object
         """
         pointing_id = find_needed_ids(time)
@@ -799,6 +836,6 @@ class ResponsePhotopeakGenerator(ResponseGenerator):
     @property
     def effective_area(self):
         """
-        :return: vector with photopeak effective area
+        :returns: vector with photopeak effective area
         """
         return self._effective_area

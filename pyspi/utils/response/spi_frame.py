@@ -139,10 +139,12 @@ def _transform_icrs_to_spi(ra_icrs, dec_icrs, sc_matrix):
     """
     Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
     sc_matrix (sc_matrix pointing dependent)
+
     :param ra_icrs: Ra in ICRS in degree
     :param dec_icrs: Dec in ICRS in degree
     :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
-    :return: lon, lat in spi frame
+
+    :returns: lon, lat in spi frame
     """
     # Source in icrs
     vec_ircs = polar2cart(ra_icrs, dec_icrs)
@@ -157,10 +159,12 @@ def _transform_spi_to_icrs(az_spi, zen_spi, sc_matrix):
     """
     Calculates lon, lat in spi frame for given ra, dec in ICRS frame and given
     sc_matrix (sc_matrix pointing dependent)
+
     :param az_spi: azimuth in SPI coord system in degree
     :param zen_spi: zenit in SPI coord system in degree
     :param sc_matrix: sc Matrix that gives orientation of SPI in ICRS frame
-    :return: ra, dex in ICRS in deg
+
+    :returns: ra, dex in ICRS in deg
     """
     # Source in icrs
     vec_spi = polar2cart(az_spi, zen_spi)

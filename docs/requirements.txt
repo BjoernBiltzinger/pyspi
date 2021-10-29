@@ -22,3 +22,8 @@ betagen
 tqdm
 numba
 class-registry
+
+astromodels
+pytest
+threeML
+interpolation
