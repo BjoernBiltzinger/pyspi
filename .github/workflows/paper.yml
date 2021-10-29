@@ -1,5 +1,10 @@
 name: joss paper
-on: [push]
+on:
+  push:
+    paths:
+      - "paper.md"
+      - "paper.bib"
+      - ".github/workflows/paper.yml"
 
 jobs:
   paper:
