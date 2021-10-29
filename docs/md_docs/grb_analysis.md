@@ -184,20 +184,20 @@ Initialize the Bayesian Analysis
 ```python
 %%capture
 import os
-os.mkdir("./chains")
+os.mkdir("./chains_grb_example")
 ba_spi = BayesianAnalysis(model, datalist)
 ba_spi.set_sampler("multinest")
 ba_spi.sampler.setup(500, 
                     chain_name='./chains/docsfit1_',
                     resume=False,
-                    verbose=True)
+                    verbose=False)
 ba_spi.sample()
 ```
 
 We can use the 3ML features to create a corner plot for this fit:
 
 ```python
-fig = ba_spi.results.corner_plot()
+fig = ba_spi.results.corner_plot(components=["GRB.position.ra", "GRB.position.dec"])
 ```
 
 When we compare the results for ra and dec, we can see that this matches with the position from [Swift-XRT for the same GRB (RA, Dec = 94.67830, -70.99905)](https://gcn.gsfc.nasa.gov/gcn/other/120711A.gcn3)
