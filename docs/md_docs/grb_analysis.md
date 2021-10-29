@@ -102,7 +102,7 @@ active_dets = get_live_dets(time=grbtime, event_types=["single"])
 print(active_dets)
 ```
 
-Now we loop over these detectors, build the times series, fit the background and construct the SPILike plugins which we can use in 3ML.
+Now we loop over these detectors, build the times series, fit the background and construct the SPILikeGRB plugins which we can use in 3ML.
 ```python
 from pyspi.SPILike import SPILikeGRB
 from threeML import DataList
@@ -188,7 +188,7 @@ os.mkdir("./chains_grb_example")
 ba_spi = BayesianAnalysis(model, datalist)
 ba_spi.set_sampler("multinest")
 ba_spi.sampler.setup(500, 
-                    chain_name='./chains/docsfit1_',
+                    chain_name='./chains_grb_example/docsfit1_',
                     resume=False,
                     verbose=False)
 ba_spi.sample()
