@@ -4,7 +4,7 @@ on:
     paths:
       - "**/docs/**"
       - ".github/workflows/docs.yml"
-  [push, release]
+  release:
 
 jobs:
   notebooks:
