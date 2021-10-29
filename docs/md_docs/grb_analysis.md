@@ -67,7 +67,7 @@ drm_generator = ResponseRMFGenerator.from_time(grbtime,
 sd = SPIDRM(drm_generator, ra, dec)
 ```
 
-With this we can build a time series and we use all the single events in this case (PSD + non PSD; see section about electronic noise)
+With this we can build a time series and we use all the single events in this case (PSD + non PSD; see section about electronic noise). To be able to convert the time series into 3ML plugins later, we need to assign them a response object.
 ```python
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 

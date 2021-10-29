@@ -99,7 +99,6 @@ jobs:
           ls docs/notebooks
 
       - uses: actions/upload-artifact@v2
-        if: false
         with:
           name: notebooks-for-${{ github.sha }}
           path: docs/notebooks
