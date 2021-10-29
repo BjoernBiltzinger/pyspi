@@ -1,5 +1,10 @@
 name: Docs
-on: [push, release]
+on:
+  push:
+    paths:
+      - "**/docs/**"
+      - ".github/workflows/docs.yml"
+  [push, release]
 
 jobs:
   notebooks:
