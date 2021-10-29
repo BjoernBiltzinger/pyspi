@@ -41,7 +41,7 @@ Also due to the increased computational power that is available today compared t
 
 # Procedure
 
-To analyze GRB data PySPI needs a few inputs, like the time of the GRB and the energy bins that should be used in the analysis. With these information, it automatically downloads all the data files it needs for this specific analysis. These are then used to construct a response and a time series for the observation that contains the GRB time. With the help of these time series one can select active time intervals for the source that should be used in the fits and time intervals before and after the GRB signal for background estimation. After this has been done a plugin for `3ML` [@3mlpaper, @3ML] can be constructed. This allows for all the benefits, the 3ML framework offers, like the modeling framework `astromodels` [@astromodels], joined fits with other instruments, many different bayesian sampler and much more. 
+To analyze GRB data PySPI needs a few inputs, like the time of the GRB and the energy bins that should be used in the analysis. With these information, it automatically downloads all the data files it needs for this specific analysis. These files are used to construct a response and a time series for the observation that contains the GRB time. With the help of these time series one can select active time intervals for the source that should be used in the fits and time intervals before and after the GRB signal for background estimation. After this has been done a plugin for `3ML` [@3mlpaper;@3ML] can be constructed. This allows for all the benefits, the 3ML framework offers, like the modeling framework `astromodels` [@astromodels], joined fits with other instruments, many different bayesian sampler and much more. 
 
 # Acknowledgments
 
