@@ -3,8 +3,22 @@ better_apidoc
 sphinx_rtd_theme
 sphinx-gallery
 cython
-numpy>=1.6,<1.16
 speclite
 sphinx>= 1.4
 nbsphinx
 sphinx-autoapi
+
+ipykernel
+jupyterthemes
+numpy>=1.20
+scipy
+ipython
+ipyvolume
+matplotlib
+h5py
+pandas
+astropy
+betagen
+tqdm
+numba
+class-registry
