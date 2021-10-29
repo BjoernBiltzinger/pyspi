@@ -8,7 +8,7 @@ from pyspi.io.package_data import get_path_of_internal_data_dir
 
 
 @njit
-def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
+def construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
     """
     Construct the vector of the y-axis of the Integral coord system
     in the ICRS frame
@@ -28,7 +28,7 @@ def _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec):
 
 
 @njit
-def _construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
+def construct_sc_matrix(scx_ra, scx_dec, scy_ra, scy_dec, scz_ra, scz_dec):
     """
     Construct the sc_matrix, with which we can transform ICRS <-> Sat. Frame
 
@@ -124,9 +124,9 @@ class SPIPointing:
             scz_ra = self._pointing_data['RA_SCZ'][i]
             scz_dec = self._pointing_data['DEC_SCZ'][i]
 
-            scy_ra, scy_dec = _construct_scy(scx_ra, scx_dec, scz_ra, scz_dec)
+            scy_ra, scy_dec = construct_scy(scx_ra, scx_dec, scz_ra, scz_dec)
 
-            intergal_matrix = _construct_sc_matrix(scx_ra, scx_dec, scy_ra,
+            intergal_matrix = construct_sc_matrix(scx_ra, scx_dec, scy_ra,
                                                    scy_dec, scz_ra, scz_dec)
 
             # now apply the misalignment matrix
