@@ -198,7 +198,7 @@ ba_spi.sample()
 We can use the 3ML features to create a corner plot for this fit:
 
 ```python
-fig = ba_spi.results.corner_plot_cc()
+fig = ba_spi.results.corner_plot()
 ```
 
 When we compare the results for ra and dec, we can see that this matches with the position from [Swift-XRT for the same GRB (RA, Dec = 94.67830, -70.99905)](https://gcn.gsfc.nasa.gov/gcn/other/120711A.gcn3)
