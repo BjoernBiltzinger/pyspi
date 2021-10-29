@@ -9,7 +9,7 @@ from astropy.io import fits
 
 from pyspi.io.get_files import get_files
 from pyspi.io.package_data import get_path_of_external_data_dir
-from pyspi.utils.detector_ids import double_names, triple_names
+from pyspi.utils.livedets import double_names, triple_names
 from pyspi.utils.function_utils import find_needed_ids, ISDC_MJD_to_cxcsec, \
     get_time_object
 
@@ -24,9 +24,12 @@ from threeML.utils.data_builders.time_series_builder import TimeSeriesBuilder
 class SPISWFile(object):
     def __init__(self, det, pointing_id, ebounds):
         """
-        Class to read in all the data needed from a SCW file for a given config file
+        Class to read in all the data needed from a SCW file
+        for a given config file
+
         :param config: Config yml filename, Config object or dict
         :param det: For which detector?
+
         """
         # General nameing
         self._det_name = f"Detector {det}"
@@ -60,7 +63,9 @@ class SPISWFile(object):
         """
         Gets all needed information from the data file for the given
         pointing_id
+
         :param pointing_id: pointing_id for which we want the data
+
         :returns:
         """
 
@@ -168,7 +173,7 @@ class SPISWFile(object):
     @property
     def geometry_file_path(self):
         """
-        Path to the spacecraft geometry file
+        :returns: Path to the spacecraft geometry file
         """
         return os.path.join(get_path_of_external_data_dir(), 'pointing_data',
                             self._pointing_id, 'sc_orbit_param.fits.gz')
@@ -250,11 +255,13 @@ class SPISWFileGRB(object):
         """
         Class to read in all the data needed from a SCW file for a given
         grbtime
+
         :param det: For which detector?
         :param ebounds: Ebounds for the Analysis.
         :param time_of_grb: Time of the GRB as "YYMMDD HHMMSS"
         :param sgl_type: Which type of single events?
         Only normal sgl, psd or both?
+
         :returns: Object
         """
 
@@ -304,7 +311,9 @@ class SPISWFileGRB(object):
         """
         Gets all needed information from the data file for the given
         pointing_id
+
         :param pointing_id: pointing_id for which we want the data
+
         :returns:
         """
 
@@ -416,6 +425,7 @@ class SPISWFileGRB(object):
     def _get_deadtime_info(self):
         """
         Get the deadtime info from the hk file
+
         :returns:
         """
 
@@ -644,6 +654,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
     ):
         """
         Class method to build the time_series_builder for a given GRB time
+
         :param name: Name of object
         :param det: Which det?
         :param ebounds: Output ebounds for analysis.
@@ -654,6 +665,7 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :param restore_background: File to restore bkg
         :param poly_order: Which poly_order? -1 gives automatic determination
         :param verbose: Verbose?
+
         :returns: Initalized TimeSeriesBuilder object
         """
 
@@ -710,10 +722,12 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
     ):
         """
         Class method to build the time_series_builder for a given pointing id
+
         :param det: Which det?
         :param ebounds: Output ebounds for analysis.
         :param pointing_id: Pointing ID
         :param response: InstrumenResponse Object
+
         :returns: Initalized TimeSeriesBuilder object
         """
 
