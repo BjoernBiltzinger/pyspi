@@ -5,9 +5,11 @@ from numba import njit
 def polar2cart(ra, dec):
     """
     Convert ra, dec to cartesian
+
     :param ra: ra coord
     :param dec: dec coord
-    :return: cartesian coord vector
+
+    :returns: cartesian coord vector
     """
     x = np.cos(np.deg2rad(ra)) * np.cos(np.deg2rad(dec))
     y = np.sin(np.deg2rad(ra)) * np.cos(np.deg2rad(dec))
@@ -20,8 +22,10 @@ def polar2cart(ra, dec):
 def cart2polar(vector):
     """
     Convert cartesian to ra, dec
+
     :param vector: cartesian coord vector
-    :return: ra and dec
+
+    :returns: ra and dec
     """
     ra = np.arctan2(vector[1], vector[0])
     dec = np.arcsin(vector[2])

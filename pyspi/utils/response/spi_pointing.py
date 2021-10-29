@@ -156,7 +156,7 @@ class SPIPointing:
         ra, dec coordinates of the SPI x,y and z axis in the ICRS frame
         for all the times in this pointing
 
-        :returns: ra, dec coordinates of the SPI x,y and z axis in the
+        :returns: ra, dec coordinates of the SPI x,y and z axis in the \
         ICRS frame for all the pointings
         """
         return self._sc_points
