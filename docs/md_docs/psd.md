@@ -49,23 +49,23 @@ det = 0
 
 from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 tsb_sgl = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
-    det, 
-    ebounds, 
+    det,  
     grbtime, 
+    ebounds=ebounds,
     sgl_type="sgl",
     )
     
 tsb_psd = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
-    det, 
-    ebounds, 
+    det,  
     grbtime, 
+    ebounds=ebounds,
     sgl_type="psd",
     )
 
 tsb_both = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
     det, 
-    ebounds, 
     grbtime, 
+    ebounds=ebounds,
     sgl_type="both",
     )
 ```

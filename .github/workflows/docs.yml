@@ -88,7 +88,7 @@ jobs:
         run: |
           export LD_LIBRARY_PATH=/home/runner/multinest_install/lib/:${LD_LIBRARY_PATH}
           mkdir /home/runner/PySPI_data
-          jupytext --to ipynb --execute docs/md_docs/*.md
+          #jupytext --to ipynb --execute docs/md_docs/*.md
           mv docs/md_docs/*.ipynb docs/notebooks/
           ls docs/notebooks
 

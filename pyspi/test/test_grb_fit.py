@@ -33,7 +33,6 @@ def test_grb_fit():
         sd = SPIDRM(drm_generator, ra_val, dec_val)
         tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{d}",
                                                 d,
-                                                ebounds,
                                                 grbtime,
                                                 response=sd,
                                                 sgl_type="both",

@@ -50,8 +50,8 @@ from pyspi.utils.data_builder.time_series_builder import TimeSeriesBuilderSPI
 det = 0
 tsb = TimeSeriesBuilderSPI.from_spi_grb(f"SPIDet{det}", 
                                         det, 
-                                        ebounds, 
-                                        grbtime, 
+                                        grbtime,
+                                        ebounds=ebounds, 
                                         sgl_type="both",
                                         )
 ```
