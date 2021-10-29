@@ -11,8 +11,10 @@ def get_time_object(time):
     """
     Transform the input into a time object. Input can either be a
     time object or a string with the format "YYMMDD HHMMSS"
+
     :param time: time object or a string with the format "YYMMDD HHMMSS"
-    :return: time object
+
+    :returns: time object
     """
     if not isinstance(time, Time):
         time = datetime.strptime(time,
@@ -24,9 +26,11 @@ def get_time_object(time):
 def leapseconds(time_object):
     """
     Hard coded leap seconds from start of INTEGRAL to time of time_object
+
     :param time_object: Time object to which the number of
     leapseconds should be detemined
-    :return: TimeDelta object of the needed leap seconds
+
+    :returns: TimeDelta object of the needed leap seconds
     """
 
     time_object = get_time_object(time_object)
@@ -54,8 +58,10 @@ def leapseconds(time_object):
 def find_response_version(time):
     """
     Find the correct response version number for a given time
+
     :param time: time of interest
-    :return: response version number
+
+    :returns: response version number
     """
 
     time = get_time_object(time)
@@ -75,7 +81,8 @@ def find_response_version(time):
 def find_needed_ids(time):
     """
     Get the pointing id of the needed data to cover the GRB time
-    :return: Needed pointing id
+
+    :returns: Needed pointing id
     """
 
     time = get_time_object(time)
@@ -108,8 +115,11 @@ def find_needed_ids(time):
 
 def ISDC_MJD(time_object):
     """
+    Get INTEGRAL MJD time from a given time object
+
     :param time_object: Astropy time object of grb time
-    :return: Time in Integral MJD time
+
+    :returns: Time in Integral MJD time
     """
     time_object = get_time_object(time_object)
     return time_object.tt.mjd-51544
@@ -118,8 +128,10 @@ def ISDC_MJD(time_object):
 def ISDC_MJD_to_cxcsec(ISDC_MJD_time):
     """
     Convert ISDC_MJD to UTC
+
     :param ISDC_MJD_time: time in ISDC_MJD time format
-    :return: time in cxcsec format (seconds since 1998-01-01 00:00:00)
+
+    :returns: time in cxcsec format (seconds since 1998-01-01 00:00:00)
     """
 
     return Time(ISDC_MJD_time+51544, format='mjd', scale='utc').cxcsec
