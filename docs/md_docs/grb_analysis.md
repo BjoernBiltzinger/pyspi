@@ -182,7 +182,6 @@ datalist = DataList(*spilikes)
 ```
 Initialize the Bayesian Analysis
 ```python
-%%capture
 import os
 os.mkdir("./chains_grb_example")
 ba_spi = BayesianAnalysis(model, datalist)
