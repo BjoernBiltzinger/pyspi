@@ -188,7 +188,7 @@ ba_spi.set_sampler("multinest")
 ba_spi.sampler.setup(500,
                     chain_name='./chains_psd_eff/docsfit1_',
                     resume=False,
-                    verbose=True)
+                    verbose=False)
 ba_spi.sample()
 ```
 
