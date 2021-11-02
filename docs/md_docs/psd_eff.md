@@ -174,7 +174,7 @@ ps = PointSource('GRB',ra=ra, dec=dec, spectral_shape=band)
 model = Model(ps)
 ```
 
-Everything is ready to fit now! We make a Bayesian fit here with multinest
+Everything is ready to fit now! We make a Bayesian fit here with MultiNest. To use MultiNest you need to install [pymultinest](https://github.com/JohannesBuchner/PyMultiNest) according to its [documentation](https://johannesbuchner.github.io/PyMultiNest/install.html). 
 
 ```python
 from threeML import BayesianAnalysis
