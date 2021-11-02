@@ -7,11 +7,11 @@ Welcome to PySpi's documentation!
 ====================================
 .. image:: media/pypsi_logo2.png
 
-PySpi is pure python interface to analyze Integral/SPI data. At the moment it allows to fit transient and constant point source and we want to include extended sources soon.
+PySpi is pure python interface to analyze Integral/SPI data. At the moment it allows to fit GRB data. We plan to include non transient sources soon.
 
 It provides plugins for `3ML <https://threeml.readthedocs.io/en/stable>`__ and therefore all the spectral models from `astromodels <https://astromodels.readthedocs.io/en/latest/>`__ are available for the fits. Check out these two software packages for more information.
 
-This is still not a stable version. Bugs will occur sometimes, please open an issue on github if you find one.
+If you encounter any bugs, please open an issue on `GitHub <https://github.com/BjoernBiltzinger/pyspi>`__ .
 
 .. toctree::
    :maxdepth: 5

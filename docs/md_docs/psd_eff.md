@@ -194,7 +194,7 @@ ba_spi.sample()
 
 We can use the 3ML features to create a corner plot for this fit:
 
-```python
+```python tags=["nbsphinx-thumbnail"]
 fig = ba_spi.results.corner_plot(components=["cons_SPIDetPSD0", "cons_SPIDetPSD3", "cons_SPIDetPSD4"])
 ```
 
