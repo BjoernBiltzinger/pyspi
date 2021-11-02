@@ -180,7 +180,7 @@ for s in spilikes:
     s.set_free_position(True)
 datalist = DataList(*spilikes)
 ```
-Initialize the Bayesian Analysis
+Initialize the Bayesian Analysis and start the sampling with MultiNest. To use MultiNest you need to install [pymultinest](https://github.com/JohannesBuchner/PyMultiNest) according to its [documentation](https://johannesbuchner.github.io/PyMultiNest/install.html). 
 ```python
 import os
 os.mkdir("./chains_grb_example")

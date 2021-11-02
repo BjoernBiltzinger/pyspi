@@ -43,7 +43,8 @@ python setup.py install
 
 There are a few large data files for the background model and the response that are not included in the Github repository. To get these data files run and specify the path where this data folder should be stored on your local machine. Here you have to change the /path/to/internal/data with the path you want to use on your local computer.
 ```bash
-wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip data.zip && mv data /path/to/internal/data && rm -f data.zip
+wget https://grb.mpe.mpg.de/pyspi_datafolder && unzip pyspi_datafolder
+mv data /path/to/internal/data && rm -f pyspi_datafolder
 ```
 
 ## Environment Variables
