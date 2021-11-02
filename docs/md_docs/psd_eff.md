@@ -151,7 +151,7 @@ for d in [0,3,4]:
 datalist = DataList(*spilikes_sgl, *spilikes_psd)
 ```
 
-Now we set a nuisance parameter for the 3ML fit. Nuisance parameter are parameters that only affect one plugin. In this case it's the PSD efficiency for every plugin that uses only PSD events. We do not link the PSD efficiencies in this case, so we determine the PSD efficiency per detector.
+Now we set a nuisance parameter for the 3ML fit. Nuisance parameter are parameters that only affect one plugin. In this case it is the PSD efficiency for every plugin that uses only PSD events. We do not link the PSD efficiencies in this case, so we determine the PSD efficiency per detector.
 
 ```python
 for i, s in enumerate(spilikes_psd):
