@@ -48,7 +48,7 @@ export PYSPI=/path/to/external/datafolder
 export PYSPI_PACKAGE_DATA=/path/to/internal/data
 ```
 
-You should add these two line to your bashrc file to automatically set this variable in every new terminal.
+You should add these two line to your bashrc (or similar) file to automatically set this variable in every new terminal.
 
 Now we are ready to go.
 
