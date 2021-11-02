@@ -29,7 +29,7 @@ date: "27 October 2021"
 
 # Summary
 
-The INTEGRAL satellite was launched in 2002 and is still working. PySPI is a newly developed pure python analysis framework to analysis Gamma-Ray Burst (GRB) data from the instrument SPectrometer on INTEGRAL (SPI), which is onboard of INTEGRAL. Its main goals are to provide an easy to install and develop analysis software, which includes improvements on the statistical analysis of GRB data. 
+PySPI is a newly developed pure python analysis framework to analysis Gamma-Ray Burst (GRB) data from the instrument SPectrometer on INTEGRAL (SPI), which is onboard of INTEGRAL. The INTEGRAL satellite is a gamma ray observatory which operates in the energy range between 20 keV and 8 MeV. It was launched in 2002 and is still working today. The main goals of PySPI are to provide an easy to install and develop analysis software for SPI, which includes improvements on the statistical analysis of GRB data. 
 
 In the future we plan to add support for other sources than GRBs.
 
