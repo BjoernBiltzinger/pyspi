@@ -92,7 +92,7 @@ tsb.set_active_time_interval(active_time)
 tsb.set_background_interval(bkg_time1, bkg_time2)
 ```
 We can check if the selection and background fitting worked by looking again at the light curve
-```python
+```python tags=["nbsphinx-thumbnail"]
 fig = tsb.view_lightcurve(-50,150)
 ```
 For the fit we of course want to use all the available detectors. So we first check which detectors were still working at that time.
