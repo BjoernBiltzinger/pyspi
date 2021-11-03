@@ -195,6 +195,8 @@ ba_spi.sample()
 We can use the 3ML features to create a corner plot for this fit:
 
 ```python tags=["nbsphinx-thumbnail"]
+from threeML.config.config import threeML_config
+threeML_config.bayesian.corner_style.show_titles = False
 fig = ba_spi.results.corner_plot(components=["cons_SPIDetPSD0", "cons_SPIDetPSD3", "cons_SPIDetPSD4"])
 ```
 
