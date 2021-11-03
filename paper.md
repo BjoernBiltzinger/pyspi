@@ -41,6 +41,7 @@ of Gamma-Rays, with a typical duration between a few ms and a few hundred second
 believed to be produced by the collapse of massive stars at the end of their lifetime and
 the merger of compact objects, like for example Neutron-Stars. In the future we plan to add support for other types of sources than transients, such as persistent point sources as well as extended emission.
 
+
 # Statement of need
 
 The main analysis tool to analyze SPI data up to now is the
@@ -65,10 +66,13 @@ It also allows Bayesian fits of the data with true forward folding of the physic
 into the data space via the response. This improves the sensitivity 
 and the scientific output of GRB analyses with INTEGRAL/SPI. 
 
+
 # SPectrometer on INTEGRAL (SPI)
 
 SPI is a coded mask instrument covering the energy range between 20 keV and 8 MeV. It consists of a detector plane with 19 Germanium detectors and a mask plane 1.7 meters above the detectors with 3 cm thick tungsten elements. The mask produces a unique shadow pattern on the detectors depending on the source position. This information can be used to create an image from the observation. Also SPI has an excellent energy resolution of 2.5 keV at 1.3 MeV, which makes SPI an ideal instrument to analyze spectral features, such as lines. 
 ![SPI detector plane setup.](https://raw.githubusercontent.com/BjoernBiltzinger/pyspi/master/joss_plots/spi_detectors.png)
+
+
 # Procedure
 
 To analyze GRB data, PySPI accepts inputs such as the time of the GRB
@@ -86,9 +90,11 @@ In the [documentation](https://pyspi.readthedocs.io/en/latest/) there is an
 [example](https://pyspi.readthedocs.io/en/latest/notebooks/grb_analysis/)
 for this workflow procedure.
 
+
 # Acknowledgments
 
 B. Biltzinger acknowledges financial support from the `German Aerospaces Center (Deutsches Zentrum für Luft- und Raumfahrt, DLR)` under FKZ 50 0R 1913. 
+
 
 # References
 
