@@ -17,7 +17,7 @@ authors:
     affiliation: "1"
 bibliography: paper.bib
 affiliations:
- - name: Max Planck Institute for Extraterrestrial Physics, Giessenbachstrasse, 85748 Garching, Germany  
+ - name: Max Planck Institute for Extraterrestrial Physics, Giessenbachstrasse 1, 85748 Garching, Germany
    index: 1
  - name: Technical University of Munich, Boltzmannstrasse 2, 85748 Garching, Germany
    index: 2
@@ -69,9 +69,7 @@ and the scientific output of GRB analyses with INTEGRAL/SPI.
 
 # SPectrometer on INTEGRAL (SPI)
 
-SPI is a coded mask instrument covering the energy range between 20 keV and 8 MeV. It consists of a detector plane with 19 Germanium detectors and a mask plane 1.7 meters above the detectors with 3 cm thick tungsten elements. The mask produces a unique shadow pattern on the detectors depending on the source position. This information can be used to create an image from the observation. Also SPI has an excellent energy resolution of 2.5 keV at 1.3 MeV, which makes SPI an ideal instrument to analyze spectral features, such as lines. 
-
-![SPI detector plane setup.](joss_plots/spi_detectors.png)
+SPI is a coded mask instrument covering the energy range between 20 keV and 8 MeV. It consists of a detector plane with 19 Germanium detectors and a mask plane 1.7 meters above the detectors with 3 cm thick tungsten elements. The mask produces a unique shadow pattern on the detectors depending on the source position. This information can be used to create an image from the observation. Also SPI has an excellent energy resolution of 2.5 keV at 1.3 MeV, which makes SPI an ideal instrument to analyze spectral features, such as de-excitation lines. 
 
 
 # Procedure
