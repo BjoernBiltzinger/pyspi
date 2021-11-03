@@ -73,10 +73,6 @@ SPI is a coded mask instrument covering the energy range between 20 keV and 8 Me
 
 ![SPI detector plane setup.](joss_plots/spi_detectors.png)
 
-![Caption for example figure.\label{fig:example}](joss_plots/spi_detectors.png)
-
-![MWA beam maps generated using *EMBERS* with data from (Chokshi et al, in prep). The first row ((i) - (iii)) represent all sky measured beam maps, while the second row ((iv) - (vi)) represent residuals between measurements and cutting edge simulations, with the gray regions denoting the nulls surrounding the primary and secondary beams.](https://raw.githubusercontent.com/amanchokshi/EMBERS/master/docs/_static/imgs/beam_maps_joss.jpg)
-
 
 # Procedure
 
