@@ -71,7 +71,7 @@ and the scientific output of GRB analyses with INTEGRAL/SPI.
 
 SPI is a coded mask instrument covering the energy range between 20 keV and 8 MeV. It consists of a detector plane with 19 Germanium detectors and a mask plane 1.7 meters above the detectors with 3 cm thick tungsten elements. The mask produces a unique shadow pattern on the detectors depending on the source position. This information can be used to create an image from the observation. Also SPI has an excellent energy resolution of 2.5 keV at 1.3 MeV, which makes SPI an ideal instrument to analyze spectral features, such as lines. 
 ![SPI detector plane setup.](joss_plots/spi_detectors.png)
-
+![Caption for example figure.\label{fig:example}](joss_plots/spi_detectors.png)
 
 # Procedure
 
