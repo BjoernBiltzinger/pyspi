@@ -35,11 +35,11 @@ operate in the energy range between 3 keV and 10 MeV. It was launched in
 an easy to install and develop analysis software for SPI, which includes 
 improvements on the statistical analysis of GRB data.
 
-At the moment it can only analyze transient sources. One interesting example of 
+At the moment PySPI can only be used to analyze transient sources. One interesting example of 
 transient sources are GRBs, which are extremely bright but short flashes 
 of Gamma-Rays, with a typical duration between a few ms and a few hundred seconds. They are
-believed to be produced by the collapse of massive stars at the end of their lifetime and
-the merger of compact objects, like for example Neutron-Stars. In the future we plan to add support for other types of sources than transients, such as persistent point sources as well as extended emission.
+believed to be produced by the collapse of massive stars and
+mergers of compact objects, like for example Neutron-Stars. In the future we plan to add support for other types of sources than transients, such as persistent point sources as well as extended emission.
 
 
 # Statement of need
@@ -69,7 +69,7 @@ and the scientific output of GRB analyses with INTEGRAL/SPI.
 
 # SPectrometer on INTEGRAL (SPI)
 
-SPI is a coded mask instrument covering the energy range between 20 keV and 8 MeV. It consists of a detector plane with 19 Germanium detectors and a mask plane 1.7 meters above the detectors with 3 cm thick tungsten elements. The mask produces a shadow pattern on the detectors depending on the source position. This information can be used to create an image from the observation. Also SPI has an excellent energy resolution of 2.5 keV at 1.3 MeV, which makes SPI an ideal instrument to analyze fine spectral features, such as lines from radioactive decays. 
+SPI is a coded mask instrument covering the energy range between 20 keV and 8 MeV. It consists of a detector plane with 19 Germanium detectors and a mask plane 1.7 meters above the detectors with 3 cm thick tungsten elements. The mask produces a shadow pattern on the detectors depending on the source position. This information can be used to construct an image from the observation. Also SPI has an excellent energy resolution of 2.5 keV at 1.3 MeV, which makes SPI an ideal instrument to analyze fine spectral features, such as lines from radioactive decays. 
 
 
 # Procedure
