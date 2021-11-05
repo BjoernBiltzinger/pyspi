@@ -4,7 +4,7 @@ tags:
   - Python
   - Astronomy
   - Gamma-Ray Bursts
-
+  - INTEGRAL/SPI
 authors:
   - name: Björn Biltzinger
     orcid: 0000-0003-3381-0985
@@ -13,7 +13,7 @@ authors:
     orcid: 0000-0003-3345-9515
     affiliation: "1"
   - name: Thomas Siegert
-    orcid: 0000-0002-0552-353
+    orcid: 0000-0002-0552-3535
     affiliation: "1"
 bibliography: paper.bib
 affiliations:
