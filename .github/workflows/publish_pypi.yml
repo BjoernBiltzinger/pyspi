@@ -90,6 +90,12 @@ jobs:
           pip install --upgrade flake8 coverage pytest-cov cython
 
           pip install -e .
+
+      - name: Copy example data folder to external data folder
+        run: |
+          mkdir /home/runner/PySPI_data/pointing_data
+          cp -r data/* /home/runner/PySPI_data/pointing_data
+
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names

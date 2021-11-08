@@ -9,8 +9,8 @@ def test_response():
     from pyspi.utils.response.spi_drm import SPIDRM
 
     grbtime = Time("2012-07-11T02:44:53", format='isot', scale='utc')
-    ein = np.geomspace(20,8000,300)
-    ebounds = np.geomspace(20,4000,30)
+    ein = np.geomspace(20, 8000, 300)
+    ebounds = np.geomspace(20, 4000, 30)
 
     version = find_response_version(grbtime)
     rsp_base = ResponseDataRMF.from_version(version)
