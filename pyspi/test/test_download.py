@@ -1,6 +1,6 @@
 # Test download from isdarc for given pointin_id
 import pytest
-import urllib
+import urllib.request
 from urllib.error import URLError
 try:
     urllib.request.urlopen("ftp://isdcarc.unige.ch/arc/rev_3/scw/"
