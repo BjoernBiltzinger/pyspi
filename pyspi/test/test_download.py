@@ -10,7 +10,7 @@ except URLError:
     run_test = True
 
 
-@pytest.mark.skipif(run_test, "ISDC data arciv is broken")
+@pytest.mark.skipif(run_test, reason="ISDC data arciv is broken")
 def test_download():
     from pyspi.io.get_files import get_files
     from pyspi.io.package_data import get_path_of_external_data_dir
