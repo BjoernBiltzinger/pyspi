@@ -2,6 +2,9 @@
 import pytest
 import urllib.request
 from urllib.error import URLError
+import os
+from tempfile import NamedTemporaryFile
+
 try:
     urllib.request.urlopen("ftp://isdcarc.unige.ch/arc/rev_3/scw/"
                            "1189/118900580010.001/sc_orbit_param.fits.gz")
@@ -9,6 +12,17 @@ try:
 except URLError:
     run_test = True
 
+try:
+    tempfile = NamedTemporaryFile(delete=False)
+    file_path = os.path.join("isdcarc.unige.ch::arc", "rev_3",
+                             "scw", 1189,
+                             "118900580010.001", "sc_orbit_param.fits.gz")
+    save_path = tempfile.name
+    os.system(f"rsync -ltv {file_path} {save_path}")
+    tempfile.close()
+    run_test = True
+except:
+    pass
 
 @pytest.mark.skipif(run_test, reason="ISDC data arciv is broken")
 def test_download():
