@@ -5,6 +5,7 @@ from astropy.utils.data import download_file
 import requests
 import shutil
 import urllib
+from urllib.error import URLError
 
 from pyspi.io.file_utils import file_existing_and_readable
 
@@ -31,36 +32,59 @@ def create_file_structure(pointing_id):
                               pointing_id))
 
 
-def get_and_save_file(file_path, file_save_path, access="isdc"):
+def get_and_save_file(extension, pointing_id, access="isdc"):
     """
     Function to get and save a file located at file_path to file_save_path
-    :param file_path: File location (link or path to afs)
-    :param file_save_path: File Save location (on local system)
+    :param extension: File name you want to download
+    :param pointing_id: The id of the pointing
     :param access: How to get the data. Possible are "isdc" and "afs"
     :return:
     """
     assert access in ["isdc", "afs"],\
         f"Access variable must be 'isdc' or 'afs' but is {access}."
 
-    if not file_existing_and_readable(file_save_path):
+    save_path = os.path.join(get_path_of_external_data_dir(),
+                             'pointing_data',
+                             pointing_id,
+                             extension)
+
+    if not file_existing_and_readable(save_path):
         if access == "afs":
+            # Path to pointing_id directory
+            file_path = os.path.join("/afs", "ipp-garching.mpg.de", "mpe",
+                                     "gamma", "instruments", "integral",
+                                     "data", "revolutions",
+                                     pointing_id[:4], f"{pointing_id}.001",
+                                     extension)
+
             assert os.path.exists(file_path), "Either pointing_id "\
                 "is not valid, or you have no access to the afs server "\
                 "or no rights to read the integral data"
 
-            copyfile(file_path, file_save_path)
+            copyfile(file_path, save_path)
 
         else:
-
+            # use ISDC ftp server
             try:
+
+                file_path = os.path.join("ftp://isdcarc.unige.ch", "arc",
+                                         "rev_3", "scw", pointing_id[:4],
+                                         f"{pointing_id}.001", extension)
+
                 urllib.request.urlopen(file_path)
+                data = download_file(file_path)
+                shutil.move(data, save_path)
+            except URLError:
+                # try rsync
+                file_path = os.path.join("isdcarc.unige.ch::arc", "rev_3",
+                                         "scw", pointing_id[:4],
+                                         f"{pointing_id}.001", extension)
 
-            except:
+                os.system(f"rsync -lrtv {file_path} {save_path}")
 
-                raise AssertionError(f'Link {file_path} does not exists!')
-
-            data = download_file(file_path)
-            shutil.move(data, file_save_path)
+            except Exception as e:
+                raise AssertionError(f"Downloading {file_path} from the ISDC"
+                                     f"does not work! Error: {e}")
 
 
 def get_files(pointing_id, access="isdc"):
@@ -77,42 +101,15 @@ def get_files(pointing_id, access="isdc"):
     assert access in ["isdc", "afs"],\
         f"Access variable must be 'isdc' or 'afs' but is {access}."
 
-    # Path where data should be stored
-    geom_save_path = os.path.join(get_path_of_external_data_dir(),
-                                  'pointing_data',
-                                  pointing_id,
-                                  'sc_orbit_param.fits.gz')
-    data_save_path = os.path.join(get_path_of_external_data_dir(),
-                                  'pointing_data',
-                                  pointing_id,
-                                  'spi_oper.fits.gz')
-    hk_save_path = os.path.join(get_path_of_external_data_dir(),
-                                'pointing_data',
-                                pointing_id,
-                                'spi_science_hk.fits.gz')
-
-    if access == "afs":
-        # Path to pointing_id directory
-        dir_link = "/afs/ipp-garching.mpg.de/mpe/gamma/"\
-            "instruments/integral/data/revolutions/"\
-            "{}/{}.001/".format(pointing_id[:4], pointing_id)
-
-    else:
-
-        dir_link = "ftp://isdcarc.unige.ch/arc/rev_3/scw/"\
-            "{}/{}.001/".format(pointing_id[:4], pointing_id)
-
-    # Paths to the data file and the orbit file on the afs server
-    geom_path = os.path.join(dir_link,
-                                 'sc_orbit_param.fits.gz')
-    data_path = os.path.join(dir_link,
-                                 'spi_oper.fits.gz')
-    hk_path = os.path.join(dir_link,
-                                'spi_science_hk.fits.gz')
-
     create_file_structure(pointing_id)
 
     # Get the data files we need
-    get_and_save_file(geom_path, geom_save_path, access=access)
-    get_and_save_file(data_path, data_save_path, access=access)
-    get_and_save_file(hk_path, hk_save_path, access=access)
+    get_and_save_file(extension='sc_orbit_param.fits.gz',
+                      pointing_id=pointing_id,
+                      access=access)
+    get_and_save_file(extension='spi_oper.fits.gz',
+                      pointing_id=pointing_id,
+                      access=access)
+    get_and_save_file(extension='spi_science_hk.fits.gz',
+                      pointing_id=pointing_id,
+                      access=access)
