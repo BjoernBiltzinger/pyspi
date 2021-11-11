@@ -8,9 +8,9 @@ from tempfile import NamedTemporaryFile
 try:
     urllib.request.urlopen("ftp://isdcarc.unige.ch/arc/rev_3/scw/"
                            "1189/118900580010.001/sc_orbit_param.fits.gz")
-    run_test = False
+    skip_test = False
 except URLError:
-    run_test = True
+    skip_test = True
 
 try:
     tempfile = NamedTemporaryFile(delete=False)
@@ -20,11 +20,11 @@ try:
     save_path = tempfile.name
     os.system(f"rsync -ltv {file_path} {save_path}")
     tempfile.close()
-    run_test = True
+    skip_test = False
 except:
     pass
 
-@pytest.mark.skipif(run_test, reason="ISDC data arciv is broken")
+@pytest.mark.skipif(skip_test, reason="ISDC data arciv is broken")
 def test_download():
     from pyspi.io.get_files import get_files
     from pyspi.io.package_data import get_path_of_external_data_dir
