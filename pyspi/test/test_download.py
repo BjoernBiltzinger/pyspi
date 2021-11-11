@@ -30,6 +30,8 @@ def test_download():
     from pyspi.io.package_data import get_path_of_external_data_dir
     from pyspi.io.file_utils import file_existing_and_readable
     import os
+    import shutil
+
 
     pointing_id = 169600130010
     base_path = os.path.join(get_path_of_external_data_dir(),
@@ -37,7 +39,7 @@ def test_download():
                              str(pointing_id))
 
     if os.path.exists(base_path):
-        os.rmdir(base_path)
+        shutil.rmtree(base_path)
 
     get_files(pointing_id)
 
