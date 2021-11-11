@@ -107,7 +107,7 @@ def get_live_dets_pointing(pointing,
     :returns:
     """
     # get end time of pointing
-    id_file_path = os.path.join(get_path_of_internal_data_dir,
+    id_file_path = os.path.join(get_path_of_internal_data_dir(),
                                 'id_data_time.hdf5')
     with h5py.File(id_file_path, "r") as f:
         idx = np.argwhere(f["ID"][()] == pointing.encode('utf-8'))
