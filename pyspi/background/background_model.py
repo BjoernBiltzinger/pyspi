@@ -2,12 +2,12 @@ import numpy as np
 import h5py
 from scipy.interpolate import interp1d
 from pyspi.utils.livedets import get_live_dets_pointing
-from pyspi.io.package_data import get_path_of_data_file
+from pyspi.io.package_data import get_path_of_internal_data_dir
 #from scipy.special import erfc
 from math import erfc
 from scipy.integrate import quad
 from numba import njit, float64
-
+import os
 
 @njit
 def trapz(y,x):
@@ -248,7 +248,10 @@ class BackgroundModelPointingDet(object):
         """
 
         # Get the basis information from hdf5 file
-        with h5py.File(get_path_of_data_file('background_database_new.h5'),
+        with h5py.File(os.path.join(
+                get_path_of_internal_data_dir(),
+                'background_database_new.h5'
+        ),
                        'r') as fh5:
             # The bkg model is split in several Ebins which are
             # determined independetly.
@@ -269,7 +272,10 @@ class BackgroundModelPointingDet(object):
 
         # Read in all the line and continuum informations
         # for all background model ebins
-        with h5py.File(get_path_of_data_file('background_database_new.h5'),
+        with h5py.File(os.path.join(
+                get_path_of_internal_data_dir(),
+                'background_database_new.h5'
+        ),
                        'r') as fh5:
 
             self._cont = np.zeros((len(self._energy_bounds)-1, 2))
