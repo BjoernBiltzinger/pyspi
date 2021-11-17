@@ -59,6 +59,7 @@ class SPISWFile(object):
 
         # Read in all we need
         self._read_in_pointing_data(self._pointing_id)
+        self._get_deadtime_info()
 
     def _read_in_pointing_data(self, pointing_id):
         """
@@ -80,10 +81,21 @@ class SPISWFile(object):
             time_me2 = ISDC_MJD_to_cxcsec(hdu_oper[4].data['time'])
             time_me3 = ISDC_MJD_to_cxcsec(hdu_oper[5].data['time'])
 
-            self._time_start = np.min(np.concatenate([time_sgl, time_psd,
+            time_start = np.min(np.concatenate([time_sgl, time_psd,
                                                       time_me2, time_me3]))
-            self._time_stop = np.max(np.concatenate([time_sgl, time_psd,
+            time_stop = np.max(np.concatenate([time_sgl, time_psd,
                                                      time_me2, time_me3]))
+
+            # renorm time start to 0
+            time_sgl -= time_start
+            time_psd -= time_start
+            time_me2 -= time_start
+            time_me3 -= time_start
+            self._time_start = 0
+            self._time_stop = time_stop-time_start
+
+            # save the norm time, we need this when we read in the dead time info
+            self._norm_time = time_start
 
             # Read in the data for the wanted detector
             # For single events we have to take both the non_psd
@@ -171,6 +183,72 @@ class SPISWFile(object):
         self._times = self._times[~mask]
         self._energies = self._energies[~mask]
 
+    def _get_deadtime_info(self):
+        """
+        Get the deadtime info from the hk file
+
+        :returns:
+        """
+
+        # read in the OB-Time (on-board time) and the ISDC-MJD times
+        # of the events from the data file. We will need this to
+        # convert the OB-Times given in the hk file into ISDC-MJD time
+        with fits.open(os.path.join(get_path_of_external_data_dir(),
+                                    'pointing_data',
+                                    self._pointing_id,
+                                    'spi_oper.fits.gz')) as hdu_oper:
+
+            ob_time = hdu_oper["SPI.-OSGL-ALL"].data["OB_TIME"]
+            time = hdu_oper["SPI.-OSGL-ALL"].data["TIME"]
+
+        # calulate the true on-board time from the 4 given values
+        # in the fits files. See:
+        # (https://www.isdc.unige.ch/integral/support/faq.cgi?DATA-006)
+
+        ob_time_data = (ob_time[:, 0]*655363**3 +
+                        ob_time[:, 1]*655362**2 +
+                        ob_time[:, 2]*65536 +
+                        ob_time[:, 3])
+
+        # read in hk file with the deadtime per 1 second intervall
+        # in units of 100 nano seconds
+        deadtimes = np.array([])
+        with fits.open(os.path.join(get_path_of_external_data_dir(),
+                                    'pointing_data',
+                                    self._pointing_id,
+                                    'spi_science_hk.fits.gz')) as hdu_oper:
+
+            for i in range(19):
+                deadtimes = np.append(deadtimes,
+                                      hdu_oper["SPI.-SCHK-HRW"].
+                                      data[f"P__DF__CAFDT__L{i}"])
+
+            ob_time = hdu_oper["SPI.-SCHK-CNV"].data["OB_TIME"]
+
+        # reshape to get shape (num_det, num_timebins)
+        # and multipy by 100*10**-9 to get the deadtime in
+        # seconds
+        deadtimes = deadtimes.reshape(19, -1)*100*10**-9
+
+        # again get true OB-Time
+        ob_time_hk = (ob_time[:, 0]*655363**3 +
+                      ob_time[:, 1]*655362**2 +
+                      ob_time[:, 2]*65536 +
+                      ob_time[:, 3])
+
+        # use linear interpolation of OB-Time/ISDC-MJD pairs from
+        # the data file to get the ISDC-MJD time of the hk time bins
+        times_hk = np.interp(ob_time_hk, ob_time_data, time)
+
+        # add end of last time bin (+1 second in units of days)
+        times_hk = np.append(times_hk, times_hk[-1]+(1.0/(24*3600)))
+
+        # save time and deadtime - add end of
+        self._deadtime_bin_edges = ISDC_MJD_to_cxcsec(times_hk) - \
+            self._norm_time
+        self._deadtimes = deadtimes[self._det]
+
+
     @property
     def geometry_file_path(self):
         """
@@ -248,6 +326,38 @@ class SPISWFile(object):
         :returns: Name Mission
         """
         return self._mission
+
+    @property
+    def deadtime_bin_starts(self):
+        """
+        :returns: Start time of time bins which have the deadtime
+        information
+        """
+        return self._deadtime_bin_edges[:-1]
+
+    @property
+    def deadtime_bin_stops(self):
+        """
+        :returns: Stop time of time bins which have the deadtime
+        information
+        """
+        return self._deadtime_bin_edges[1:]
+
+    @property
+    def deadtimes_per_interval(self):
+        """
+        :returns: Deadtime per time bin which have the deadtime
+        information
+        """
+        return self._deadtimes
+
+    @property
+    def livetimes_per_interval(self):
+        """
+        :returns: Livetime per time bin which have the deadtime
+        information
+        """
+        return 1-self._deadtimes
 
 
 class SPISWFileGRB(object):
@@ -488,7 +598,6 @@ class SPISWFileGRB(object):
             self._GRB_ref_time_cxcsec
         self._deadtimes = deadtimes[self._det]
 
-
     @property
     def geometry_file_path(self):
         """
@@ -716,10 +825,10 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
 
     @classmethod
     def from_spi_constant_pointing(cls,
-                                   det,
-                                   ebounds,
-                                   pointing_id,
-                                   response
+                                   det=0,
+                                   pointing_id="118900570010",
+                                   ebounds=None,
+                                   response=None,
     ):
         """
         Class method to build the time_series_builder for a given pointing id
@@ -732,23 +841,38 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
         :returns: Initalized TimeSeriesBuilder object
         """
 
+        assert ebounds is not None or response is not None, "You have to "\
+            "either specify ebounds or input a response object."
+
+        if ebounds is not None and response is not None:
+            # check that the ebounds match
+            assert np.all(response.ebounds == ebounds), "Ebounds do not "\
+                "match the ones in the response object!"
+
+        elif response is not None:
+            # ebounds is None in this case
+            ebounds = response.ebounds
+
         spi_grb_setup1 = SPISWFile(det, pointing_id, ebounds)
 
-        e = EventListWithDeadTime(arrival_times=spi_grb_setup1.times,
-                                  measurement=spi_grb_setup1.energy_bins,
-                                  n_channels=spi_grb_setup1.n_channels,
-                                  start_time=spi_grb_setup1.time_start,
-                                  stop_time=spi_grb_setup1.time_stop,
-                                  dead_time=np.zeros_like(spi_grb_setup1.times),
-                                  first_channel=0,
-                                  instrument=spi_grb_setup1.det_name,
-                                  mission=spi_grb_setup1.mission,
-                                  verbose=False,
-                                  edges=spi_grb_setup1.ebounds,
+        event_list = EventListWithLiveTime(
+            arrival_times=spi_grb_setup1.times,
+            measurement=spi_grb_setup1.energy_bins,
+            n_channels=spi_grb_setup1.n_channels,
+            start_time=spi_grb_setup1.time_start,
+            stop_time=spi_grb_setup1.time_stop,
+            live_time=spi_grb_setup1.livetimes_per_interval,
+            live_time_starts=spi_grb_setup1.deadtime_bin_starts,
+            live_time_stops=spi_grb_setup1.deadtime_bin_stops,
+            first_channel=0,
+            instrument=spi_grb_setup1.det_name,
+            mission=spi_grb_setup1.mission,
+            verbose=False,
+            edges=spi_grb_setup1.ebounds,
         )
 
-        tsb = cls(f"spi-{pointing_id}-{det}",
-                  e,
+        tsb = cls(f"SPIID{pointing_id}D{det}",
+                  event_list,
                   verbose=True,
                   response=response,
                   container_type=BinnedSpectrumWithDispersion)
