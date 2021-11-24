@@ -1,3 +1,4 @@
 astromodels
 threeML
 chainconsumer
+matplotlib==3.4
