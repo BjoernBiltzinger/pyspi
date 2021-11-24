@@ -70,7 +70,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip wheel
           pip install black
-          pip install --upgrade numpy ipython jupyter matplotlib
+          pip install --upgrade numpy ipython jupyter matplotlib==3.4
           pip install jupytext jupyterthemes emcee
           pip install astromodels
           git clone https://github.com/threeML/threeML.git
