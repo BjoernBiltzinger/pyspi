@@ -1,10 +1,23 @@
 from omegaconf import OmegaConf
 from dataclasses import dataclass
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, Enum
 from pathlib import Path
 
-from pyspi.io.package_data import get_path_of_user_config
+
+def get_path_of_user_config() -> Path:
+
+    # if _custom_config_path is not None:
+
+    #     config_path: Path = Path(_custom_config_path)
+
+    config_path: Path = Path().home() / ".config" / "pyspi"
+
+    if not config_path.exists():
+
+        config_path.mkdir(parents=True)
+
+    return config_path
 
 
 @dataclass(frozen=True)
@@ -14,7 +27,7 @@ class OnlineResources:
     remote_data: str = "ftp://isdcarc.unige.ch/arc/rev_3/scw"
 
 
-class DataAccess(IntEnum):
+class DataAccess(Enum):
     AFS = "afs"
     ISDC = "isdc"
 
@@ -23,7 +36,7 @@ class DataAccess(IntEnum):
 class Config:
     #    logging: Logging = Logging()
     resources: OnlineResources = OnlineResources()
-    data_access: DataAccess = DataAccess.AFS
+    data_access: DataAccess = DataAccess.ISDC
     internal_data_path: str = str(Path("~/spi_internal_data").expanduser())
     observation_data_path: str = str(Path("~/spi_data").expanduser())
 
