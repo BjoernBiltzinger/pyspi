@@ -28,17 +28,6 @@ def file_existing_and_readable(filename) -> bool:
     return sanitized_filename.is_file()
 
 
-def fits_file_existing_and_readable(filename) -> bool:
-    """
-    checks if a FITS file exists ignoring extension ({})
-    info
-
-    """
-    base_filename = str(filename).split("{")[0]
-
-    return file_existing_and_readable(base_filename)
-
-
 def path_exists_and_is_directory(path) -> bool:
 
     sanitized_path: Path = sanitize_filename(path, abspath=True)
