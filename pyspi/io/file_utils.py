@@ -1,59 +1,67 @@
-import os
+from pathlib import Path
+
+from threeML.io.logging import setup_logger
 
 
-def file_existing_and_readable(filename):
-    """
-    Check if a file exists
-    :param filename: Filename to check
-    :return: True or False
-    """
-    sanitized_filename = sanitize_filename(filename)
-
-    if os.path.exists(sanitized_filename):
-
-        # Try to open it
-
-        try:
-
-            with open(sanitized_filename):
-
-                pass
-
-            return True
-        except FileNotFoundError:
-            pass
-    return False
+log = setup_logger(__name__)
 
 
-def path_exists_and_is_directory(path):
-    """
-    Check if a path exists and is a directory
-    :param path: Path to check
-    :return: True or False
-    """
-    sanitized_path = sanitize_filename(path, abspath=True)
+def sanitize_filename(filename, abspath: bool = False) -> Path:
 
-    if os.path.exists(sanitized_path):
+    path: Path = Path(filename)
 
-        if os.path.isdir(path):
-
-            return True
-
-    return False
-
-
-def sanitize_filename(filename, abspath=False):
-    """
-    Sanitize filename
-    :param filename: name of file
-    :param abspath: Get the absolute path?
-    :return: sanitized filename
-    """
-
-    sanitized = os.path.expandvars(os.path.expanduser(filename))
+    sanitized = path.expanduser()
 
     if abspath:
 
-        return os.path.abspath(sanitized)
+        return sanitized.absolute()
 
-    return sanitized
+    else:
+
+        return sanitized
+
+
+def file_existing_and_readable(filename) -> bool:
+
+    sanitized_filename: Path = sanitize_filename(filename)
+
+    return sanitized_filename.is_file()
+
+
+def fits_file_existing_and_readable(filename) -> bool:
+    """
+    checks if a FITS file exists ignoring extension ({})
+    info
+
+    """
+    base_filename = str(filename).split("{")[0]
+
+    return file_existing_and_readable(base_filename)
+
+
+def path_exists_and_is_directory(path) -> bool:
+
+    sanitized_path: Path = sanitize_filename(path, abspath=True)
+
+    return sanitized_path.is_dir()
+
+
+def if_directory_not_existing_then_make(directory) -> None:
+    """
+    If the given directory does not exists, then make it
+
+    :param directory: directory to check or make
+    :return: None
+    """
+
+    sanitized_directory: Path = sanitize_filename(directory)
+
+    try:
+
+        sanitized_directory.mkdir(parents=True, exist_ok=False)
+
+    except (FileExistsError):
+
+        # should add logging here!
+
+        pass
