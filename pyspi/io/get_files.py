@@ -16,6 +16,7 @@ from pyspi.io.file_utils import (
 from ..utils import pyspi_config
 from ..utils.configuration import DataAccess
 
+
 def create_file_structure(pointing_id: str) -> None:
     """
     Create the file structure to save the datafiles
@@ -26,22 +27,25 @@ def create_file_structure(pointing_id: str) -> None:
 
     if_directory_not_existing_then_make(get_path_of_external_data_dir())
 
-    if not os.path.exists(
-        os.path.join(get_path_of_external_data_dir(), "pointing_data")
-    ):
-        os.mkdir(os.path.join(get_path_of_external_data_dir(), "pointing_data"))
+    base_path = get_path_of_external_data_dir() / "pointing_data" / pointing_id
 
-    if not os.path.exists(
-        os.path.join(
-            get_path_of_external_data_dir(), "pointing_data", pointing_id
-        )
-    ):
-        os.mkdir(
-            os.path.join(
-                get_path_of_external_data_dir(), "pointing_data", pointing_id
-            )
-        )
+    if_directory_not_existing_then_make(base_path)
 
+    # if not os.path.exists(
+    #     os.path.join(get_path_of_external_data_dir(), "pointing_data")
+    # ):
+    #     os.mkdir(os.path.join(get_path_of_external_data_dir(), "pointing_data"))
+
+    # if not os.path.exists(
+    #     os.path.join(
+    #         get_path_of_external_data_dir(), "pointing_data", pointing_id
+    #     )
+    # ):
+    #     os.mkdir(
+    #         os.path.join(
+    #             get_path_of_external_data_dir(), "pointing_data", pointing_id
+    #         )
+    #     )
 
 
 def get_and_save_file(
@@ -61,10 +65,14 @@ def get_and_save_file(
         "afs",
     ], f"Access variable must be 'isdc' or 'afs' but is {access}."
 
-    save_path: Path = get_path_of_external_data_dir() / "pointing_data" / pointing_id / extension
+    save_path: Path = (
+        get_path_of_external_data_dir()
+        / "pointing_data"
+        / pointing_id
+        / extension
     )
 
-    _base_path: Path =  Path(pointing_id[:4]) / f"{pointing_id}.001" / extension
+    _base_path: Path = Path(pointing_id[:4]) / f"{pointing_id}.001" / extension
 
     if not file_existing_and_readable(save_path):
         if access == "afs":
@@ -83,15 +91,18 @@ def get_and_save_file(
             # use ISDC ftp server
             try:
 
-                file_path = Path(pyspi_config.resources.remote_data) / _base_path
-                
-                urllib.request.urlopen(file_path)
-                data = download_file(file_path)
+                file_path = (
+                    Path(pyspi_config.resources.remote_data) / _base_path
+                )
+
+                urllib.request.urlopen(str(file_path))
+                data = download_file(str(file_path))
                 shutil.move(data, save_path)
             except URLError:
                 # try rsync
-                file_path = Path("isdcarc.unige.ch::arc") / "rev_3"/ "scw" / _base_path
-    
+                file_path = (
+                    Path("isdcarc.unige.ch::arc") / "rev_3" / "scw" / _base_path
+                )
 
                 os.system(f"rsync -lrtv {file_path} {save_path}")
 
@@ -102,7 +113,9 @@ def get_and_save_file(
                 )
 
 
-def get_files(pointing_id: str, access: str =  pyspi_config.data_access.value) -> None:
+def get_files(
+    pointing_id: str, access: str = pyspi_config.data_access.value
+) -> None:
     """
     Function to get the needed files for a certain pointing_id and save
     them in the correct folders.
