@@ -1,3 +1,4 @@
+import astropy.units as u
 from pyspi import SPICatalog, pyspi_config
 
 
