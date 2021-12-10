@@ -31,4 +31,4 @@ def test_catalog():
 
     my_windows.get()
 
-    my_windows.files()
+    my_windows.files
