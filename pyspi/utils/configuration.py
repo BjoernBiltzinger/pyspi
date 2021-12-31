@@ -1,6 +1,5 @@
 from omegaconf import OmegaConf
 from dataclasses import dataclass
-from dataclasses import dataclass
 from enum import IntEnum, Enum
 from pathlib import Path
 
@@ -52,4 +51,4 @@ for user_config_file in get_path_of_user_config().glob("*.yml"):
 
     _partial_conf = OmegaConf.load(user_config_file)
 
-    threeML_config: Config = OmegaConf.merge(pyspi_config, _partial_conf)
+    pyspi_config: Config = OmegaConf.merge(pyspi_config, _partial_conf)
