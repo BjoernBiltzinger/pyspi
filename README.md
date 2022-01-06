@@ -59,3 +59,16 @@ Please have a look at the [documentation](https://pyspi.readthedocs.io/en/latest
 ## Contributing
 
 Everyone is invited to contribute to ```PySPI```. If you want to contribute, please use the standard Github features, like opening issues and pull requests. Please also always make sure, that you add tests and documentation for the changes you want to include into the package.
+
+## Testing
+
+If one wants to run the test suite, simply install `pytest` and run
+
+```bash
+pytest -v
+
+```
+
+in the top level directory. 
+
+
