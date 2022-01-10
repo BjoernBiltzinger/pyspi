@@ -83,7 +83,7 @@ as well as a time series for the observation that contains the GRB time. The tim
 can be used to select active time intervals for the source, and time intervals before 
 and after the GRB signal for background estimation. After this has been done, a plugin 
 for `3ML` [@3mlpaper;@3ML] can be constructed. This allows for all the benefits the 3ML 
-framework offers like the modeling framework `astromodels` [@astromodels], joined 
+framework offers like the modeling framework `astromodels` [@astromodels], joint 
 fits with other instruments, many different Bayesian samplers and much more. 
 In the [documentation](https://pyspi.readthedocs.io/en/latest/) there is an
 [example](https://pyspi.readthedocs.io/en/latest/notebooks/grb_analysis/)
