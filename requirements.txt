@@ -2,3 +2,4 @@ astromodels
 threeML
 chainconsumer
 matplotlib==3.4
+pandas<1.4
