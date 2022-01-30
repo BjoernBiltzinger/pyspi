@@ -88,7 +88,7 @@ jobs:
           pip install --upgrade astromodels
           pip install --upgrade threeML
           pip install --upgrade flake8 coverage pytest-cov cython
-
+          pip install pandas==1.3
           pip install -e .
 
       - name: Copy example data folder to external data folder
