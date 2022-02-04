@@ -84,7 +84,8 @@ jobs:
       - name: Install dependencies
         run: |
           mkdir /home/runner/PySPI_data
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip wheel
+          pip install cryptography pyOpenSSL pyvo pyRXP --upgrade;
           pip install --upgrade astromodels
           pip install --upgrade threeML
           pip install --upgrade flake8 coverage pytest-cov cython
