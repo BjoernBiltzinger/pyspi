@@ -1,6 +1,24 @@
 name: Test clean install
 
 on:
+  push:
+    branches:
+      - master
+      - dev
+
+    paths-ignore:
+      - "README.md"
+      - "**/docs/**"
+      - ".github/workflows/docs.yml"
+      - "paper.md"
+      - "paper.bib"
+      - "**/joss_plots/**"
+
+  pull_request:
+    branches:
+      - master
+      - dev
+
   schedule:
     - cron: "0 20 * * *"
 
