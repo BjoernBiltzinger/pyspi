@@ -25,7 +25,7 @@ pip install py-spi
 
 ## Conda/Mamba
 
-To install PySPI via Conda just run this command
+If you have problems installing PySPI with Conda try to create your environment with this command
 
 ```bash
 conda create -n pyspi -c conda-forge python=3.9 numpy scipy ipython numba astropy matplotlib h5py pandas pytables
@@ -36,6 +36,14 @@ or for Mamba
 ```bash
 mamba create -n pyspi -c conda-forge python=3.9 numpy scipy ipython numba astropy matplotlib h5py pandas pytables
 ```
+
+and then run 
+
+```bash
+pip install py-spi
+```
+
+with the environment activated.
 
 ## Github
 
