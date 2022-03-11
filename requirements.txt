@@ -3,4 +3,4 @@ threeML
 chainconsumer
 matplotlib==3.4
 pandas<1.4
-nump==1.21
+numpy==1.21
