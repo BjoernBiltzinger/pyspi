@@ -23,6 +23,20 @@ PySPI can be installed via pip.
 pip install py-spi
 ```
 
+## Conda/Mamba
+
+To install PySPI via Conda just run this command
+
+```bash
+conda create -n pyspi -c conda-forge python=3.9 numpy scipy ipython numba astropy matplotlib h5py pandas pytables
+```
+
+or for Mamba
+
+```bash
+mamba create -n pyspi -c conda-forge python=3.9 numpy scipy ipython numba astropy matplotlib h5py pandas pytables
+```
+
 ## Github
 
 To install the latest release from Github run
@@ -34,7 +48,7 @@ After that first install the packages from the requirement.txt file with
 cd pyspi
 pip install -r requirements.txt
 ```
-Now you can install PySpi with
+Now you can install PySPI with
 ```bash
 python setup.py install
 ```
@@ -54,7 +68,7 @@ Next you have to set two environment variable. One to define the path to the fol
 export PYSPI=/path/to/external/datafolder
 export PYSPI_PACKAGE_DATA=/path/to/internal/data
 ```
-
+Here /path/to/external/datafolder should be the path to a folder on your local machine, where PySPI should save the downloaded data needed for the analysis.
 You should add these two line to your bashrc (or similar) file to automatically set this variable in every new terminal.
 
 Now we are ready to go.
