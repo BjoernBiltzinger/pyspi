@@ -18,14 +18,14 @@ jupyter:
 # Installation
 
 ## Pip
-PySPI can be installed via pip.
+To install PySPI via pip just use
 ```bash
 pip install py-spi
 ```
 
 ## Conda/Mamba
 
-If you have problems installing PySPI with Conda try to create your environment with this command
+If you have problems installing PySPI within a Conda environment try to create your environment with this command
 
 ```bash
 conda create -n pyspi -c conda-forge python=3.9 numpy scipy ipython numba astropy matplotlib h5py pandas pytables
