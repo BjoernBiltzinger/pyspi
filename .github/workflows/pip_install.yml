@@ -48,3 +48,29 @@ jobs:
     - name: Install from pip
       run: |
         pip install py-spi
+
+  test-install-conda:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest", "macos-latest", "macos-10.15"]
+        python-version: [3.8, 3.9]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: test_env
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+      - name: Conda info
+        shell: bash -l {0}
+        run: conda info
+      - name: Conda list
+        shell: bash -l {0}
+        run: conda list
+      - name: Install PySPI
+        shell: bash -l {0}
+        run: |
+          echo $(which python3)
+          pip install py-spi
