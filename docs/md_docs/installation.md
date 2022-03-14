@@ -76,7 +76,7 @@ Next you have to set two environment variable. One to define the path to the fol
 export PYSPI=/path/to/external/datafolder
 export PYSPI_PACKAGE_DATA=/path/to/internal/data
 ```
-Here /path/to/external/datafolder should be the path to a folder on your local machine, where PySPI should save the downloaded data needed for the analysis.
+Here /path/to/external/datafolder should be the path to a folder on your local machine, where PySPI should save all the downloaded data needed for the analysis.
 You should add these two line to your bashrc (or similar) file to automatically set this variable in every new terminal.
 
 Now we are ready to go.
