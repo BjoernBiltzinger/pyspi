@@ -19,9 +19,18 @@ Multi Mission Analysis
 
 PySPI provides a plugin for `3ML <https://threeml.readthedocs.io/en/stable>`__. This makes multi missions analysis with other instruments possible. Also all the spectral models from `astromodels <https://astromodels.readthedocs.io/en/latest/>`__ are available for the fits. Check out these two software packages for more information.
 
-Contribute
+Run Unit Test Locally
 ------------------------------------
-If you encounter any problems or want to contribute to the package, please open an issue or pull request on `GitHub <https://github.com/BjoernBiltzinger/pyspi>`__ .
+
+PySPI includes unit test to check that non of its functionality break in new versions. These run automatically for every push on GitHub via GitHub Actions. But you can also run the tests locally. To run the test you need to install pytest and pytest-cov.::
+
+  pip install pytest pytest-cov
+
+After this run::
+
+  pytest -v
+
+in the top level directory.
 
 .. toctree::
    :maxdepth: 5
@@ -32,6 +41,7 @@ If you encounter any problems or want to contribute to the package, please open 
    notebooks/response.ipynb
    notebooks/psd.ipynb
    notebooks/active_detectors.ipynb
+   notebooks/contributing.ipynb
    api/API
 
 .. nbgallery::
