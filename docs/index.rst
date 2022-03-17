@@ -41,6 +41,7 @@ in the top level directory.
    notebooks/response.ipynb
    notebooks/psd.ipynb
    notebooks/active_detectors.ipynb
+   notebooks/access_data.ipynb
    notebooks/contributing.ipynb
    api/API
 

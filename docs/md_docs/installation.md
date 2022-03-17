@@ -76,8 +76,9 @@ Next you have to set two environment variable. One to define the path to the fol
 export PYSPI=/path/to/external/datafolder
 export PYSPI_PACKAGE_DATA=/path/to/internal/data
 ```
-Here /path/to/external/datafolder should be the path to a folder on your local machine, where PySPI should save all the downloaded data needed for the analysis.
-You should add these two line to your bashrc (or similar) file to automatically set this variable in every new terminal.
+Here /path/to/external/datafolder is the path to a folder on your local machine, where PySPI should save all the downloaded data needed for the analysis. The data that will be saved into this folder are the SPI data file as well as one housekeeping data file of SPI and one housekeeping data file of INTEGRAL. In total this adds up to roughly 30-70 MB per analyzed GRB.
+
+You should also add these two line to your bashrc (or similar) file to automatically set these variables in every new terminal.
 
 Now we are ready to go.
 
