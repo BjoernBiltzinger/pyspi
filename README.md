@@ -62,7 +62,7 @@ Everyone is invited to contribute to ```PySPI```. If you want to contribute, ple
 
 ## Testing
 
-If one wants to run the test suite, simply install `pytest` and run
+If one wants to run the test suite, simply install `pytest` and `pytest-cov`, then run
 
 ```bash
 pytest -v
