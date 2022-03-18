@@ -83,4 +83,16 @@ You should also add these two line to your bashrc (or similar) file to automatic
 
 Now we are ready to go.
 
+## Run Unit Test Locally
+
+PySPI includes unit test to check that non of its functionality break in new versions. These run automatically for every push on GitHub via GitHub Actions. But you can also run the tests locally. To run the test you need to install pytest and pytest-cov.
+```bash
+pip install pytest pytest-cov
+```
+After this run
+```bash
+pytest -v
+```
+in the top level directory.
+
 <!-- #endregion -->
