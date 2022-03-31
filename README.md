@@ -1,6 +1,8 @@
 [![CI tests](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/publish_pypi.yml/badge.svg)](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/publish_pypi.yml)
 [![Docs](https://github.com/BjoernBiltzinger/pyspi/actions/workflows/docs.yml/badge.svg)](https://pyspi.readthedocs.io/en/latest/)
 [![codecov](https://codecov.io/gh/BjoernBiltzinger/pyspi/branch/master/graph/badge.svg)](https://codecov.io/gh/BjoernBiltzinger/pyspi)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6376003.svg)](https://doi.org/10.5281/zenodo.6376003)
+
 # pyspi
 ![alt text](https://raw.githubusercontent.com/BjoernBiltzinger/pyspi/master/docs/media/pypsi_logo2.png)
 
