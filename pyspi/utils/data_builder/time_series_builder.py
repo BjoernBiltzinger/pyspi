@@ -390,7 +390,7 @@ class SPISWFileGRB(object):
 
         # Check that det is a valid number
         self._det = det
-        assert self._det in np.arange(85), f"{self._det} is not a valid"\
+        assert (self._det in np.arange(85) or self._det == -1), f"{self._det} is not a valid"\
             "detector. Please only use detector ids between 0 and 84."
 
         if self._det < 19:
@@ -452,14 +452,21 @@ class SPISWFileGRB(object):
             # For single events we have to take both the non_psd
             # (often called sgl here...) and the psd events.
             # Both added together give the real single events.
-            if self._det in range(19):
-                dets_sgl = hdu_oper[1].data['DETE']
-                time_sgl = time_sgl[dets_sgl == self._det]
-                energy_sgl = hdu_oper[1].data['energy'][dets_sgl == self._det]
+            if self._det in range(19) or self._det == -1:
+                if self._det != -1:
+                    dets_sgl = hdu_oper[1].data['DETE']
+                    time_sgl = time_sgl[dets_sgl == self._det]
+                    energy_sgl = hdu_oper[1].data['energy'][dets_sgl == self._det]
+                else:
+                    energy_sgl = hdu_oper[1].data['energy']
 
-                dets_psd = hdu_oper[2].data['DETE']
-                time_psd = time_psd[dets_psd == self._det]
-                energy_psd = hdu_oper[2].data['energy'][dets_psd == self._det]
+
+                if self._det != -1:
+                    dets_psd = hdu_oper[2].data['DETE']
+                    time_psd = time_psd[dets_psd == self._det]
+                    energy_psd = hdu_oper[2].data['energy'][dets_psd == self._det]
+                else:
+                    energy_psd = hdu_oper[2].data['energy']
 
             if self._det in range(19, 61):
                 dets_me2 = np.sort(hdu_oper[4].data['DETE'], axis=1)
@@ -470,7 +477,7 @@ class SPISWFileGRB(object):
                 time_me2 = time_me2[mask]
                 energy_me2 = np.sum(hdu_oper[4].data['energy'][mask], axis=1)
 
-            if self._det in range(61,85):
+            if self._det in range(61, 85):
                 dets_me3 = np.sort(hdu_oper[5].data['DETE'], axis=1)
                 i, j, k = triple_names[self._det]
                 mask = np.logical_and(np.logical_and(dets_me3[:, 0] == i,
@@ -480,7 +487,7 @@ class SPISWFileGRB(object):
                 time_me3 = time_me3[mask]
                 energy_me3 = np.sum(hdu_oper[5].data['energy'][mask], axis=1)
 
-        if self._det in range(19):
+        if self._det in range(19) or self._det == -1:
 
             self._times = np.array([])
             self._energies = np.array([])
@@ -580,6 +587,23 @@ class SPISWFileGRB(object):
         # seconds
         deadtimes = deadtimes.reshape(19, -1)*100*10**-9
 
+        # Sometimes there are deadtimes>1 in the file, because well...
+        # We have to correct this because this will lead to negative
+        # exposure times... Just replace it with the closes value to the
+        # left in the array that is smaller than 1 and pray
+        # that this is not also wrong...
+
+        for d in range(19):
+            idx = np.argwhere(deadtimes[d] > 1).flatten()
+            if len(idx) > 0:
+                # we have unvalid deadtimes
+                for i in idx:
+                    subarray = deadtimes[d, :i:-1]
+                    val = subarray[subarray < 1].flatten()[0]
+                    deadtimes[d, i] = val
+
+        assert np.all(deadtimes < 1), "Deadtimes larger than 1 are not possible."
+
         # again get true OB-Time
         ob_time_hk = (ob_time[:, 0]*655363**3 +
                       ob_time[:, 1]*655362**2 +
@@ -596,7 +620,10 @@ class SPISWFileGRB(object):
         # save time and deadtime - add end of
         self._deadtime_bin_edges = ISDC_MJD_to_cxcsec(times_hk) - \
             self._GRB_ref_time_cxcsec
-        self._deadtimes = deadtimes[self._det]
+        if self._det == -1:
+            self._deadtimes = np.mean(deadtimes, axis=0)
+        else:
+            self._deadtimes = deadtimes[self._det]
 
     @property
     def geometry_file_path(self):
