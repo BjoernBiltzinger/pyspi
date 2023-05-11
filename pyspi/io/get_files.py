@@ -113,3 +113,6 @@ def get_files(pointing_id, access="isdc"):
     get_and_save_file(extension='spi_science_hk.fits.gz',
                       pointing_id=pointing_id,
                       access=access)
+    get_and_save_file(extension='spi_gti.fits.gz',
+                      pointing_id=pointing_id,
+                      access=access)
