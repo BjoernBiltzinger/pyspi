@@ -188,7 +188,8 @@ class ResponseGenerator(object):
                  pointing_id=None,
                  ebounds=None,
                  response_irf_read_object=None,
-                 det=None):
+                 det=None,
+                 sc_matrix=None):
         """
         Base Response Class - Here we have everything that stays the same for
         GRB and Constant Pointsource Reponses
@@ -215,8 +216,9 @@ class ResponseGenerator(object):
                                           pointing_id,
                                           'sc_orbit_param.fits.gz')
 
-        pointing_object = SPIPointing(geometry_file_path)
-        sc_matrix = pointing_object.sc_matrix[10]
+        if sc_matrix is None:
+            pointing_object = SPIPointing(geometry_file_path)
+            sc_matrix = pointing_object.sc_matrix[10]
 
         self._irf_ob = response_irf_read_object
         self._ebounds = ebounds
@@ -463,7 +465,8 @@ class ResponseRMFGenerator(ResponseGenerator):
                  ebounds=None,
                  response_irf_read_object=None,
                  det=None,
-                 fixed_rsp_matrix=None):
+                 fixed_rsp_matrix=None,
+                 sc_matrix=None):
         """
         Init Response object with total RMF used
 
@@ -485,7 +488,8 @@ class ResponseRMFGenerator(ResponseGenerator):
             pointing_id=pointing_id,
             ebounds=ebounds,
             response_irf_read_object=response_irf_read_object,
-            det=det)
+            det=det,
+            sc_matrix=sc_matrix)
 
         self._monte_carlo_energies = monte_carlo_energies
 
@@ -586,19 +590,19 @@ class ResponseRMFGenerator(ResponseGenerator):
         self._mat2inter = 0.5*(mat2inter[1:]+mat2inter[:-1])*eout_width
         self._mat3inter = 0.5*(mat3inter[1:]+mat3inter[:-1])*eout_width
 
-        # normalize the rows
+        # normalize the rows - This was BS
 
-        norm_fact = np.sum(self._mat2inter, axis=1)
-
-        # Normalize this - is this correct?
-        self._mat2inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
-        self._mat2inter[norm_fact<=0] = 0
-
-        norm_fact = np.sum(self._mat3inter, axis=1)
+        #norm_fact = np.sum(self._mat2inter, axis=1)
 
         # Normalize this - is this correct?
-        self._mat3inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
-        self._mat3inter[norm_fact<=0] = 0
+        #self._mat2inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
+        #self._mat2inter[norm_fact<=0] = 0
+
+        #norm_fact = np.sum(self._mat3inter, axis=1)
+
+        # Normalize this - is this correct?
+        #self._mat3inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
+        #self._mat3inter[norm_fact<=0] = 0
 
         self._ph_matrix = np.zeros((N_monte_carlo-1,
                                     N_ebins))
@@ -640,6 +644,7 @@ class ResponseRMFGenerator(ResponseGenerator):
             self._weighted_irf_nonph_2 = \
                 self.irf_ob.irfs_nonphoto_2[:, self._det, xx, yy].dot(wgt)
         except IndexError:
+            print("Position outside of SPI FOV!")
             self._weighted_irf_ph =\
                 np.zeros_like(self.irf_ob.irfs_photopeak[:, self._det, 20, 20])
             self._weighted_irf_nonph_1\
@@ -699,7 +704,8 @@ class ResponseRMFGenerator(ResponseGenerator):
             ebounds=copy.deepcopy(self.ebounds),
             response_irf_read_object=self.irf_ob,
             det=copy.deepcopy(self.det),
-            fixed_rsp_matrix=copy.deepcopy(self._rsp_matrix)
+            fixed_rsp_matrix=copy.deepcopy(self._rsp_matrix),
+            sc_matrix=self._sc_matrix
         )
 
     @property
