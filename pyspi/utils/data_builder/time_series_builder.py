@@ -5,13 +5,14 @@ import numpy as np
 from datetime import datetime
 import h5py
 from astropy.io import fits
-
+import copy
 
 from pyspi.io.get_files import get_files
 from pyspi.io.package_data import get_path_of_external_data_dir
-from pyspi.utils.livedets import double_names, triple_names
+from pyspi.utils.livedets import double_names, triple_names, get_live_dets
 from pyspi.utils.function_utils import find_needed_ids, ISDC_MJD_to_cxcsec, \
     get_time_object
+
 
 from threeML.io.file_utils import sanitize_filename
 from threeML.utils.time_series.event_list import EventListWithDeadTime,\
@@ -40,9 +41,13 @@ class SPISWFile(object):
         self._n_channels = len(self._ebounds)-1
 
         # Check that det is a valid number
-        self._det = det
-        assert self._det in np.arange(85), f"{self._det} is not a valid"\
-            " detector. Please only use detector ids between 0 and 84."
+        if not isinstance(det, list):
+            self._det = [det]
+        else:
+            self._det = det
+        for d in self._det:
+            assert d in np.arange(85), f"{d} is not a valid"\
+                " detector. Please only use detector ids between 0 and 84."
 
         # Find the SW ID of the data file we need for this time
         self._pointing_id = pointing_id
@@ -389,11 +394,25 @@ class SPISWFileGRB(object):
         self._time_of_GRB = get_time_object(time_of_grb)
 
         # Check that det is a valid number
-        self._det = det
-        assert (self._det in np.arange(85) or self._det == -1), f"{self._det} is not a valid"\
-            "detector. Please only use detector ids between 0 and 84."
+        if not isinstance(det, list):
+            self._det = np.array([det])
+        else:
+            self._det = np.array(det)
 
-        if self._det < 19:
+        mask = []
+        live_dets = get_live_dets(time_of_grb)
+        for d in self._det:
+            assert d in np.arange(85), f"{d} is not a valid"\
+                " detector. Please only use detector ids between 0 and 84."
+
+            if d not in live_dets:
+                print(f"Detector {d} removed because it was not working.")
+                mask.append(False)
+            else:
+                mask.append(True)
+        self._det = self._det[mask]
+
+        if np.any(self._det < 19):
             assert sgl_type is not None, "Only PSD Events?"
             assert sgl_type in ["psd", "sgl", "both"], \
                 "sgl_type must be psd, sgl or both"
@@ -417,6 +436,10 @@ class SPISWFileGRB(object):
         # Read in all we need
         self._read_in_pointing_data()
         self._get_deadtime_info()
+        self._get_gti_info()
+        self._apply_gti_to_events()
+
+        self._apply_gti_to_live_time()
 
     def _read_in_pointing_data(self):
         """
@@ -452,69 +475,52 @@ class SPISWFileGRB(object):
             # For single events we have to take both the non_psd
             # (often called sgl here...) and the psd events.
             # Both added together give the real single events.
-            if self._det in range(19) or self._det == -1:
-                if self._det != -1:
-                    dets_sgl = hdu_oper[1].data['DETE']
-                    time_sgl = time_sgl[dets_sgl == self._det]
-                    energy_sgl = hdu_oper[1].data['energy'][dets_sgl == self._det]
-                else:
-                    energy_sgl = hdu_oper[1].data['energy']
-
-
-                if self._det != -1:
-                    dets_psd = hdu_oper[2].data['DETE']
-                    time_psd = time_psd[dets_psd == self._det]
-                    energy_psd = hdu_oper[2].data['energy'][dets_psd == self._det]
-                else:
-                    energy_psd = hdu_oper[2].data['energy']
-
-            if self._det in range(19, 61):
-                dets_me2 = np.sort(hdu_oper[4].data['DETE'], axis=1)
-                i, k = double_names[self._det]
-                mask = np.logical_and(dets_me2[:, 0] == i,
-                                      dets_me2[:, 1] == k)
-
-                time_me2 = time_me2[mask]
-                energy_me2 = np.sum(hdu_oper[4].data['energy'][mask], axis=1)
-
-            if self._det in range(61, 85):
-                dets_me3 = np.sort(hdu_oper[5].data['DETE'], axis=1)
-                i, j, k = triple_names[self._det]
-                mask = np.logical_and(np.logical_and(dets_me3[:, 0] == i,
-                                                     dets_me3[:, 1] == j),
-                                      dets_me3[:, 2] == k)
-
-                time_me3 = time_me3[mask]
-                energy_me3 = np.sum(hdu_oper[5].data['energy'][mask], axis=1)
-
-        if self._det in range(19) or self._det == -1:
-
             self._times = np.array([])
             self._energies = np.array([])
 
-            # Use the single events with the given flag
-            if self._sgl_type == "psd" or self._sgl_type == "both":
-                self._times = np.append(self._times, time_psd)
-                self._energies = np.append(self._energies, energy_psd)
+            for d in self._det:
+                #TODO refactor this
 
-            if self._sgl_type == "sgl" or self._sgl_type == "both":
-                self._times = np.append(self._times, time_sgl)
-                self._energies = np.append(self._energies, energy_sgl)
+                if d in range(19) or d == -1:
+                    if self._sgl_type == "psd" or self._sgl_type == "both":
+                        dets_sgl = hdu_oper[1].data['DETE']
+                        self._times = np.append(self._times,
+                                                time_sgl[dets_sgl == d])
+                        self._energies = np.append(self._energies,
+                                                   hdu_oper[1].data['energy'][dets_sgl == d])
+
+                    if self._sgl_type == "sgl" or self._sgl_type == "both":
+                        dets_psd = hdu_oper[2].data['DETE']
+                        self._times = np.append(self._times,
+                                                time_psd[dets_psd == d])
+                        self._energies = np.append(self._energies,
+                                                   hdu_oper[2].data['energy'][dets_psd == d])
+
+                if d in range(19, 61):
+                    dets_me2 = np.sort(hdu_oper[4].data['DETE'], axis=1)
+                    i, k = double_names[d]
+                    mask = np.logical_and(dets_me2[:, 0] == i,
+                                          dets_me2[:, 1] == k)
+
+                    self._times = np.append(self._times, time_me2[mask])
+                    self._energies = np.append(self._energies,
+                                               np.sum(hdu_oper[4].data['energy'][mask], axis=1))
+
+                if d in range(61, 85):
+                    dets_me3 = np.sort(hdu_oper[5].data['DETE'], axis=1)
+                    i, j, k = triple_names[d]
+                    mask = np.logical_and(np.logical_and(dets_me3[:, 0] == i,
+                                                         dets_me3[:, 1] == j),
+                                          dets_me3[:, 2] == k)
+
+                    self._times = np.append(self._times, time_me3[mask])
+                    self._energies = np.append(self._energies,
+                                               np.sum(hdu_oper[5].data['energy'][mask], axis=1))
 
             # sort in time
             sort_array = np.argsort(self._times)
             self._times = self._times[sort_array]
             self._energies = self._energies[sort_array]
-
-        if self._det in range(19, 61):
-
-            self._times = time_me2
-            self._energies = energy_me2
-
-        if self._det in range(61, 85):
-
-            self._times = time_me3
-            self._energies = energy_me3
 
         # Check if there are any counts
         if np.sum(self._energies) == 0:
@@ -540,6 +546,18 @@ class SPISWFileGRB(object):
         self._times = self._times[~mask]
         self._energies = self._energies[~mask]
 
+    def _get_gti_info(self):
+        with fits.open(os.path.join(get_path_of_external_data_dir(),
+                                    'pointing_data',
+                                    self._pointing_id,
+                                    'spi_gti.fits.gz')) as hdu_oper:
+
+            self._gti_start = (ISDC_MJD_to_cxcsec(hdu_oper[2].data["START"]) -
+                               self._GRB_ref_time_cxcsec)
+            self._gti_stop = (ISDC_MJD_to_cxcsec(hdu_oper[2].data["STOP"]) -
+                              self._GRB_ref_time_cxcsec)
+
+        
     def _get_deadtime_info(self):
         """
         Get the deadtime info from the hk file
@@ -620,10 +638,295 @@ class SPISWFileGRB(object):
         # save time and deadtime - add end of
         self._deadtime_bin_edges = ISDC_MJD_to_cxcsec(times_hk) - \
             self._GRB_ref_time_cxcsec
-        if self._det == -1:
-            self._deadtimes = np.mean(deadtimes, axis=0)
-        else:
-            self._deadtimes = deadtimes[self._det]
+
+        #if self._det == -1:
+        #    self._deadtimes = np.mean(deadtimes, axis=0)
+        #else:
+        self._deadtimes = np.mean(deadtimes[self._det], axis=0)
+
+        """
+        # check if deadtime bin edges cover all the arrival times
+        if self._times[0] < self._deadtime_bin_edges[0]:
+            # lower end not covered...
+            # TODO Add warning here
+
+            # use mean deadtime rate from rest of pointing
+            add_deadtime = (np.sum(self._deadtimes) /
+                            (self._deadtime_bin_edges[-1] -
+                             self._deadtime_bin_edges[0]) *
+                            (self._deadtime_bin_edges[0] -
+                             self._times[0]))
+
+            self._deadtime_bin_edges =\
+                np.insert(self._deadtime_bin_edges, 0, self._times[0])
+
+            self._deadtimes =\
+                np.insert(self._deadtimes, 0, add_deadtime)
+
+        if self._times[-1] > self._deadtime_bin_edges[0]:
+            # upper end not covered...
+            # TODO Add warning here
+
+            # use mean deadtime rate from rest of pointing
+            add_deadtime = (np.sum(self._deadtimes) /
+                            (self._deadtime_bin_edges[-1] -
+                             self._deadtime_bin_edges[0]) *
+                            (self._times[-1] -
+                             self._deadtime_bin_edges[-1]))
+
+            self._deadtime_bin_edges =\
+                np.append(self._deadtime_bin_edges, self._times[-1])
+
+            self._deadtimes =\
+                np.append(self._deadtimes, add_deadtime)
+        """
+        # check if deadtime bin edges cover all the arrival times
+        # cutoff data otherwise
+        mask = np.logical_or(self._times < self._deadtime_bin_edges[0],
+                             self._times > self._deadtime_bin_edges[-1])
+        self._times = self._times[~mask]
+        self._energies = self._energies[~mask]
+        self._energy_bins = self._energy_bins[~mask]
+
+        # always one second intervals in total
+        self._livetimes = 1-self._deadtimes
+
+    def _add_time_bins(self, starts, stops, max_time=1):
+
+        save_livetimes = copy.deepcopy(self._livetimes)
+        for i, (start, stop) in enumerate(zip(starts,
+                                              stops)):
+            if stop-start < max_time or max_time==-1:
+                # find the deadtime interval we need to split
+                # -0.001 for numerical problems
+                idx_start = np.argwhere(start >= self._deadtime_bin_edges)[-1][0]
+                idx_stop = np.argwhere(stop > self._deadtime_bin_edges)[-1][0]
+                if idx_start == idx_stop:
+                    # case A gti interval within one deadtime interval
+
+                    timebin_width = (self._deadtime_bin_edges[idx_start+1] -
+                                     self._deadtime_bin_edges[idx_start])
+
+                    self._deadtime_bin_edges =\
+                        np.insert(self._deadtime_bin_edges, idx_start+1, stop)
+
+                    self._deadtime_bin_edges =\
+                        np.insert(self._deadtime_bin_edges, idx_start+1, start)
+
+                    livetime_rate_tot = self._livetimes[idx_start] / timebin_width
+                    self._livetimes[idx_start] =\
+                        livetime_rate_tot*(self._deadtime_bin_edges[idx_start+1] -
+                                      self._deadtime_bin_edges[idx_start])
+
+                    self._livetimes =\
+                        np.insert(self._livetimes,
+                                  idx_start+1,
+                                  livetime_rate_tot*(self._deadtime_bin_edges[idx_start+3] -
+                                                     self._deadtime_bin_edges[idx_start+2]))
+
+                    self._livetimes =\
+                        np.insert(self._livetimes,
+                                  idx_start+1,
+                                  livetime_rate_tot*(self._deadtime_bin_edges[idx_start+2] -
+                                                self._deadtime_bin_edges[idx_start+1]))
+                elif idx_start+1 == idx_stop:
+                    # case B gti interval within two deadtime intervals
+
+                    timebin_width1 = (self._deadtime_bin_edges[idx_start+1] -
+                                      self._deadtime_bin_edges[idx_start])
+                    timebin_width2 = (self._deadtime_bin_edges[idx_start+2] -
+                                      self._deadtime_bin_edges[idx_start+1])
+                    old_edge = self._deadtime_bin_edges[idx_start+1]
+                    self._deadtime_bin_edges[idx_start+1] = start
+                    self._deadtime_bin_edges =\
+                        np.insert(self._deadtime_bin_edges, idx_start+2, stop)
+
+                    livetime_rate_tot1 = self._livetimes[idx_start]/timebin_width1
+                    livetime_rate_tot2 = self._livetimes[idx_start+1]/timebin_width2
+
+                    self._livetimes[idx_start] =\
+                        livetime_rate_tot1*(self._deadtime_bin_edges[idx_start+1] -
+                                            self._deadtime_bin_edges[idx_start])
+                    self._livetimes[idx_start+1] =\
+                        livetime_rate_tot2*(self._deadtime_bin_edges[idx_start+3] -
+                                            self._deadtime_bin_edges[idx_start+2])
+                    self._livetimes =\
+                        np.insert(self._livetimes,
+                                  idx_start+1,
+                                  (livetime_rate_tot1 *
+                                   (old_edge -
+                                    self._deadtime_bin_edges[idx_start+1]) +
+                                   livetime_rate_tot2 *
+                                   (self._deadtime_bin_edges[idx_start+2] -
+                                    old_edge)))
+                else:
+                    # case C covers several time bins
+                    # merge all together to one bin
+
+                    # first the start edge
+                    timebin_width1 = (self._deadtime_bin_edges[idx_start+1] -
+                                      self._deadtime_bin_edges[idx_start])
+                    livetime_rate_tot1 = self._livetimes[idx_start]/timebin_width1
+                    new_livetime1 =\
+                        livetime_rate_tot1*(start-self._deadtime_bin_edges[idx_start])
+
+                    # last bin
+                    if idx_stop+1 == len(self._deadtime_bin_edges):
+                        new_livetimelast = 0
+                         # sum the rest
+                        new_livetime_center = self._livetimes[idx_start]-new_livetime1
+                        for idx in range(idx_start+1, idx_stop):
+                            new_livetime_center += self._livetimes[idx]
+                        idx_stop -= 1
+                    else:
+                        timebin_widthlast = (self._deadtime_bin_edges[idx_stop+1] -
+                                          self._deadtime_bin_edges[idx_stop])
+                        livetime_rate_totlast = self._livetimes[idx_stop]/timebin_widthlast
+                        new_livetimelast =\
+                            livetime_rate_totlast*(self._deadtime_bin_edges[idx_stop+1]-stop)
+
+                        # sum the rest
+                        new_livetime_center = (self._livetimes[idx_start]-new_livetime1+
+                                               self._livetimes[idx_stop]-new_livetimelast)
+                        for idx in range(idx_start+1, idx_stop):
+                            new_livetime_center += self._livetimes[idx]
+
+                    # delete old time bins from arrays
+                    self._livetimes = np.delete(self._livetimes,
+                                                range(idx_start, idx_stop+1))
+                    self._deadtime_bin_edges =\
+                        np.delete(self._deadtime_bin_edges,
+                                    range(idx_start+1, idx_stop+1))
+
+                    # add new ones
+                    self._livetimes = np.insert(self._livetimes,
+                                                idx_start,
+                                                [new_livetime1,
+                                                 new_livetime_center,
+                                                 new_livetimelast])
+                    self._deadtime_bin_edges =\
+                        np.insert(self._deadtime_bin_edges,
+                                  idx_start+1,
+                                  [start, stop])
+
+
+                #else:
+                #    # merge the two bins
+                #    self._deadtime_bin_edges = np.delete(
+                #        self._deadtime_bin_edges, idx_start+1
+                #    )
+
+                #    new_livetime = self._livetimes[idx_start] + self._livetimes[idx_start+1]
+
+                #    self._livetimes = np.delete(
+                #        self._livetimes, idx_start+1
+                #    )
+
+                #    self._livetimes[idx_start] = new_livetime
+
+
+
+                # remove double entries
+                mask =\
+                    (self._deadtime_bin_edges[1:] -
+                     self._deadtime_bin_edges[:-1]) > 0
+
+                deadtime_bin_edges_inter = self._deadtime_bin_edges[:-1][mask]
+
+                self._deadtime_bin_edges = np.append(deadtime_bin_edges_inter,
+                                                     self._deadtime_bin_edges[-1])
+
+                self._livetimes = self._livetimes[mask]
+
+        assert np.isclose(np.sum(self._livetimes), np.sum(save_livetimes))
+
+    def _apply_gti_to_live_time(self):
+
+        # first check if there are so small gti and bti that we should add this to the
+        # deadtime bins
+
+        # first gti
+        self._add_time_bins(self._gti_start, self._gti_stop)
+
+        # now bti (times between gti)
+        bti_start = self._gti_stop[:-1]
+        bti_stop = self._gti_start[1:]
+        self._add_time_bins(bti_start, bti_stop, max_time=-1)
+        #return self._livetimes
+        # loop throught the dead time intervals
+        for i, (start, stop) in enumerate(zip(self._deadtime_bin_edges[:-1],
+                                              self._deadtime_bin_edges[1:])):
+
+            # check if completly inside one of the gti intervals
+            idx = np.argwhere(start >= self._gti_start)[-1][0]
+            idx_stop = np.argwhere(stop >= self._gti_start)[-1][0]
+
+            if start > self._gti_stop[idx]:
+                # case A the whole dead time interval is outside
+                # the gti intervals
+                frac_good = 0
+
+            elif self._gti_stop[idx] >= stop:
+                # case B whole interval in one gti interval
+                frac_good = 1
+
+            elif idx_stop == idx:
+                # case C dead time interval intersects with only
+                # one gti interval
+                frac_good = (self._gti_stop[idx]-start)/(stop-start)
+
+            elif idx_stop == idx+1:
+                # case D dead time interval intersect with exactly two gti
+
+                # gti 1
+                frac_good = (self._gti_stop[idx]-start)/(stop-start)
+
+                # gti 2
+                frac_good += (stop-self._gti_start[idx_stop])/(stop-start)
+
+            else:
+                # case E dead time interval intersect with more than two gti
+
+                # first gti
+                frac_good = (self._gti_stop[idx]-start)/(stop-start)
+
+                # last gti
+                frac_good += (stop-self._gti_start[idx_stop])/(stop-start)
+
+                # all gti inbetween
+
+                for idx_loop in range(idx+1, idx_stop):
+                    frac_good += (self._gti_stop[idx_loop] -
+                                  self._gti_start[idx_loop])/(stop-start)
+
+            self._livetimes[i] *= frac_good
+
+        return self._livetimes
+
+    def _apply_gti_to_events(self):
+        """
+        This created a filter index for events falling outside of the
+        GTI. It must be run after the events are binned in energy because
+        a filter is set up in that function for events that have energies
+        outside the EBOUNDS of the DRM
+
+        Taken from threeML lat_data.py
+        :return: none
+        """
+
+        # initial filter
+        filter_idx = np.zeros_like(self._times, dtype=bool)
+
+        # loop throught the GTI intervals
+        for start, stop in zip(self._gti_start, self._gti_stop):
+
+            # capture all the events within that interval
+            tmp_idx = np.logical_and(start <= self._times, self._times <= stop)
+
+            # combine with the already selected events
+            filter_idx = np.logical_or(filter_idx, tmp_idx)
+
+        self._filter_idx = filter_idx
 
     @property
     def geometry_file_path(self):
@@ -634,6 +937,27 @@ class SPISWFileGRB(object):
                             'pointing_data',
                             self._pointing_id,
                             'sc_orbit_param.fits.gz')
+
+    @property
+    def gti_times(self):
+        """
+        :returns: times of detected events within a gti
+        """
+        return self._times[self._filter_idx]
+
+    @property
+    def gti_energies(self):
+        """
+        :returns: energies of detected events
+        """
+        return self._energies[self._filter_idx]
+
+    @property
+    def gti_energy_bins(self):
+        """
+        :returns: energy bin number of every event
+        """
+        return self._energy_bins[self._filter_idx]
 
     @property
     def times(self):
@@ -721,13 +1045,13 @@ class SPISWFileGRB(object):
         """
         return self._deadtime_bin_edges[1:]
 
-    @property
-    def deadtimes_per_interval(self):
-        """
-        :returns: Deadtime per time bin which have the deadtime
-        information
-        """
-        return self._deadtimes
+    #@property
+    #def deadtimes_per_interval(self):
+    #    """
+    #    :returns: Deadtime per time bin which have the deadtime
+    #    information
+    #    """
+    #    return self._deadtimes
 
     @property
     def livetimes_per_interval(self):
@@ -735,7 +1059,7 @@ class SPISWFileGRB(object):
         :returns: Livetime per time bin which have the deadtime
         information
         """
-        return 1-self._deadtimes
+        return self._livetimes #1-self._deadtimes
 
 
 class TimeSeriesBuilderSPI(TimeSeriesBuilder):
@@ -825,8 +1149,8 @@ class TimeSeriesBuilderSPI(TimeSeriesBuilder):
                                      sgl_type=sgl_type)
 
         event_list = EventListWithLiveTime(
-            arrival_times=spi_grb_setup.times,
-            measurement=spi_grb_setup.energy_bins,
+            arrival_times=spi_grb_setup.gti_times,
+            measurement=spi_grb_setup.gti_energy_bins,
             n_channels=spi_grb_setup.n_channels,
             start_time=spi_grb_setup.time_start,
             stop_time=spi_grb_setup.time_stop,
