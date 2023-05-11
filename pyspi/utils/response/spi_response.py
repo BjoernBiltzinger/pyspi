@@ -590,19 +590,19 @@ class ResponseRMFGenerator(ResponseGenerator):
         self._mat2inter = 0.5*(mat2inter[1:]+mat2inter[:-1])*eout_width
         self._mat3inter = 0.5*(mat3inter[1:]+mat3inter[:-1])*eout_width
 
-        # normalize the rows
+        # normalize the rows - This was BS
 
-        norm_fact = np.sum(self._mat2inter, axis=1)
-
-        # Normalize this - is this correct?
-        self._mat2inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
-        self._mat2inter[norm_fact<=0] = 0
-
-        norm_fact = np.sum(self._mat3inter, axis=1)
+        #norm_fact = np.sum(self._mat2inter, axis=1)
 
         # Normalize this - is this correct?
-        self._mat3inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
-        self._mat3inter[norm_fact<=0] = 0
+        #self._mat2inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
+        #self._mat2inter[norm_fact<=0] = 0
+
+        #norm_fact = np.sum(self._mat3inter, axis=1)
+
+        # Normalize this - is this correct?
+        #self._mat3inter[norm_fact>0] /= norm_fact[norm_fact>0][:, np.newaxis]
+        #self._mat3inter[norm_fact<=0] = 0
 
         self._ph_matrix = np.zeros((N_monte_carlo-1,
                                     N_ebins))
