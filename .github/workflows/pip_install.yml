@@ -35,7 +35,7 @@ jobs:
     - name: XCode
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '12.4'
+        xcode-version: latest
       if: runner.os == 'macOS'
     - name: setup python
       uses: actions/setup-python@v2
