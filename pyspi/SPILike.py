@@ -1,5 +1,5 @@
 import collections
-from typing import Optional
+from typing import Optional, Dict, Union
 import numpy as np
 
 from astromodels import Parameter, Model
@@ -10,6 +10,7 @@ from threeML.io.file_utils import sanitize_filename
 from threeML.plugins.DispersionSpectrumLike import DispersionSpectrumLike
 from threeML.plugins.SpectrumLike import SpectrumLike
 from threeML.io.logging import setup_logger
+
 
 from pyspi.utils.response.spi_drm import SPIDRM
 
@@ -227,6 +228,61 @@ class SPILikeGRB(DispersionSpectrumLike):
                                          verbose,
                                          **kwargs)
 
+        self._psd_eff: Parameter = Parameter(
+            "psd_eff_%s" % name,
+            1.0,
+            min_value=0.5,
+            max_value=1.1,
+            delta=0.05,
+            free=False,
+            desc="PSD efficiency for %s" % name,
+        )
+
+        # add psd_eff to nuisance parameter dict
+        new_nuisance_parameters: Dict[str, Parameter] = collections.OrderedDict()
+
+        for key, value in self.nuisance_parameters.items():
+            new_nuisance_parameters[key] = value
+        new_nuisance_parameters[self._psd_eff.name] = self._psd_eff
+
+        self.update_nuisance_parameters(new_nuisance_parameters)
+
+
+    def use_psd_eff_correction(self,
+                               min_value: Union[int, float] = 0.5,
+                               max_value: Union[int, float] = 1) -> None:
+        """
+        Activate the use of the effective area correction, which is a multiplicative factor in front of the model which
+        might be used to mitigate the effect of intercalibration mismatch between different instruments.
+        NOTE: do not use this is you are using only one detector, as the multiplicative constant will be completely
+        degenerate with the normalization of the model.
+        NOTE2: always keep at least one multiplicative constant fixed to one (its default value), when using this
+        with other OGIPLike-type detectors
+        :param min_value: minimum allowed value (default: 0.8, corresponding to a 20% - effect)
+        :param max_value: maximum allowed value (default: 1.2, corresponding to a 20% + effect
+        :return:
+        """
+        log.info(
+            f"{self._name} is using psd efficiensy (between {min_value} and {max_value})")
+        self._psd_eff.free = True
+        self._psd_eff.bounds = (min_value, max_value)
+
+        # Use a uniform prior by default
+
+        self._psd_eff.set_uninformative_prior(Uniform_prior)
+
+    def fix_psd_eff_correction(self,
+                               value: Union[int, float] = 1) -> None:
+        """
+        Fix the multiplicative factor (see use_effective_area_correction) to the provided value (default: 1)
+        :param value: new value (default: 1, i.e., no correction)
+        :return:
+        """
+
+        self._psd_eff.value = value
+        self._psd_eff.fix = True
+
+
     def set_model(self, likelihood_model):
         """
         Set the model to be used in the joint minimization.
@@ -277,6 +333,16 @@ class SPILikeGRB(DispersionSpectrumLike):
             self._response.set_location(ra, dec)
 
         return super(SPILikeGRB, self).get_model(precalc_fluxes=precalc_fluxes)
+
+    def _evaluate_model(
+        self, precalc_fluxes: Optional[np.array] = None
+    ) -> np.ndarray:
+        """
+        evaluates the full model over all channels
+        :return:
+        """
+
+        return self._response.convolve(precalc_fluxes=precalc_fluxes)*self._psd_eff.value
 
     def set_free_position(self, flag):
         """

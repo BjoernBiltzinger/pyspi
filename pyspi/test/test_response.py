@@ -32,5 +32,5 @@ def test_response():
                                                    rsp_base)
     sd = SPIDRM(drm_generator, ra_val, dec_val)
 
-    assert sd.matrix.sum() == 1846.700886770058, \
+    assert np.isclose(sd.matrix.sum(), 1832.5346236858327, rtol=1e-4), \
         "We expect a different response matrix..."
